@@ -258,7 +258,7 @@ Any item type can become a fixed-command button. Combined with `valueItem` and `
 ### Less suited for tiles
 
 - Items requiring complex multi-step interaction (e.g., RGB color picker)
-- Items with very long state strings (truncated to 6 characters on display)
+- Items with very long state strings (state text truncated to 6 characters on display; labels truncated to 8 characters)
 
 ## Verifying Configuration
 
@@ -286,7 +286,7 @@ Or remove it via the Main UI metadata editor.
 ## Notes
 
 - Changes take effect on the next tile refresh (up to 30 seconds, or swipe away and back)
-- The watch queries the server each time the tile renders — no local cache of item selection
+- Item configuration is cached in memory after the first fetch; the cache is cleared on "Reload Items" or app restart. Item states are fetched fresh each time the tile becomes visible.
 - Position values can be decimals (e.g., `1.5`) — they're sorted numerically
 - If two items share the same position, order is undefined
 - Maximum 7 item slots per page (excluding the back/mic button at the bottom)

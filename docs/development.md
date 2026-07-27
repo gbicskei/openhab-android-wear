@@ -31,17 +31,25 @@ openhab-android-wear/
 │           ├── data/
 │           │   ├── api/
 │           │   │   ├── OpenHabApiService.kt   # Retrofit interface
-│           │   │   └── AuthInterceptor.kt     # URL rewriting + Basic Auth
+│           │   │   ├── AuthInterceptor.kt     # URL rewriting + Basic Auth
+│           │   │   └── TileStateEventSource.kt # SSE client for real-time state updates
+│           │   ├── icon/
+│           │   │   ├── IconCompositor.kt      # Renders icons with ring, glow, tint
+│           │   │   └── IconResolver.kt        # Resolves icon source + fetches bytes
 │           │   ├── model/
 │           │   │   ├── Item.kt                # @Serializable item model
 │           │   │   ├── ServerCredentials.kt   # Connection config
 │           │   │   └── TileItem.kt            # Positioned item for tile
 │           │   └── repository/
 │           │       ├── CredentialStore.kt     # DataStore persistence
-│           │       └── OpenHabRepository.kt   # Business logic layer
+│           │       ├── ItemCache.kt           # In-memory tile item + state cache
+│           │       ├── OpenHabRepository.kt   # Business logic layer
+│           │       ├── ThemeStore.kt          # Theme color preference
+│           │       └── TilePreferenceStore.kt # Tile-specific preferences
 │           ├── tile/
 │           │   ├── OpenHabTileService.kt      # System tile provider
-│           │   └── TileActionReceiver.kt      # Handles tile taps
+│           │   ├── TileActionReceiver.kt      # Handles tile taps
+│           │   └── PageNavigationActivity.kt  # Page navigation with optional confirmation
 │           ├── notification/
 │           │   ├── FcmListenerService.kt      # FCM message receiver
 │           │   └── FcmRegistrationManager.kt  # Token registration worker
@@ -50,12 +58,19 @@ openhab-android-wear/
 │           └── ui/
 │               ├── MainActivity.kt            # Launcher menu
 │               ├── MainViewModel.kt
+│               ├── GridPreviewActivity.kt     # Debug: layout grid preview
 │               ├── setup/
 │               │   ├── SetupActivity.kt       # Onboarding flow
-│               │   └── SetupViewModel.kt
+│               │   ├── SetupViewModel.kt
+│               │   └── DebugSetupActivity.kt  # Debug: inject credentials via ADB
+│               ├── control/
+│               │   ├── RotaryControlActivity.kt   # Bezel-driven range control
+│               │   └── RotaryControlViewModel.kt
 │               ├── tile/
 │               │   ├── TileConfigActivity.kt  # View configured items
-│               │   └── TileConfigViewModel.kt
+│               │   ├── TileConfigViewModel.kt
+│               │   ├── ItemSelectorScreen.kt  # Item selection Compose screen
+│               │   └── ThemePickerActivity.kt # Theme color selector (bezel rotation)
 │               └── voice/
 │                   ├── VoiceCommandActivity.kt  # Speech recognition
 │                   └── VoiceCommandViewModel.kt
@@ -158,7 +173,7 @@ Since the watch manual setup UI doesn't have RemoteInput yet, use this debug sho
 adb -s <watch-serial> shell am start \
   -n org.openhab.habdroid.wear/.ui.setup.DebugSetupActivity \
   --es url "https://myopenhab.org" \
-  --es user "gbicskei@gmail.com" \
+  --es user "your@email.com" \
   --es pass "yourpassword"
 ```
 
@@ -302,10 +317,10 @@ The app logs all HTTP requests in debug builds (OkHttp logging interceptor at BO
 
 ```bash
 # Test the same API call the watch makes
-curl -s -u "gbicskei@gmail.com:password" "https://myopenhab.org/rest/items?metadata=wearTile&fields=name,label,state,metadata"
+curl -s -u "your@email.com:password" "https://myopenhab.org/rest/items?metadata=wearTile&fields=name,label,state,metadata"
 
 # Test voice command
-curl -s -u "gbicskei@gmail.com:password" \
+curl -s -u "your@email.com:password" \
   -X POST "https://myopenhab.org/rest/voice/interpreters" \
   -H "Content-Type: text/plain" \
   -H "Accept-Language: en" \

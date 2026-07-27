@@ -113,7 +113,7 @@ TileService.onTileRequest()
         → myopenhab.org/rest/items?metadata=wearTile
   → Filter items with wearTile metadata
   → Sort by position
-  → Render 1-6 item buttons in grid layout
+  → Render 1-7 item buttons in grid layout
 ```
 
 ### Tile Action (tap to toggle)

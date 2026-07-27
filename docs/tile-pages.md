@@ -143,7 +143,7 @@ If the navigation button has `needsConfirmation: "true"`, the confirmation dialo
 
 ```
 // Navigation item for security page (attached to a Group)
-Group    TileNav_Security    "Security Page"    { wearTile="tile" [position="main:6", icon="iconify:mdi:shield-home", label="Security", action="page:security", needsConfirmation="true"] }
+Group    WT_Security    "Security Page"    { wearTile="tile" [position="main:6", icon="iconify:mdi:shield-home", label="Security", action="page:security", needsConfirmation="true"] }
 
 // Items on the security page — gate uses valueItem for sensor state
 Switch   FrontGate_Control   "Front Gate"   <gate>    { wearTile="tile" [position="security:1", icon="iconify:mdi:gate", label="Gate", valueItem="FrontGate_State", action="command", commandValue="ON", invertValue="true", needsConfirmation="true", valueDisplay="color"] }
@@ -160,7 +160,7 @@ Main page:
   3: AC_Power               (toggle, mdi:air-conditioner icon, "AC")
   4: Heating_Power          (toggle, heating icon, "Heating")
   5: AC_Setpoint            (range, material:thermostat icon, "Temp")
-  6: TileNav_Security       (nav button → page:security, mdi:shield-home icon, "Security")
+  6: WT_Security             (nav button → page:security, mdi:shield-home icon, "Security")
 
 Security page:
   1: FrontGate_Control      (command+confirm, valueItem=FrontGate_State, mdi:gate icon, "Gate")

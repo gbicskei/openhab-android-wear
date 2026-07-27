@@ -61,16 +61,19 @@ openhab-android-wear/
 │       ├── OpenHabWearApp.kt           # Application entry point
 │       ├── di/                          # Hilt dependency injection
 │       ├── data/
-│       │   ├── api/                     # Retrofit API service + auth
+│       │   ├── api/                     # Retrofit API service, auth, SSE client
+│       │   ├── icon/                    # Icon resolution + compositing
 │       │   ├── model/                   # Item, ServerCredentials, TileItem
-│       │   └── repository/             # CredentialStore, OpenHabRepository
-│       ├── tile/                        # Wear OS Tile service
+│       │   └── repository/             # CredentialStore, ItemCache, OpenHabRepository, ThemeStore
+│       ├── tile/                        # Wear OS Tile service + action handling
 │       ├── notification/                # FCM push handling
 │       ├── sync/                        # Data Layer credential sync (receiver)
 │       └── ui/
 │           ├── MainActivity.kt          # Launcher menu
+│           ├── GridPreviewActivity.kt   # Debug layout preview
 │           ├── setup/                   # Onboarding / server config
-│           ├── tile/                    # Tile configuration viewer
+│           ├── control/                 # Rotary control for range items
+│           ├── tile/                    # Tile configuration + theme picker
 │           └── voice/                   # Voice command input
 └── docs/                            # Project documentation
 ```
