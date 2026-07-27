@@ -1,0 +1,9 @@
+/* Theme: Amber — warm golden glow (ON state) */
+.glow-center { stop-color: #FFB300; stop-opacity: 0.6; }
+.glow-edge { stop-color: #FF8F00; stop-opacity: 0; }
+.glow { opacity: 1; }
+.stroke { stroke: #ffffff; opacity: 1; }
+.wave { stroke: #FFB300; opacity: 0.8; }
+.heat-wave { stroke: #FFB300; opacity: 0.9; }
+.dot { fill: #FFB300; }
+.keyhole { fill: #FFB300; }

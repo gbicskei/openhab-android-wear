@@ -1,0 +1,9 @@
+/* Theme: Blue — cool tech glow (ON state) */
+.glow-center { stop-color: #42A5F5; stop-opacity: 0.55; }
+.glow-edge { stop-color: #1565C0; stop-opacity: 0; }
+.glow { opacity: 1; }
+.stroke { stroke: #ffffff; opacity: 1; }
+.wave { stroke: #42A5F5; opacity: 0.8; }
+.heat-wave { stroke: #42A5F5; opacity: 0.9; }
+.dot { fill: #42A5F5; }
+.keyhole { fill: #42A5F5; }

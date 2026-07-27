@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tile preview showing the concentric 7-button layout -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="384dp"
+    android:height="384dp"
+    android:viewportWidth="384"
+    android:viewportHeight="384">
+    <!-- Background circle -->
+    <path
+        android:fillColor="#1A1A1A"
+        android:pathData="M192,0C297.96,0 384,86.04 384,192C384,297.96 297.96,384 192,384C86.04,384 0,297.96 0,192C0,86.04 86.04,0 192,0Z" />
+
+    <!-- Top row: 2 buttons -->
+    <!-- btn1: center (136, 96) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M136,96m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+    <!-- btn2: center (248, 96) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M248,96m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+
+    <!-- Middle row: 3 buttons -->
+    <!-- btn3: center (80, 192) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M80,192m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+    <!-- btn4: center (192, 192) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M192,192m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+    <!-- btn5: center (304, 192) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M304,192m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+
+    <!-- Bottom row: 2 buttons -->
+    <!-- btn6: center (136, 288) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M136,288m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+    <!-- btn7: center (248, 288) r=30 -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF9800"
+        android:strokeWidth="3"
+        android:pathData="M248,288m-30,0a30,30 0,1 1,60 0a30,30 0,1 1,-60 0" />
+
+    <!-- openHAB text area indicator (small dot at top) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M192,28m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+
+    <!-- Mic button at bottom -->
+    <path
+        android:fillColor="#333333"
+        android:pathData="M172,352 h40 a12,12 0,0 1,0 24 h-40 a12,12 0,0 1,0 -24Z" />
+</vector>

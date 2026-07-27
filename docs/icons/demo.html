@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Watch Tile Icon Themes — Preview</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      color: #eee;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px;
+    }
+    h1 { font-size: 20px; font-weight: 400; margin-bottom: 8px; color: #aaa; }
+    h2 { font-size: 14px; font-weight: 500; margin: 24px 0 12px; color: #666; text-transform: uppercase; letter-spacing: 1px; }
+    .description { font-size: 13px; color: #666; margin-bottom: 24px; }
+
+    .theme-selector {
+      display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .theme-btn {
+      padding: 8px 16px; border: 1px solid #333; border-radius: 20px;
+      background: #1a1a1a; color: #ccc; cursor: pointer; font-size: 13px;
+      transition: all 0.2s;
+    }
+    .theme-btn:hover { border-color: #555; }
+    .theme-btn.active { border-color: var(--accent); color: var(--accent); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, 100px);
+      gap: 16px;
+    }
+    .icon-cell {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+    }
+    .icon-wrap {
+      width: 64px; height: 64px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .icon-wrap svg {
+      width: 64px; height: 64px;
+    }
+    .icon-label {
+      font-size: 11px; color: #888; text-align: center;
+    }
+
+    .row-section {
+      margin-bottom: 32px;
+    }
+
+    /* Watch frame simulation */
+    .watch-frame {
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: #0a0a0a;
+      border: 3px solid #333;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: auto 1fr auto;
+      align-items: center;
+      justify-items: center;
+      padding: 28px 20px;
+      margin: 24px auto;
+      position: relative;
+    }
+    .watch-title {
+      grid-column: 1 / -1;
+      font-size: 9px;
+      color: #666;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+    .watch-frame .icon-wrap {
+      width: 48px; height: 48px;
+    }
+    .watch-frame .icon-wrap svg {
+      width: 48px; height: 48px;
+    }
+    .watch-frame .icon-label {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Watch Tile Icons — Theme Preview</h1>
+  <p class="description">CSS-themeable SVG icons for the openHAB Wear OS tile. Select a theme color. ON state gets a colored ring + full white icon. OFF state is dimmed with a dark ring.</p>
+
+  <div class="theme-selector">
+    <button class="theme-btn active" data-theme="amber" style="--accent: #FFB300">Amber</button>
+    <button class="theme-btn" data-theme="red" style="--accent: #F44336">Red</button>
+    <button class="theme-btn" data-theme="blue" style="--accent: #42A5F5">Blue</button>
+    <button class="theme-btn" data-theme="green" style="--accent: #66BB6A">Green</button>
+    <button class="theme-btn" data-theme="purple" style="--accent: #AB47BC">Purple</button>
+  </div>
+
+  <div class="row-section">
+    <h2>ON State</h2>
+    <div class="grid" id="on-grid"></div>
+  </div>
+
+  <div class="row-section">
+    <h2>OFF State</h2>
+    <div class="grid" id="off-grid"></div>
+  </div>
+
+  <div class="row-section">
+    <h2>Simulated Watch Tile (ON)</h2>
+    <div class="watch-frame" id="watch-on"></div>
+  </div>
+
+  <div class="row-section">
+    <h2>Simulated Watch Tile (OFF)</h2>
+    <div class="watch-frame" id="watch-off"></div>
+  </div>
+
+  <script>
+    const icons = ['w-light', 'w-time', 'w-heating', 'w-gate', 'w-lock'];
+    const iconLabels = { 'w-light': 'Light', 'w-time': 'Timer', 'w-heating': 'Heating', 'w-gate': 'Gate', 'w-lock': 'Lock' };
+
+    const themes = {
+      amber: { accent: '#FFB300' },
+      red: { accent: '#F44336' },
+      blue: { accent: '#42A5F5' },
+      green: { accent: '#66BB6A' },
+      purple: { accent: '#AB47BC' }
+    };
+
+    const svgTemplates = {
+      'w-light': `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="{ringColor}" stroke-width="1.8" opacity="{ringOpacity}"/>
+        <text x="24" y="22" text-anchor="middle" fill="#ffffff" font-size="7" font-family="sans-serif">Bedroom</text>
+        <g transform="translate(24,32) scale(0.5) translate(-24,-24)">
+          <path d="M24 12a8 8 0 0 0-4.6 14.5c.6.6 1 1.3 1 2V31h7.2v-2.5c0-.7.4-1.4 1-2A8 8 0 0 0 24 12z" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <line x1="20" y1="33" x2="28" y2="33" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <line x1="20" y1="35.5" x2="28" y2="35.5" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <path d="M22 37.5a2.5 2.5 0 0 0 4 0" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+        </g>
+      </svg>`,
+
+      'w-time': `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="{ringColor}" stroke-width="1.8" opacity="{ringOpacity}"/>
+        <text x="24" y="22" text-anchor="middle" fill="#ffffff" font-size="7" font-family="sans-serif">Timer</text>
+        <g transform="translate(24,32) scale(0.5) translate(-24,-24)">
+          <circle cx="24" cy="24" r="11" fill="none" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="24" y1="24" x2="24" y2="17" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <line x1="24" y1="24" x2="29" y2="26.5" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <circle cx="24" cy="24" r="1.5" fill="{strokeColor}" opacity="{strokeOpacity}"/>
+        </g>
+      </svg>`,
+
+      'w-heating': `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="{ringColor}" stroke-width="1.8" opacity="{ringOpacity}"/>
+        <text x="24" y="22" text-anchor="middle" fill="#ffffff" font-size="7" font-family="sans-serif">Heating</text>
+        <g transform="translate(24,32) scale(0.5) translate(-24,-24)">
+          <rect x="12" y="21" width="24" height="12" rx="2" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <line x1="18" y1="21" x2="18" y2="33" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="24" y1="21" x2="24" y2="33" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="30" y1="21" x2="30" y2="33" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="15" y1="33" x2="15" y2="37" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <line x1="33" y1="33" x2="33" y2="37" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{strokeOpacity}"/>
+          <path d="M18 17c0-1.5 1.5-2.5 1.5-4" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{waveOpacity}"/>
+          <path d="M24 17c0-1.5 1.5-2.5 1.5-4" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{waveOpacity}"/>
+          <path d="M30 17c0-1.5 1.5-2.5 1.5-4" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" opacity="{waveOpacity}"/>
+        </g>
+      </svg>`,
+
+      'w-gate': `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="{ringColor}" stroke-width="1.8" opacity="{ringOpacity}"/>
+        <text x="24" y="22" text-anchor="middle" fill="#ffffff" font-size="7" font-family="sans-serif">Main Gate</text>
+        <g transform="translate(24,32) scale(0.5) translate(-24,-24)">
+          <rect x="10" y="14" width="4" height="22" rx="1" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <rect x="34" y="14" width="4" height="22" rx="1" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <rect x="10" y="11" width="4" height="3" rx="1" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <rect x="34" y="11" width="4" height="3" rx="1" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <line x1="14" y1="19" x2="34" y2="19" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="14" y1="25" x2="34" y2="25" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="14" y1="31" x2="34" y2="31" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="21" y1="19" x2="21" y2="31" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+          <line x1="27" y1="19" x2="27" y2="31" stroke="{strokeColor}" stroke-width="1.2" opacity="{strokeOpacity}"/>
+        </g>
+      </svg>`,
+
+      'w-lock': `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+        <circle cx="24" cy="24" r="22" fill="none" stroke="{ringColor}" stroke-width="1.8" opacity="{ringOpacity}"/>
+        <text x="24" y="22" text-anchor="middle" fill="#ffffff" font-size="7" font-family="sans-serif">Lock</text>
+        <g transform="translate(24,32) scale(0.5) translate(-24,-24)">
+          <path d="M18 22v-4a6 6 0 0 1 12 0v4" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <rect x="15" y="22" width="18" height="14" rx="2.5" fill="none" stroke="{strokeColor}" stroke-width="1.2" stroke-linejoin="round" opacity="{strokeOpacity}"/>
+          <circle cx="24" cy="28.5" r="2" fill="{strokeColor}" opacity="{strokeOpacity}"/>
+          <line x1="24" y1="30.5" x2="24" y2="33" stroke="{strokeColor}" stroke-width="1.4" stroke-linecap="round" opacity="{strokeOpacity}"/>
+        </g>
+      </svg>`
+    };
+
+    let currentTheme = 'amber';
+    let idCounter = 0;
+
+    function renderSvg(iconName, theme) {
+      const { ringColor, ringOpacity, strokeColor, strokeOpacity, showWaves } = theme;
+      return svgTemplates[iconName]
+        .replace(/\{ringColor\}/g, ringColor)
+        .replace(/\{ringOpacity\}/g, ringOpacity)
+        .replace(/\{strokeColor\}/g, strokeColor)
+        .replace(/\{strokeOpacity\}/g, strokeOpacity)
+        .replace(/\{waveOpacity\}/g, showWaves ? '0.8' : '0');
+    }
+
+    function renderGrid(containerId, theme) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      icons.forEach(icon => {
+        const cell = document.createElement('div');
+        cell.className = 'icon-cell';
+        const wrap = document.createElement('div');
+        wrap.className = 'icon-wrap';
+        wrap.innerHTML = renderSvg(icon, theme);
+        const label = document.createElement('div');
+        label.className = 'icon-label';
+        label.textContent = iconLabels[icon];
+        cell.appendChild(wrap);
+        cell.appendChild(label);
+        container.appendChild(cell);
+      });
+    }
+
+    function renderWatch(containerId, theme) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '<div class="watch-title">openHAB</div>';
+      icons.forEach(icon => {
+        const cell = document.createElement('div');
+        cell.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:2px;';
+        const wrap = document.createElement('div');
+        wrap.className = 'icon-wrap';
+        wrap.innerHTML = renderSvg(icon, theme);
+        const label = document.createElement('div');
+        label.style.cssText = 'font-size:8px; color:#fff; text-align:center;';
+        label.textContent = iconLabels[icon];
+        cell.appendChild(wrap);
+        cell.appendChild(label);
+        container.appendChild(cell);
+      });
+    }
+
+    function applyTheme(theme) {
+      currentTheme = theme;
+      const accent = themes[theme].accent;
+      document.documentElement.style.setProperty('--accent', accent);
+
+      document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+      });
+
+      const onTheme = { ringColor: accent, ringOpacity: '1', strokeColor: accent, strokeOpacity: '1', showWaves: true };
+      const offTheme = { ringColor: accent, ringOpacity: '0.3', strokeColor: accent, strokeOpacity: '0.3', showWaves: false };
+
+      renderGrid('on-grid', onTheme);
+      renderGrid('off-grid', offTheme);
+      renderWatch('watch-on', onTheme);
+      renderWatch('watch-off', offTheme);
+    }
+
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => applyTheme(btn.dataset.theme));
+    });
+
+    applyTheme('amber');
+  </script>
+</body>
+</html>

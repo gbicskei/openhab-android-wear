@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- openHAB brand colors -->
+    <color name="openhab_orange">#FF9800</color>
+    <color name="openhab_orange_dark">#E65100</color>
+    <color name="openhab_blue">#1976D2</color>
+
+    <!-- Launcher icon -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+
+    <!-- UI colors -->
+    <color name="item_on">#FF9800</color>
+    <color name="item_off">#757575</color>
+    <color name="background">#000000</color>
+    <color name="surface">#1A1A1A</color>
+</resources>

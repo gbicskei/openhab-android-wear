@@ -1,0 +1,9 @@
+/* Theme: Green — nature/secure glow (ON state) */
+.glow-center { stop-color: #66BB6A; stop-opacity: 0.55; }
+.glow-edge { stop-color: #2E7D32; stop-opacity: 0; }
+.glow { opacity: 1; }
+.stroke { stroke: #ffffff; opacity: 1; }
+.wave { stroke: #66BB6A; opacity: 0.8; }
+.heat-wave { stroke: #66BB6A; opacity: 0.9; }
+.dot { fill: #66BB6A; }
+.keyhole { fill: #66BB6A; }

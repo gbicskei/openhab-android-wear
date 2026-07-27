@@ -1,0 +1,11 @@
+/* Theme: OFF state — dimmed, no glow */
+.glow-center { stop-color: #ffffff; stop-opacity: 0; }
+.glow-edge { stop-color: #ffffff; stop-opacity: 0; }
+.glow { opacity: 0; }
+.stroke { opacity: 0.4; }
+.stroke-dim { opacity: 0.3; }
+.wave { opacity: 0; }
+.heat-wave { opacity: 0; }
+.dot { opacity: 0.4; }
+.keyhole { opacity: 0.4; }
+.shackle { opacity: 0.4; }

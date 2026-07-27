@@ -1,0 +1,9 @@
+/* Theme: Purple — elegant accent glow (ON state) */
+.glow-center { stop-color: #AB47BC; stop-opacity: 0.55; }
+.glow-edge { stop-color: #6A1B9A; stop-opacity: 0; }
+.glow { opacity: 1; }
+.stroke { stroke: #ffffff; opacity: 1; }
+.wave { stroke: #AB47BC; opacity: 0.8; }
+.heat-wave { stroke: #AB47BC; opacity: 0.9; }
+.dot { fill: #AB47BC; }
+.keyhole { fill: #AB47BC; }

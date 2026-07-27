@@ -1,0 +1,9 @@
+/* Theme: Red — intense warm glow (ON state) */
+.glow-center { stop-color: #F44336; stop-opacity: 0.55; }
+.glow-edge { stop-color: #B71C1C; stop-opacity: 0; }
+.glow { opacity: 1; }
+.stroke { stroke: #ffffff; opacity: 1; }
+.wave { stroke: #F44336; opacity: 0.8; }
+.heat-wave { stroke: #F44336; opacity: 0.9; }
+.dot { fill: #F44336; }
+.keyhole { fill: #F44336; }
