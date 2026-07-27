@@ -101,6 +101,13 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 
+        <!-- About screen -->
+        <activity
+            android:name=".ui.AboutActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <!-- Debug: grid preview -->
         <activity
             android:name=".ui.GridPreviewActivity"

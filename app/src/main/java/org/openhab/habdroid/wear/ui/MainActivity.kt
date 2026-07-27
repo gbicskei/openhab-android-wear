@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
@@ -52,6 +53,9 @@ class MainActivity : ComponentActivity() {
                 viewModel = viewModel,
                 onSetup = {
                     startActivity(Intent(this@MainActivity, SetupActivity::class.java))
+                },
+                onAbout = {
+                    startActivity(Intent(this@MainActivity, AboutActivity::class.java))
                 }
             )
         }
@@ -61,7 +65,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    onSetup: () -> Unit
+    onSetup: () -> Unit,
+    onAbout: () -> Unit = {}
 ) {
     val reloadState by viewModel.reloadState.collectAsState()
     val context = LocalContext.current
@@ -111,6 +116,19 @@ fun MainScreen(
                 icon = {
                     Icon(
                         Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            )
+        }
+        item {
+            Button(
+                onClick = onAbout,
+                label = { Text("About") },
+                icon = {
+                    Icon(
+                        Icons.Default.Info,
                         contentDescription = null,
                         modifier = Modifier.size(24.dp)
                     )
