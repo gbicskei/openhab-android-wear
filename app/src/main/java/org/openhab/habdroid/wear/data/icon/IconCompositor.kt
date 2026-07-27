@@ -25,14 +25,14 @@ import javax.inject.Singleton
 class IconCompositor @Inject constructor() {
 
     companion object {
-        /** Output bitmap size in pixels */
-        const val SIZE = 48
+        /** Output bitmap size in pixels (renders at 2x for sharp display on high-density watches) */
+        const val SIZE = 96
 
         /** Ring stroke width in pixels */
-        private const val RING_STROKE_WIDTH = 2f
+        private const val RING_STROKE_WIDTH = 4f
 
         /** Padding between ring and icon content */
-        private const val ICON_PADDING = 6f
+        private const val ICON_PADDING = 12f
 
         /** ON state opacity */
         private const val ALPHA_ON = 255
@@ -47,16 +47,16 @@ class IconCompositor @Inject constructor() {
         private const val COLOR_OFF = 0xFF757575.toInt()
 
         /** Label text size in pixels */
-        private const val LABEL_TEXT_SIZE = 8f
+        private const val LABEL_TEXT_SIZE = 16f
 
         /** Height reserved for label text */
-        private const val LABEL_HEIGHT = 10f
+        private const val LABEL_HEIGHT = 20f
 
         /** Height reserved for state text */
-        private const val STATE_HEIGHT = 10f
+        private const val STATE_HEIGHT = 20f
 
         /** State text size in pixels */
-        private const val STATE_TEXT_SIZE = 7f
+        private const val STATE_TEXT_SIZE = 14f
     }
 
     /**

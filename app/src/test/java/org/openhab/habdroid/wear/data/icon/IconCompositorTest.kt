@@ -32,8 +32,9 @@ class IconCompositorTest {
         val result = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
 
         assertNotNull(result)
-        // 48x48 ARGB_8888 = 48 * 48 * 4 bytes
-        assertEquals(48 * 48 * 4, result!!.size)
+        // SIZE x SIZE ARGB_8888 = SIZE * SIZE * 4 bytes
+        val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
+        assertEquals(expectedSize, result!!.size)
     }
 
     @Test
@@ -45,7 +46,8 @@ class IconCompositorTest {
         val result = compositor.composite(svg, IconFormat.SVG, isOn = false, themeColor = themeAmber)
 
         assertNotNull(result)
-        assertEquals(48 * 48 * 4, result!!.size)
+        val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
+        assertEquals(expectedSize, result!!.size)
     }
 
     @Test
@@ -101,8 +103,9 @@ class IconCompositorTest {
         assertNotNull(amberResult)
         assertNotNull(blueResult)
         // Both should produce valid output (Robolectric may not fully implement color filters)
-        assertEquals(48 * 48 * 4, amberResult!!.size)
-        assertEquals(48 * 48 * 4, blueResult!!.size)
+        val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
+        assertEquals(expectedSize, amberResult!!.size)
+        assertEquals(expectedSize, blueResult!!.size)
     }
 
     @Test
@@ -117,8 +120,9 @@ class IconCompositorTest {
         assertNotNull(onResult)
         assertNotNull(offResult)
         // Both produce valid sized output
-        assertEquals(48 * 48 * 4, onResult!!.size)
-        assertEquals(48 * 48 * 4, offResult!!.size)
+        val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
+        assertEquals(expectedSize, onResult!!.size)
+        assertEquals(expectedSize, offResult!!.size)
     }
 
     // --- Output Size Consistency ---

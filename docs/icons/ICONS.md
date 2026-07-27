@@ -1,6 +1,6 @@
 # Watch Tile Icon System
 
-Icons for the openHAB Wear OS tile. Supports multiple icon sources, renders at 48x48px with configurable theme color, ring, and tinting — all composited on the watch.
+Icons for the openHAB Wear OS tile. Supports multiple icon sources, renders at 96x96px with configurable theme color, ring, and tinting — all composited on the watch.
 
 ## Icon Resolution
 
@@ -27,10 +27,10 @@ If no icon is resolved from either field, the app falls back to a generic "none"
 2. Parse source prefix → determine fetch URL
 3. Fetch raw bytes (cached in LRU memory cache, keyed by icon ref)
 4. Detect format (SVG or PNG from magic bytes)
-5. Composite final 48x48 ARGB_8888 bitmap:
+5. Composite final 96x96 ARGB_8888 bitmap:
    a. Draw ring (theme accent color, full opacity ON / 0.3 OFF)
    b. Render icon graphic centered (tinted for SVG, alpha for PNG)
-6. Provide to ProtoLayout as inline image resource
+6. Provide to ProtoLayout as inline image resource (displayed at 48–64dp, downscaled stays sharp)
 7. Label rendered separately as ProtoLayout Text element below image
 ```
 
