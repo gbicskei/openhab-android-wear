@@ -139,7 +139,7 @@ class OpenHabTileService : TileService() {
                 val isOn = if (itemCache.statesLoaded) {
                     if (tileItem.isPageNavigation) {
                         // Priority: valueItem state > own state > aggregate (if enabled)
-                        when {
+                        val result = when {
                             tileItem.valueItemName != null -> tileItem.isDisplayActive
                             displayItem.state !in listOf("NULL", "UNDEF") -> tileItem.isDisplayActive
                             tileItem.aggregateState -> {
@@ -151,8 +151,12 @@ class OpenHabTileService : TileService() {
                             }
                             else -> false
                         }
+                        android.util.Log.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isOn=$result")
+                        result
                     } else {
-                        tileItem.isDisplayActive
+                        val result = tileItem.isDisplayActive
+                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: displayItem=${tileItem.displayItemName} displayState=${displayItem.state} invertValue=${tileItem.invertValue} rawActive=${displayItem.isActive} isOn=$result")
+                        result
                     }
                 } else false
                 val resourceId = "icon_${tileItem.item.name}"
