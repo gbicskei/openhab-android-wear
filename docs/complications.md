@@ -2,6 +2,8 @@
 
 Display openHAB item values directly on your watch face — temperature, switch state, energy readings, door status — without opening the app.
 
+![Watch face with openHAB complications — Garage State and Daikin temperature](screenshots/complication.png)
+
 ## How It Works
 
 The app registers a complication data source that the watch face system can pull data from. You select "openHAB Item" from the watch face complication picker, choose which item to display, and the value appears on the watch face.

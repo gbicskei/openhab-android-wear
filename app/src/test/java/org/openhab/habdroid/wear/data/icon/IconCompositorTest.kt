@@ -29,7 +29,7 @@ class IconCompositorTest {
             <circle cx="24" cy="24" r="10" fill="white"/>
         </svg>""".toByteArray()
 
-        val result = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(svg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
 
         assertNotNull(result)
         // SIZE x SIZE ARGB_8888 = SIZE * SIZE * 4 bytes
@@ -38,12 +38,25 @@ class IconCompositorTest {
     }
 
     @Test
-    fun `composite renders SVG for OFF state`() {
+    fun `composite renders SVG for INACTIVE state`() {
         val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
             <rect x="10" y="10" width="28" height="28" stroke="black" fill="none"/>
         </svg>""".toByteArray()
 
-        val result = compositor.composite(svg, IconFormat.SVG, isOn = false, themeColor = themeAmber)
+        val result = compositor.composite(svg, IconFormat.SVG, state = IconState.INACTIVE, themeColor = themeAmber)
+
+        assertNotNull(result)
+        val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
+        assertEquals(expectedSize, result!!.size)
+    }
+
+    @Test
+    fun `composite renders SVG for NEUTRAL state`() {
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+            <rect x="10" y="10" width="28" height="28" stroke="black" fill="none"/>
+        </svg>""".toByteArray()
+
+        val result = compositor.composite(svg, IconFormat.SVG, state = IconState.NEUTRAL, themeColor = themeAmber)
 
         assertNotNull(result)
         val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
@@ -54,14 +67,14 @@ class IconCompositorTest {
     fun `composite returns null for invalid SVG`() {
         val badSvg = "this is not svg at all".toByteArray()
 
-        val result = compositor.composite(badSvg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(badSvg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
 
         assertNull(result)
     }
 
     @Test
     fun `composite returns null for empty SVG`() {
-        val result = compositor.composite(byteArrayOf(), IconFormat.SVG, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(byteArrayOf(), IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
 
         assertNull(result)
     }
@@ -74,7 +87,7 @@ class IconCompositorTest {
 
         // With Robolectric, BitmapFactory may or may not decode invalid bytes.
         // The important thing is it doesn't crash.
-        val result = compositor.composite(badPng, IconFormat.PNG, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(badPng, IconFormat.PNG, state = IconState.ACTIVE, themeColor = themeAmber)
         // Result may be null (real Android) or non-null (Robolectric shadow) — both acceptable
     }
 
@@ -84,7 +97,7 @@ class IconCompositorTest {
     fun `composite returns null for UNKNOWN format`() {
         val randomBytes = byteArrayOf(0x01, 0x02, 0x03, 0x04)
 
-        val result = compositor.composite(randomBytes, IconFormat.UNKNOWN, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(randomBytes, IconFormat.UNKNOWN, state = IconState.ACTIVE, themeColor = themeAmber)
 
         assertNull(result)
     }
@@ -97,8 +110,8 @@ class IconCompositorTest {
             <circle cx="24" cy="24" r="10" fill="white"/>
         </svg>""".toByteArray()
 
-        val amberResult = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
-        val blueResult = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeBlue)
+        val amberResult = compositor.composite(svg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
+        val blueResult = compositor.composite(svg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeBlue)
 
         assertNotNull(amberResult)
         assertNotNull(blueResult)
@@ -109,20 +122,20 @@ class IconCompositorTest {
     }
 
     @Test
-    fun `composite produces different output for ON vs OFF state`() {
+    fun `composite produces different output for ACTIVE vs INACTIVE state`() {
         val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
             <circle cx="24" cy="24" r="10" fill="white"/>
         </svg>""".toByteArray()
 
-        val onResult = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
-        val offResult = compositor.composite(svg, IconFormat.SVG, isOn = false, themeColor = themeAmber)
+        val activeResult = compositor.composite(svg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
+        val inactiveResult = compositor.composite(svg, IconFormat.SVG, state = IconState.INACTIVE, themeColor = themeAmber)
 
-        assertNotNull(onResult)
-        assertNotNull(offResult)
+        assertNotNull(activeResult)
+        assertNotNull(inactiveResult)
         // Both produce valid sized output
         val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4
-        assertEquals(expectedSize, onResult!!.size)
-        assertEquals(expectedSize, offResult!!.size)
+        assertEquals(expectedSize, activeResult!!.size)
+        assertEquals(expectedSize, inactiveResult!!.size)
     }
 
     // --- Output Size Consistency ---
@@ -133,7 +146,7 @@ class IconCompositorTest {
             <circle cx="50" cy="50" r="40" fill="red"/>
         </svg>""".toByteArray()
 
-        val result = compositor.composite(svg, IconFormat.SVG, isOn = true, themeColor = themeAmber)
+        val result = compositor.composite(svg, IconFormat.SVG, state = IconState.ACTIVE, themeColor = themeAmber)
 
         assertNotNull(result)
         val expectedSize = IconCompositor.SIZE * IconCompositor.SIZE * 4

@@ -136,14 +136,13 @@ class OpenHabTileService : TileService() {
                 val iconRef = tileItem.effectiveIcon
                 val displayItem = tileItem.displayItem
                 val state = displayItem.state
-                val isOn = if (itemCache.statesLoaded) {
+                val iconState = if (itemCache.statesLoaded) {
                     if (tileItem.isPageNavigation) {
                         // Priority: valueItem state > own state > aggregate (if enabled)
-                        val result = when {
+                        val isActive = when {
                             tileItem.valueItemName != null -> tileItem.isDisplayActive
                             displayItem.state !in listOf("NULL", "UNDEF") -> tileItem.isDisplayActive
                             tileItem.aggregateState -> {
-                                // Active if any item on target page is active
                                 val targetPage = tileItem.targetPage
                                 targetPage != null && allTileItems
                                     .filter { it.page == targetPage && !it.isPageNavigation }
@@ -151,14 +150,22 @@ class OpenHabTileService : TileService() {
                             }
                             else -> false
                         }
-                        android.util.Log.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isOn=$result")
-                        result
-                    } else {
+                        android.util.Log.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isActive=$isActive")
+                        // Nav buttons: active if determined above, otherwise neutral (not inactive)
+                        if (isActive) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
+                        else org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
+                    } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR) {
+                        // Color display: binary active/inactive
                         val result = tileItem.isDisplayActive
-                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: displayItem=${tileItem.displayItemName} displayState=${displayItem.state} invertValue=${tileItem.invertValue} rawActive=${displayItem.isActive} isOn=$result")
-                        result
+                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
+                        if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
+                        else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
+                    } else {
+                        // Value display, range items — always neutral
+                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
+                        org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     }
-                } else false
+                } else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
                 val resourceId = "icon_${tileItem.item.name}"
                 val label = tileItem.effectiveLabel
 
@@ -173,7 +180,7 @@ class OpenHabTileService : TileService() {
                 val rawBytes = iconResolver.resolve(iconRef, state)
                 if (rawBytes != null) {
                     val format = iconResolver.detectFormat(rawBytes)
-                    val composited = iconCompositor.composite(rawBytes, format, isOn, themeColor, label, stateText)
+                    val composited = iconCompositor.composite(rawBytes, format, iconState, themeColor, label, stateText)
                     if (composited != null) {
                         resources.addIdToImageMapping(
                             resourceId,
@@ -533,12 +540,10 @@ class OpenHabTileService : TileService() {
             }
             6 -> {
                 // 7-item positions minus center button
-                val mid = computeHorizontal3(screenW, btn, edgeRatio = 15.0f)
-                val spacing = mid[1] - mid[0]
+                val mid = computeHorizontal3(screenW, btn, edgeRatio = 0.6f)
                 val topBottomX = floatArrayOf((mid[0] + mid[1]) / 2f, (mid[1] + mid[2]) / 2f)
-                val halfDx = (mid[1] - mid[0]) / 2f
-                val yOffset = kotlin.math.sqrt(spacing * spacing - halfDx * halfDx)
-                android.util.Log.d("TilePos", "layout6: mid=${mid.toList()} spacing=$spacing topBottomX=${topBottomX.toList()} yOffset=$yOffset")
+                val yOffset = btn * 0.85f // Fixed vertical spacing
+                android.util.Log.d("TilePos", "layout6: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
                 listOf(
                     topBottomX[0] to centerY - yOffset,
                     topBottomX[1] to centerY - yOffset,
@@ -550,12 +555,10 @@ class OpenHabTileService : TileService() {
             }
             7 -> {
                 // Full: 2 top + 3 middle + 2 bottom
-                val mid = computeHorizontal3(screenW, btn, edgeRatio = 15.0f)
-                val spacing = mid[1] - mid[0]
+                val mid = computeHorizontal3(screenW, btn, edgeRatio = 0.6f)
                 val topBottomX = floatArrayOf((mid[0] + mid[1]) / 2f, (mid[1] + mid[2]) / 2f)
-                val halfDx = (mid[1] - mid[0]) / 2f
-                val yOffset = kotlin.math.sqrt(spacing * spacing - halfDx * halfDx)
-                android.util.Log.d("TilePos", "layout7: mid=${mid.toList()} spacing=$spacing topBottomX=${topBottomX.toList()} yOffset=$yOffset")
+                val yOffset = btn * 0.85f // Fixed vertical spacing
+                android.util.Log.d("TilePos", "layout7: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
                 listOf(
                     topBottomX[0] to centerY - yOffset,
                     topBottomX[1] to centerY - yOffset,
@@ -799,31 +802,73 @@ class OpenHabTileService : TileService() {
                     tileItem.displayItem.isActive -> "OFF"
                     else -> "ON"
                 }
-                ModifiersBuilders.Clickable.Builder()
-                    .setId("toggle_${item.name}")
-                    .setOnClick(
-                        ActionBuilders.LaunchAction.Builder()
-                            .setAndroidActivity(
-                                ActionBuilders.AndroidActivity.Builder()
-                                    .setClassName("org.openhab.habdroid.wear.tile.TileActionReceiver")
-                                    .setPackageName("org.openhab.habdroid.wear")
-                                    .addKeyToExtraMapping(
-                                        "item_name",
-                                        ActionBuilders.AndroidStringExtra.Builder()
-                                            .setValue(tileItem.commandTargetName)
-                                            .build()
-                                    )
-                                    .addKeyToExtraMapping(
-                                        "command",
-                                        ActionBuilders.AndroidStringExtra.Builder()
-                                            .setValue(command)
-                                            .build()
-                                    )
-                                    .build()
-                            )
-                            .build()
-                    )
-                    .build()
+
+                if (tileItem.needsConfirmation) {
+                    // Needs confirmation → launch TileActionReceiver with confirmation flag
+                    ModifiersBuilders.Clickable.Builder()
+                        .setId("confirm_${item.name}")
+                        .setOnClick(
+                            ActionBuilders.LaunchAction.Builder()
+                                .setAndroidActivity(
+                                    ActionBuilders.AndroidActivity.Builder()
+                                        .setClassName("org.openhab.habdroid.wear.tile.TileActionReceiver")
+                                        .setPackageName("org.openhab.habdroid.wear")
+                                        .addKeyToExtraMapping(
+                                            "item_name",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(tileItem.commandTargetName)
+                                                .build()
+                                        )
+                                        .addKeyToExtraMapping(
+                                            "command",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(command)
+                                                .build()
+                                        )
+                                        .addKeyToExtraMapping(
+                                            "needs_confirmation",
+                                            ActionBuilders.AndroidBooleanExtra.Builder()
+                                                .setValue(true)
+                                                .build()
+                                        )
+                                        .addKeyToExtraMapping(
+                                            "label",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(tileItem.effectiveLabel)
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                } else {
+                    ModifiersBuilders.Clickable.Builder()
+                        .setId("toggle_${item.name}")
+                        .setOnClick(
+                            ActionBuilders.LaunchAction.Builder()
+                                .setAndroidActivity(
+                                    ActionBuilders.AndroidActivity.Builder()
+                                        .setClassName("org.openhab.habdroid.wear.tile.TileActionReceiver")
+                                        .setPackageName("org.openhab.habdroid.wear")
+                                        .addKeyToExtraMapping(
+                                            "item_name",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(tileItem.commandTargetName)
+                                                .build()
+                                        )
+                                        .addKeyToExtraMapping(
+                                            "command",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(command)
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                }
             }
         }
     }

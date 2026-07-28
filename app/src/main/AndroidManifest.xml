@@ -68,12 +68,12 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 
-        <!-- Tile Action Receiver (handles toggle commands from tile taps) -->
+        <!-- Tile Action Receiver (handles toggle commands from tile taps, with optional confirmation) -->
         <activity
             android:name=".tile.TileActionReceiver"
             android:exported="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:theme="@android:style/Theme.DeviceDefault" />
 
         <!-- Page Navigation Activity (handles page switches with optional credential confirmation) -->
         <activity

@@ -37,11 +37,17 @@ class IconCompositor @Inject constructor() {
         /** ON state opacity */
         private const val ALPHA_ON = 255
 
+        /** Neutral state opacity for ring */
+        private const val RING_ALPHA_NEUTRAL = 153 // ~0.6
+
+        /** Neutral state opacity for icon */
+        private const val ICON_ALPHA_NEUTRAL = 204 // ~0.8
+
         /** OFF state opacity for ring */
         private const val RING_ALPHA_OFF = 77 // ~0.3
 
         /** OFF state opacity for icon */
-        private const val ICON_ALPHA_OFF = 102 // ~0.4
+        private const val ICON_ALPHA_OFF = 153 // ~0.6
 
         /** OFF state tint color */
         private const val COLOR_OFF = 0xFF757575.toInt()
@@ -65,23 +71,23 @@ class IconCompositor @Inject constructor() {
      *
      * @param bytes Raw icon bytes (SVG or PNG)
      * @param format Detected format from IconResolver
-     * @param isOn Whether the item is in ON state
+     * @param state Icon display state (ACTIVE, NEUTRAL, or INACTIVE)
      * @param themeColor The user's chosen accent color (e.g., 0xFFFF9800)
      * @param label Optional label text to render at the top inside the ring
      * @param stateText Optional state text to render below the icon (for valueDisplay=value)
      * @return Raw ARGB_8888 pixel bytes for ProtoLayout, or null on failure
      */
-    fun composite(bytes: ByteArray, format: IconFormat, isOn: Boolean, themeColor: Int, label: String? = null, stateText: String? = null): ByteArray? {
+    fun composite(bytes: ByteArray, format: IconFormat, state: IconState, themeColor: Int, label: String? = null, stateText: String? = null): ByteArray? {
         val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // 1. Draw glow (radial gradient behind ring, ON state only)
-        if (isOn) {
+        // 1. Draw glow (radial gradient behind ring, ACTIVE state only)
+        if (state == IconState.ACTIVE) {
             drawGlow(canvas, themeColor)
         }
 
         // 2. Draw ring
-        drawRing(canvas, isOn, themeColor)
+        drawRing(canvas, state, themeColor)
 
         // 2. Draw label at top (inside ring)
         val hasLabel = !label.isNullOrBlank()
@@ -101,12 +107,12 @@ class IconCompositor @Inject constructor() {
         }
 
         // 3. Apply tint/alpha and draw centered
-        drawIcon(canvas, iconBitmap, isOn, themeColor, hasLabel, hasState)
+        drawIcon(canvas, iconBitmap, state, themeColor, hasLabel, hasState)
         iconBitmap.recycle()
 
         // 4. Draw state text below icon
         if (hasState) {
-            drawStateText(canvas, stateText!!, isOn, themeColor)
+            drawStateText(canvas, stateText!!, state, themeColor)
         }
 
         // 5. Convert to raw ARGB_8888 bytes
@@ -149,12 +155,16 @@ class IconCompositor @Inject constructor() {
     /**
      * Draws the ring circle on the canvas.
      */
-    private fun drawRing(canvas: Canvas, isOn: Boolean, themeColor: Int) {
+    private fun drawRing(canvas: Canvas, state: IconState, themeColor: Int) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = RING_STROKE_WIDTH
-            color = if (isOn) themeColor else themeColor
-            alpha = if (isOn) ALPHA_ON else RING_ALPHA_OFF
+            color = themeColor
+            alpha = when (state) {
+                IconState.ACTIVE -> ALPHA_ON
+                IconState.NEUTRAL -> RING_ALPHA_NEUTRAL
+                IconState.INACTIVE -> RING_ALPHA_OFF
+            }
         }
         val inset = RING_STROKE_WIDTH / 2f
         canvas.drawOval(
@@ -202,15 +212,14 @@ class IconCompositor @Inject constructor() {
     /**
      * Draws the icon bitmap centered (or shifted down if label present).
      */
-    private fun drawIcon(canvas: Canvas, iconBitmap: Bitmap, isOn: Boolean, themeColor: Int, hasLabel: Boolean = false, hasState: Boolean = false) {
+    private fun drawIcon(canvas: Canvas, iconBitmap: Bitmap, state: IconState, themeColor: Int, hasLabel: Boolean = false, hasState: Boolean = false) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
-        if (isOn) {
-            paint.colorFilter = PorterDuffColorFilter(themeColor, PorterDuff.Mode.SRC_IN)
-        } else {
-            // Use dimmed theme color (matching ring appearance)
-            paint.colorFilter = PorterDuffColorFilter(themeColor, PorterDuff.Mode.SRC_IN)
-            paint.alpha = 153 // ~0.6 opacity — visible but clearly dimmed
+        paint.colorFilter = PorterDuffColorFilter(themeColor, PorterDuff.Mode.SRC_IN)
+        paint.alpha = when (state) {
+            IconState.ACTIVE -> ALPHA_ON
+            IconState.NEUTRAL -> ICON_ALPHA_NEUTRAL
+            IconState.INACTIVE -> ICON_ALPHA_OFF
         }
 
         val offsetX = (SIZE - iconBitmap.width) / 2f
@@ -238,9 +247,9 @@ class IconCompositor @Inject constructor() {
     /**
      * Draws state text at the bottom inside the ring.
      */
-    private fun drawStateText(canvas: Canvas, text: String, isOn: Boolean, themeColor: Int) {
+    private fun drawStateText(canvas: Canvas, text: String, state: IconState, themeColor: Int) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = if (isOn) themeColor else COLOR_OFF
+            color = if (state == IconState.INACTIVE) COLOR_OFF else themeColor
             textSize = STATE_TEXT_SIZE
             textAlign = Paint.Align.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD

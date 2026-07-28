@@ -36,22 +36,36 @@ If no icon is resolved from either field, the app falls back to a generic "none"
 
 ### SVG Icons (preferred)
 - Rendered via `androidsvg` library
-- Tinted using `PorterDuff.Mode.SRC_IN` color filter:
-  - ON state: theme accent color, full opacity
-  - OFF state: theme accent color, 0.6 opacity (dimmed, same hue as ring)
+- Tinted using `PorterDuff.Mode.SRC_IN` color filter (always theme accent color)
+- Opacity varies by display state (see below)
 
 ### PNG Icons (legacy openHAB classic)
 - Decoded via `BitmapFactory`
-- Scaled to fit within ring area (36x36)
-- ON state: full alpha
-- OFF state: 0.4 alpha
+- Scaled to fit within ring area
+- Opacity varies by display state (see below)
 - Original colors preserved (no tint — PNGs may be multi-colored)
+
+### Three-State Display Model
+
+Icons render in one of three states based on item type and value:
+
+| State | Glow | Ring opacity | Icon opacity | When used |
+|-------|------|-------------|-------------|-----------|
+| **Active** | Radial glow | 100% | 100% | Switch ON, OPEN, numeric > 0 (with `valueDisplay=color`) |
+| **Neutral** | None | 60% | 80% | Page nav buttons, value-display items, range items |
+| **Inactive** | None | 30% | 60% | Switch OFF, CLOSED, 0 (with `valueDisplay=color`) |
+
+All three states use the theme accent color — the difference is glow presence and opacity levels.
+
+- Items with `valueDisplay=color` are binary: Active or Inactive based on their state.
+- Items with `valueDisplay=value` (showing text like "22°C") are always Neutral.
+- Range/slider items are always Neutral.
+- Page navigation buttons are Neutral by default, or Active if `aggregateState=true` and a sub-page item is active.
 
 ### Ring
 - Drawn as a circle stroke on the composited bitmap
 - Color: user's theme accent color
-- ON: stroke opacity 1.0, width 2px
-- OFF: stroke opacity 0.3, width 2px
+- Stroke width: 4px (at 96px render size)
 
 ## Caching Strategy
 

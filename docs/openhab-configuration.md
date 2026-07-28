@@ -98,7 +98,7 @@ Switch Bedroom_Light "Bedroom Light" <light> (gBedroom) ["Lightbulb"] { wearTile
 | `config.icon` | No | String | item's category | Override icon name. Supports classic (`light`), Material (`material:thermostat`), and Iconify (`iconify:mdi:gate`) formats. |
 | `config.label` | No | String | item's label | Override display label shown on the tile button. |
 | `config.action` | No | String | auto-toggle | What happens on tap. `"page:{name}"` = navigate to sub-page. `"command"` = send a fixed command. `null` = auto-toggle (ON↔OFF) or range control. |
-| `config.valueDisplay` | No | Enum | `"value"` | How the item state is rendered. `"value"` = show state as text. `"color"` = color-highlighted circle (accent = active, grey = inactive). |
+| `config.valueDisplay` | No | Enum | `"value"` | How the item state is rendered. `"value"` = show state as text (icon rendered in neutral state). `"color"` = binary active/inactive display (accent glow when active, dimmed when inactive). |
 | `config.valueItem` | No | String | — | Item name to read display state from instead of the primary item. The valueItem does not need its own `wearTile` metadata. |
 | `config.invertValue` | No | Boolean | `"false"` | If `"true"`, invert the active/inactive interpretation for display (ON→inactive, OFF→active, OPEN→inactive, CLOSED→active). |
 | `config.commandItem` | No | String | — | Item name to send commands to instead of the primary item. Used when the primary item is the display source and the command target is a different item. |

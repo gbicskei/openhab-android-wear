@@ -4,6 +4,8 @@
 
 The primary interface — a system-level tile accessible by swiping from the watch face.
 
+![Main tile — 4 navigation buttons](screenshots/main_labeled.png)
+
 ### What it does
 
 Displays 1-7 openHAB items as tappable buttons in a concentric layout. Each button shows:
@@ -39,6 +41,9 @@ Display state can come from a separate `valueItem` (e.g., a Contact sensor), wit
 #### Range/Dimmer items (rotary control)
 
 Tapping a range item navigates to a dedicated control screen:
+
+![Rotary range control — AC temperature setpoint](screenshots/range_control.png)
+
 - Current value displayed large in the center
 - Bezel (rotating crown) changes the value up/down
 - Min/max/step auto-detected from `stateDescription`
@@ -58,6 +63,14 @@ Buttons are sized per layout — larger when fewer items allow it:
 | 5 | 64dp | Diamond + center (edge_ratio=1.0) | — |
 | 6 | 64dp | 7-item layout minus center button | Honeycomb |
 | 7 | 64dp | Full: 2 top + 3 middle + 2 bottom | Full honeycomb |
+
+| 1 | 2 | 3 | 4 |
+|---|---|---|---|
+| ![1 button](screenshots/layout_1.png) | ![2 buttons](screenshots/layout_2.png) | ![3 buttons](screenshots/layout_3.png) | ![4 buttons](screenshots/layout_4.png) |
+
+| 5 | 6 | 7 |
+|---|---|---|
+| ![5 buttons](screenshots/layout_5.png) | ![6 buttons](screenshots/layout_6.png) | ![7 buttons](screenshots/layout_7.png) |
 
 The layout 3 stagger places side buttons at `centerY + 0.42*btn` and the center button at `centerY - 0.42*btn`, creating diagonal separation that allows larger buttons without horizontal overlap.
 
@@ -82,6 +95,8 @@ Flow:
 
 ### Page Navigation
 
+![Security sub-page with gate controls and back button](screenshots/main_page.png)
+
 - **Forward**: Tap navigation button → `LoadAction` (instant, no Activity launch)
 - **Back**: Tap back button at bottom → `LoadAction` returns to main
 - **With confirmation**: Launches `PageNavigationActivity` for dialog
@@ -90,6 +105,8 @@ Flow:
 - Sub-page items use cached states (no re-fetch)
 
 ### Themes
+
+![Theme picker with 7-button preview and dot indicators](screenshots/theme_picker.png)
 
 5 color themes available (configurable via long-press → pencil on tile):
 - **Amber** — warm golden glow (default)
@@ -132,6 +149,8 @@ See [openHAB Configuration](openhab-configuration.md) for setup instructions.
 ## 2. Voice Commands
 
 Triggered from the mic button on the tile's main page.
+
+![Voice command — Google speech recognizer](screenshots/voice_command.png)
 
 ### How it works
 
