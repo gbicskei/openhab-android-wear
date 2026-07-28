@@ -84,7 +84,8 @@ Switch Bedroom_Light "Bedroom Light" <light> (gBedroom) ["Lightbulb"] { wearTile
     "invertValue": "false",
     "commandItem": null,
     "commandValue": null,
-    "needsConfirmation": "false"
+    "needsConfirmation": "false",
+    "aggregateState": "false"
   }
 }
 ```
@@ -103,6 +104,7 @@ Switch Bedroom_Light "Bedroom Light" <light> (gBedroom) ["Lightbulb"] { wearTile
 | `config.commandItem` | No | String | — | Item name to send commands to instead of the primary item. Used when the primary item is the display source and the command target is a different item. |
 | `config.commandValue` | No | String | — | Fixed command string to send on tap (e.g., `"ON"`). When set, skips toggle logic and always sends this value. Requires `action: "command"`. |
 | `config.needsConfirmation` | No | Boolean | `"false"` | If `"true"`, shows a confirmation dialog before sending the command. |
+| `config.aggregateState` | No | Boolean | `"false"` | Navigation buttons only. If `"true"`, the nav button shows as active (accent color) when any item on the target sub-page is active. If `"false"` (default), the nav button stays inactive unless it has a `valueItem` or its own item has a non-NULL state. |
 
 ### Item Roles
 

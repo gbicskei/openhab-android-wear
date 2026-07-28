@@ -138,17 +138,18 @@ class OpenHabTileService : TileService() {
                 val state = displayItem.state
                 val isOn = if (itemCache.statesLoaded) {
                     if (tileItem.isPageNavigation) {
-                        // Priority: valueItem state > own state > aggregate from sub-page
+                        // Priority: valueItem state > own state > aggregate (if enabled)
                         when {
                             tileItem.valueItemName != null -> tileItem.isDisplayActive
                             displayItem.state !in listOf("NULL", "UNDEF") -> tileItem.isDisplayActive
-                            else -> {
-                                // Fallback: active if any item on target page is active
+                            tileItem.aggregateState -> {
+                                // Active if any item on target page is active
                                 val targetPage = tileItem.targetPage
                                 targetPage != null && allTileItems
                                     .filter { it.page == targetPage && !it.isPageNavigation }
                                     .any { it.isDisplayActive }
                             }
+                            else -> false
                         }
                     } else {
                         tileItem.isDisplayActive
@@ -189,6 +190,9 @@ class OpenHabTileService : TileService() {
 
             // Load static mic icon from assets
             loadMicIconResource(resources)
+
+            // Load openHAB logo for title area
+            loadLogoResource(resources)
 
             android.util.Log.d("TileNav", "=== onTileResourcesRequest done: ${System.currentTimeMillis()-resStart}ms ===")
             resources.build()
@@ -370,30 +374,53 @@ class OpenHabTileService : TileService() {
             )
         }
 
-        // Title overlay (top center)
+        // Title overlay (top center) with logo as background — positioned absolutely
+        val titleCenterX = screenW / 2f
+        val titleCenterY = 22f // Push group toward very top
+        val titleBoxW = 120f
+        val titleBoxH = 36f
+        val titlePadLeft = (titleCenterX - titleBoxW / 2f).coerceAtLeast(0f)
+        val titlePadTop = (titleCenterY - titleBoxH / 2f).coerceAtLeast(0f)
+
         root.addContent(
             LayoutElementBuilders.Box.Builder()
                 .setWidth(dp(screenW))
                 .setHeight(dp(screenH))
                 .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
                 .setModifiers(
                     ModifiersBuilders.Modifiers.Builder()
                         .setPadding(
                             ModifiersBuilders.Padding.Builder()
-                                .setTop(dp(10f))
+                                .setStart(dp(titlePadLeft))
+                                .setTop(dp(titlePadTop))
                                 .build()
                         )
                         .build()
                 )
                 .addContent(
-                    LayoutElementBuilders.Text.Builder()
-                        .setText(title)
-                        .setFontStyle(
-                            LayoutElementBuilders.FontStyle.Builder()
-                                .setSize(sp(12f))
-                                .setColor(argb(if (isLive) 0xFFFFFFFF.toInt() else 0xFF666666.toInt()))
-                                .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+                    LayoutElementBuilders.Box.Builder()
+                        .setWidth(dp(titleBoxW))
+                        .setHeight(dp(titleBoxH))
+                        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                        .addContent(
+                            LayoutElementBuilders.Image.Builder()
+                                .setResourceId(RESOURCE_ID_LOGO)
+                                .setWidth(dp(36f))
+                                .setHeight(dp(36f))
+                                .build()
+                        )
+                        .addContent(
+                            LayoutElementBuilders.Text.Builder()
+                                .setText(title)
+                                .setFontStyle(
+                                    LayoutElementBuilders.FontStyle.Builder()
+                                        .setSize(sp(12f))
+                                        .setColor(argb(if (isLive) 0xFFFFFFFF.toInt() else 0xFF666666.toInt()))
+                                        .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+                                        .build()
+                                )
                                 .build()
                         )
                         .build()
@@ -859,8 +886,47 @@ class OpenHabTileService : TileService() {
         }
     }
 
+    /**
+     * Loads the openHAB logo SVG from assets and registers it as an inline image
+     * for the title area. Rendered at specified pixel size with optional alpha.
+     */
+    private fun loadLogoResource(resources: ResourceBuilders.Resources.Builder) {
+        try {
+            val size = LOGO_ICON_SIZE
+            val svgBytes = applicationContext.assets.open("ic_openhab_logo.svg").use { it.readBytes() }
+            val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
+            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            svg.documentWidth = size.toFloat()
+            svg.documentHeight = size.toFloat()
+            svg.renderToCanvas(canvas)
+
+            val buffer = java.nio.ByteBuffer.allocate(bitmap.byteCount)
+            bitmap.copyPixelsToBuffer(buffer)
+            bitmap.recycle()
+
+            resources.addIdToImageMapping(
+                RESOURCE_ID_LOGO,
+                ResourceBuilders.ImageResource.Builder()
+                    .setInlineResource(
+                        ResourceBuilders.InlineImageResource.Builder()
+                            .setData(buffer.array())
+                            .setWidthPx(size)
+                            .setHeightPx(size)
+                            .setFormat(ResourceBuilders.IMAGE_FORMAT_ARGB_8888)
+                            .build()
+                    )
+                    .build()
+            )
+        } catch (e: Exception) {
+            android.util.Log.w("TileNav", "Failed to load logo icon: ${e.message}")
+        }
+    }
+
     companion object {
         private const val RESOURCE_ID_MIC = "ic_mic"
         private const val MIC_ICON_SIZE = 16
+        private const val RESOURCE_ID_LOGO = "ic_logo"
+        private const val LOGO_ICON_SIZE = 108
     }
 }

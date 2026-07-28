@@ -34,7 +34,9 @@ data class TileItem(
     /** Item name to send commands to instead of the primary item */
     val commandItemName: String? = null,
     /** Fixed command string to send on tap (used with action="command") */
-    val commandValue: String? = null
+    val commandValue: String? = null,
+    /** If true, the nav button shows active when any item on the target page is active */
+    val aggregateState: Boolean = false
 ) : Comparable<TileItem> {
     override fun compareTo(other: TileItem): Int = slot.compareTo(other.slot)
 

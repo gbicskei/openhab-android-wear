@@ -39,7 +39,7 @@ The openHAB tile supports multiple pages — a main page with up to 7 item slots
 - **Navigation buttons** occupy one of the 7 item slots on the source page.
 - **Back button** is auto-rendered at the bottom of every sub-page (not configurable, not an item slot).
 - **Page switching** uses ProtoLayout's `LoadAction` — the tile re-renders instantly with the new page content. No Activity is launched (unless confirmation is required).
-- **Navigation button state**: shows active (accent color) if any item on the target sub-page is active. Priority: `valueItem` state > own item state > aggregate from sub-page items.
+- **Navigation button state**: shows active (accent color) based on priority: `valueItem` state > own item state > aggregate from sub-page items (only if `aggregateState: "true"`). By default (`aggregateState: "false"`), nav buttons without a `valueItem` or own state remain inactive.
 
 ### Naming Convention
 
@@ -119,6 +119,12 @@ A navigation button is defined as a special metadata entry. It does NOT correspo
 
 ```json
 {"value": "tile", "config": {"position": "main:6", "icon": "iconify:mdi:shield-home", "label": "Security", "action": "page:security"}}
+```
+
+To make the nav button light up when any item on the target page is active, add `aggregateState`:
+
+```json
+{"value": "tile", "config": {"position": "main:6", "icon": "iconify:mdi:shield-home", "label": "Security", "action": "page:security", "aggregateState": "true"}}
 ```
 
 The `action: "page:{pageName}"` field distinguishes navigation buttons from regular items.

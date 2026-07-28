@@ -90,6 +90,7 @@ class OpenHabRepository @Inject constructor(
                 val invertValue = config?.get("invertValue")?.toBooleanStrictOrNull() ?: false
                 val commandItemName = config?.get("commandItem")
                 val commandValue = config?.get("commandValue")
+                val aggregateState = config?.get("aggregateState")?.toBooleanStrictOrNull() ?: false
                 TileItem(
                     item = item,
                     page = page,
@@ -102,7 +103,8 @@ class OpenHabRepository @Inject constructor(
                     valueItemName = valueItemName,
                     invertValue = invertValue,
                     commandItemName = commandItemName,
-                    commandValue = commandValue
+                    commandValue = commandValue,
+                    aggregateState = aggregateState
                 )
             }
             .sorted()
