@@ -15,11 +15,6 @@
     <!-- Wake lock for tile updates and background work -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-    <!-- Notifications -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Foreground service for WorkManager -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:name=".OpenHabWearApp"
@@ -133,14 +128,46 @@
                 android:value="org.openhab.habdroid.wear.tile.CONFIG_ACTION" />
         </service>
 
-        <!-- FCM Notification Service -->
+        <!-- Complication Data Source Service -->
         <service
-            android:name=".notification.FcmListenerService"
-            android:exported="false">
+            android:name=".complication.OpenHabComplicationService"
+            android:exported="true"
+            android:directBootAware="true"
+            android:icon="@drawable/ic_complication"
+            android:label="@string/complication_label"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
+
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE" />
+
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="300" />
         </service>
+
+        <!-- Complication Detail Activity (shows fresh value on tap) -->
+        <activity
+            android:name=".complication.ComplicationDetailActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
+
+        <!-- Complication Configuration Activity (item picker) -->
+        <activity
+            android:name=".complication.ComplicationConfigActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="org.openhab.habdroid.wear.complication.CONFIG" />
+                <category android:name="android.support.wearable.complications.category.PROVIDER_CONFIG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Disable default WorkManager initializer (using Hilt on-demand initialization) -->
         <provider

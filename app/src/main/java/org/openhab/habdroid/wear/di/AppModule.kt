@@ -19,6 +19,7 @@ import org.openhab.habdroid.wear.data.api.OpenHabApiService
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.data.repository.TilePreferenceStore
+import org.openhab.habdroid.wear.complication.ComplicationPreferenceStore
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "openhab_wear_prefs")
 private val Context.tileDataStore: DataStore<Preferences> by preferencesDataStore(name = "tile_selection_prefs")
+private val Context.complicationDataStore: DataStore<Preferences> by preferencesDataStore(name = "complication_prefs")
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -62,6 +64,21 @@ object AppModule {
     @Singleton
     fun provideThemeStore(@Named("tile") dataStore: DataStore<Preferences>): ThemeStore {
         return ThemeStore(dataStore)
+    }
+
+    @Provides
+    @Singleton
+    @Named("complications")
+    fun provideComplicationDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+        return context.complicationDataStore
+    }
+
+    @Provides
+    @Singleton
+    fun provideComplicationPreferenceStore(
+        @Named("complications") dataStore: DataStore<Preferences>
+    ): ComplicationPreferenceStore {
+        return ComplicationPreferenceStore(dataStore)
     }
 
     @Provides

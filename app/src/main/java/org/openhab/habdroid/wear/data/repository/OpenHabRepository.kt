@@ -71,6 +71,7 @@ class OpenHabRepository @Inject constructor(
 
         val tileItems = items
             .filter { it.metadata?.containsKey(WEAR_TILE_METADATA) == true }
+            .filter { it.isForTile }
             .filter { it.isSupportedForTile || it.metadata?.get(WEAR_TILE_METADATA)?.config?.let { cfg ->
                 cfg["action"]?.startsWith("page:") == true || cfg["action"] == "command"
             } == true }
@@ -191,6 +192,22 @@ class OpenHabRepository @Inject constructor(
             fields = "name,label,type,state,category,tags,groupNames",
             language = Locale.getDefault().language
         )
+    }
+
+    /**
+     * Fetch items eligible for watch face complications.
+     * Uses the same wearTile metadata query as the tile, but filters to items
+     * where the metadata value is "complication" or config contains complication="true".
+     * Returns items sorted by label for the picker UI.
+     */
+    suspend fun getComplicationItems(): Result<List<Item>> = runCatching {
+        val items = apiService.getItems(
+            metadata = WEAR_TILE_METADATA,
+            language = Locale.getDefault().language
+        )
+        items
+            .filter { it.isForComplication }
+            .sortedBy { it.displayLabel.lowercase() }
     }
 
     /**

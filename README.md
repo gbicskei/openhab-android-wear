@@ -5,6 +5,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 ## Key Features
 
 - **Concentric Tile Layout** — 1-7 items arranged in a responsive honeycomb pattern derived from screen size
+- **Watch Face Complications** — Display openHAB item values directly on the watch face (temperature, switch state, etc.)
 - **Themes** — 5 color themes (amber, blue, green, purple, red) with radial glow, selectable via bezel rotation
 - **Voice Commands** — Speak natural language commands processed by openHAB's interpreter
 - **Push Notifications** — Receive openHAB Cloud notifications directly on the watch via FCM
@@ -33,6 +34,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 | [Architecture](docs/architecture.md) | System design, connectivity model, tech stack decisions |
 | [Features](docs/features.md) | Detailed feature descriptions and UX flows |
 | [openHAB Configuration](docs/openhab-configuration.md) | How to configure items for the watch tile |
+| [Complications](docs/complications.md) | Watch face complications setup and usage |
 | [Icons](docs/icons/ICONS.md) | Custom icon system — design spec, theming, creating new icons |
 | [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
 | [Development](docs/development.md) | Build, deploy, debug, project structure |
@@ -66,6 +68,7 @@ openhab-android-wear/
 │       │   ├── model/                   # Item, ServerCredentials, TileItem
 │       │   └── repository/             # CredentialStore, ItemCache, OpenHabRepository, ThemeStore
 │       ├── tile/                        # Wear OS Tile service + action handling
+│       ├── complication/                # Watch face complications
 │       ├── notification/                # FCM push handling
 │       ├── sync/                        # Data Layer credential sync (receiver)
 │       └── ui/

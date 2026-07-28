@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- openHAB logo: house outline with circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,2L4,7v10l8,5l8,-5V7L12,2zM12,4.3l6,3.75v8l-6,3.75l-6,-3.75v-8L12,4.3z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,8.5a3.5,3.5 0,1 0,0 7a3.5,3.5 0,1 0,0 -7zM12,10.5a1.5,1.5 0,1 1,0 3a1.5,1.5 0,1 1,0 -3z" />
+</vector>

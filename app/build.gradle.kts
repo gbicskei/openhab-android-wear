@@ -8,7 +8,6 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
 }
 
 android {
@@ -110,6 +109,9 @@ dependencies {
     implementation(libs.wear.input)
     implementation(libs.play.services.wearable)
 
+    // Wear Complications
+    implementation(libs.wear.complications.data.source)
+
     // Networking
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
@@ -128,10 +130,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.hilt.work)
-
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:34.16.0"))
-    implementation("com.google.firebase:firebase-messaging")
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.core)

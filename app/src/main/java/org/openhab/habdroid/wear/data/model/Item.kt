@@ -12,6 +12,7 @@ data class Item(
     val label: String? = null,
     val type: String = "",
     val state: String = "NULL",
+    val transformedState: String? = null,
     val category: String? = null,
     val tags: List<String> = emptyList(),
     val groupNames: List<String> = emptyList(),
@@ -62,6 +63,22 @@ data class Item(
     /** Numeric state value (for range items) */
     val numericState: Double?
         get() = state.replace(" .*".toRegex(), "").toDoubleOrNull()
+
+    /**
+     * Whether this item is flagged for the watch face complication picker.
+     * True when wearTile metadata value is "complication" OR config contains complication="true".
+     */
+    val isForComplication: Boolean
+        get() {
+            val meta = metadata?.get("wearTile") ?: return false
+            return meta.value == "complication" || meta.config?.get("complication") == "true"
+        }
+
+    /**
+     * Whether this item is configured for the tile (has a position in wearTile metadata).
+     */
+    val isForTile: Boolean
+        get() = metadata?.get("wearTile")?.config?.get("position") != null
 }
 
 @Serializable

@@ -4,7 +4,6 @@ agp = "8.11.2"
 kotlin = "2.1.0"
 ksp = "2.1.0-1.0.29"
 hilt = "2.53.1"
-google-services = "4.5.0"
 
 # AndroidX Core
 core-ktx = "1.15.0"
@@ -19,6 +18,7 @@ compose-bom = "2024.12.01"
 # Wear OS
 wear-compose = "1.5.0"
 wear-tiles = "1.6.0"
+wear-complications = "1.2.1"
 horologist = "0.6.22"
 wear-phone-interactions = "1.1.0"
 play-services-wearable = "18.2.0"
@@ -34,9 +34,6 @@ coil = "2.7.0"
 
 # DI
 hilt-navigation-compose = "1.2.0"
-
-# Firebase
-firebase-bom = "34.16.0"
 
 # Coroutines
 coroutines = "1.9.0"
@@ -81,6 +78,9 @@ wear-phone-interactions = { module = "androidx.wear:wear-phone-interactions", ve
 wear-input = { module = "androidx.wear:wear-input", version = "1.2.0" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "play-services-wearable" }
 
+# Wear Complications
+wear-complications-data-source = { module = "androidx.wear.watchface:watchface-complications-data-source-ktx", version.ref = "wear-complications" }
+
 # Networking
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 okhttp-logging = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "okhttp" }
@@ -97,9 +97,6 @@ hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt"
 hilt-compiler = { module = "com.google.dagger:hilt-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version.ref = "hilt-navigation-compose" }
 hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "hilt-navigation-compose" }
-
-# Firebase
-firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase-bom" }
 
 # Coroutines
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
@@ -118,4 +115,3 @@ kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "ko
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
-google-services = { id = "com.google.gms.google-services", version.ref = "google-services" }

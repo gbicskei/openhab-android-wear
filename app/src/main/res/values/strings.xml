@@ -19,4 +19,9 @@
     <string name="save_and_connect">Save &amp; Connect</string>
     <string name="about">About</string>
     <string name="version_label">Version</string>
+
+    <!-- Complications -->
+    <string name="complication_label">openHAB Item</string>
+    <string name="complication_config_title">Select Item</string>
+    <string name="complication_no_items">No items configured for complications.\nAdd wearTile metadata with complication flag in openHAB.</string>
 </resources>

@@ -4,9 +4,31 @@ This guide explains how to configure your openHAB items to appear on the watch t
 
 ## Overview
 
-The watch app reads item configuration from the openHAB server using **item metadata**. Items marked with the `wearTile` metadata namespace will appear on the watch tile.
+The watch app reads item configuration from the openHAB server using **item metadata**. Items marked with the `wearTile` metadata namespace will appear on the watch tile and/or in the complication picker, depending on the configuration.
 
-**Important:** Metadata editing is out of scope for the watch app. The watch only *reads* items that have `wearTile` metadata — it never creates, modifies, or deletes metadata. All tile item configuration must be done on the openHAB server side (Main UI, REST API, or `.items` files).
+**Important:** Metadata editing is out of scope for the watch app. The watch only *reads* items that have `wearTile` metadata — it never creates, modifies, or deletes metadata. All configuration must be done on the openHAB server side (Main UI, REST API, or `.items` files).
+
+### Tile vs. Complication
+
+The `wearTile` metadata serves two purposes:
+
+| Feature | Where it appears | How to enable |
+|---------|-----------------|---------------|
+| **Tile** | Wear OS tile (swipe from watch face) | Set `position` in metadata config |
+| **Complication** | Watch face data slot | Set value to `"complication"` OR add `complication="true"` in config |
+
+An item can be tile-only, complication-only, or both:
+
+```
+# Tile only — a light switch
+wearTile = "tile"          [position="main:1", icon="light"]
+
+# Complication only — a temperature sensor shown on the watch face
+wearTile = "complication"
+
+# Both — solar power on the tile AND as a watch face complication
+wearTile = "tile"          [position="main:3", complication="true", icon="solarplant"]
+```
 
 ## Adding wearTile Metadata
 
@@ -69,8 +91,9 @@ Switch Bedroom_Light "Bedroom Light" <light> (gBedroom) ["Lightbulb"] { wearTile
 
 | Field | Required | Type | Default | Description |
 |-------|----------|------|---------|-------------|
-| `value` | Yes | String | — | Any non-empty value (e.g., "tile"). Presence indicates the item is available for the watch tile. |
-| `config.position` | Yes | String | — | Display order on the tile. Plain number (`"1"` - `"7"`) for main page, or `"page:slot"` format for sub-pages (e.g., `"security:2"`). Lower numbers appear first. |
+| `value` | Yes | String | — | Determines item role: `"tile"` = tile item (requires `position`), `"complication"` = complication-only item. |
+| `config.position` | Tile only | String | — | Display order on the tile. Plain number (`"1"` - `"7"`) for main page, or `"page:slot"` format for sub-pages (e.g., `"security:2"`). Lower numbers appear first. Presence of this field makes the item appear on the tile. |
+| `config.complication` | No | Boolean | `"false"` | If `"true"`, the item appears in the complication picker on the watch. Can be combined with `position` to appear on both tile and complication. Not needed when `value` is already `"complication"`. |
 | `config.icon` | No | String | item's category | Override icon name. Supports classic (`light`), Material (`material:thermostat`), and Iconify (`iconify:mdi:gate`) formats. |
 | `config.label` | No | String | item's label | Override display label shown on the tile button. |
 | `config.action` | No | String | auto-toggle | What happens on tap. `"page:{name}"` = navigate to sub-page. `"command"` = send a fixed command. `null` = auto-toggle (ON↔OFF) or range control. |
@@ -221,7 +244,55 @@ Switch FrontGate_Control "Front Gate" <gate> { wearTile="tile" [position="securi
 Group gSecurity "Security" { wearTile="tile" [position="main:6", icon="iconify:mdi:shield-home", label="Security", action="page:security"] }
 ```
 
+## Configuring Items for Complications
+
+Watch face complications show a single item's state directly on the watch face (no app needed). Items are made available in the complication picker via the `wearTile` metadata.
+
+### Marking an item as a complication source
+
+**Option A — Complication only** (no tile button):
+```
+Number BDR_Temperature "Bedroom Temp" <temperature> { wearTile="complication" }
+```
+
+**Option B — Both tile and complication**:
+```
+Number Solar_Power "Solar" <solarplant> { wearTile="tile" [position="main:3", complication="true"] }
+```
+
+### Good complication candidates
+
+- Temperature sensors (`Number:Temperature`)
+- Energy/power values (`Number` with unit)
+- Humidity sensors
+- Battery levels
+- Door/window contacts (`Contact`)
+- Any read-only numeric value with a `stateDescription.pattern` for formatting
+
+### What the complication shows
+
+The watch formats the item state using `stateDescription.pattern` from the API:
+
+| Item state | Pattern | Complication displays |
+|-----------|---------|---------------------|
+| `22.456` | `"%.1f °C"` | `22.5 °C` |
+| `450` | `"%d W"` | `450 W` |
+| `ON` | (none) | `ON` |
+| `CLOSED` | (none) | `CLOSED` |
+
+For `RANGED_VALUE` complications (progress arc), `stateDescription.minimum` and `maximum` define the arc range.
+
+### How it works on the watch
+
+1. User long-presses watch face → Edit → taps a complication slot
+2. Selects "openHAB Item" from the picker list
+3. A config screen shows all items marked `complication` in their `wearTile` metadata
+4. User picks one → that item's state appears on the watch face
+5. Updates every 15 minutes via WorkManager (push-style, battery-friendly)
+
 ## Which Items Work Best
+
+### For Tiles
 
 The tile supports several interaction modes depending on item type and configuration:
 
