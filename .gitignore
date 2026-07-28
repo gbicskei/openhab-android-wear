@@ -1,4 +1,5 @@
 *.iml
+*.code-workspace
 .kiro/
 .gradle
 /local.properties

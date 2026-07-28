@@ -51,7 +51,6 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 | Storage | DataStore Preferences |
 | Images | Coil (SVG support) |
 | Push | Firebase Cloud Messaging |
-| Sync | Wear Data Layer API (one-time credential sync) |
 | Build | Kotlin DSL, Gradle Version Catalog |
 
 ## Project Structure
@@ -70,7 +69,6 @@ openhab-android-wear/
 │       ├── tile/                        # Wear OS Tile service + action handling
 │       ├── complication/                # Watch face complications
 │       ├── notification/                # FCM push handling
-│       ├── sync/                        # Data Layer credential sync (receiver)
 │       └── ui/
 │           ├── MainActivity.kt          # Launcher menu
 │           ├── GridPreviewActivity.kt   # Debug layout preview
