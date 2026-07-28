@@ -31,18 +31,22 @@ class SetupViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<SetupUiState>(SetupUiState.ManualEntry())
     val uiState: StateFlow<SetupUiState> = _uiState.asStateFlow()
 
+    private var hasPrefilledFromStore = false
+
     init {
-        // Load existing credentials if available
+        // Load existing credentials if available (one-shot prefill only)
         viewModelScope.launch {
             credentialStore.credentials.collect { credentials ->
-                // Only prefill on first load, don't overwrite user edits
-                val current = _uiState.value
-                if (credentials != null && current is SetupUiState.ManualEntry && current.username.isEmpty()) {
-                    _uiState.value = SetupUiState.ManualEntry(
-                        serverUrl = credentials.serverUrl,
-                        username = credentials.username,
-                        password = credentials.password
-                    )
+                if (!hasPrefilledFromStore && credentials != null) {
+                    hasPrefilledFromStore = true
+                    val current = _uiState.value
+                    if (current is SetupUiState.ManualEntry && current.username.isEmpty()) {
+                        _uiState.value = SetupUiState.ManualEntry(
+                            serverUrl = credentials.serverUrl,
+                            username = credentials.username,
+                            password = credentials.password
+                        )
+                    }
                 }
             }
         }

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.RemoteInput
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -162,7 +163,7 @@ private fun ManualEntryScreen(
         item {
             Button(
                 onClick = {
-                    passLauncher.launch(createRemoteInputIntent("Password", password))
+                    passLauncher.launch(createRemoteInputIntent("Password", password, isPassword = true))
                 },
                 modifier = Modifier.fillMaxWidth(0.9f),
                 label = { Text("Password") },
@@ -187,10 +188,18 @@ private fun ManualEntryScreen(
 }
 
 /** Creates a RemoteInput intent for Wear OS text entry. */
-private fun createRemoteInputIntent(label: String, prefill: String): Intent {
-    val remoteInput = RemoteInput.Builder(KEY_INPUT)
+private fun createRemoteInputIntent(label: String, prefill: String, isPassword: Boolean = false): Intent {
+    val builder = RemoteInput.Builder(KEY_INPUT)
         .setLabel(label)
-        .build()
+    if (isPassword) {
+        val extras = Bundle().apply {
+            putInt("android.remoteinput.editChoicesBeforeSending", 0)
+            putInt("android.remoteinput.inputType",
+                InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        }
+        builder.addExtras(extras)
+    }
+    val remoteInput = builder.build()
 
     return RemoteInputIntentHelper.createActionRemoteInputIntent().apply {
         RemoteInputIntentHelper.putRemoteInputsExtra(this, listOf(remoteInput))
