@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Simple openHAB-style circle icon placeholder -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,27 C68.9,27 81,39.1 81,54 C81,68.9 68.9,81 54,81 C39.1,81 27,68.9 27,54 C27,39.1 39.1,27 54,27 Z M54,33 C42.4,33 33,42.4 33,54 C33,65.6 42.4,75 54,75 C65.6,75 75,65.6 75,54 C75,42.4 65.6,33 54,33 Z" />
+</vector>

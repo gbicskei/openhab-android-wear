@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1041636424186",
+    "project_id": "openhab-android-watch",
+    "storage_bucket": "openhab-android-watch.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041636424186:android:dc012a3517d579de044c43",
+        "android_client_info": {
+          "package_name": "org.openhab.habdroid.wear"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl0dAcyl6L2VxnDmUBD7YV4OJusAfUQEM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1041636424186:android:66736dac276d263f044c43",
+        "android_client_info": {
+          "package_name": "org.openhab.habdroid.wear.phone"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl0dAcyl6L2VxnDmUBD7YV4OJusAfUQEM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

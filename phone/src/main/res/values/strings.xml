@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">openHAB Wear Setup</string>
+    <string name="setup_title">Connect to openHAB</string>
+    <string name="server_url_label">Server URL</string>
+    <string name="server_url_placeholder">https://myopenhab.org</string>
+    <string name="username_label">Username</string>
+    <string name="password_label">Password</string>
+    <string name="test_connection">Test Connection</string>
+    <string name="send_to_watch">Send to Watch</string>
+    <string name="connection_testing">Testing connection…</string>
+    <string name="connection_success">Connected successfully</string>
+    <string name="connection_failed">Connection failed</string>
+    <string name="watch_not_found">No watch found</string>
+    <string name="watch_connected">Watch connected</string>
+    <string name="sync_success">Credentials sent to watch</string>
+    <string name="sync_failed">Failed to send credentials</string>
+    <string name="watch_section_title">Watch Sync</string>
+</resources>
