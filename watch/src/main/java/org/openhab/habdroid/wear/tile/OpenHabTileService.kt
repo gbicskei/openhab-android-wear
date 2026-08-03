@@ -107,9 +107,23 @@ class OpenHabTileService : TileService() {
 
             // Load all items for resources, filter current page for layout
             val t1 = System.currentTimeMillis()
-            val allItems = repository.getAvailableTileItems().getOrDefault(emptyList())
+            var allItems = repository.getAvailableTileItems().getOrDefault(emptyList())
             val t2 = System.currentTimeMillis()
             android.util.Log.d("TileNav", "getAvailableTileItems: ${t2-t1}ms, ${allItems.size} items, cache=${allItems.isNotEmpty()}")
+
+            // If states are stale (warm start from disk or after process restart), refresh now
+            if (!itemCache.statesLoaded && allItems.isNotEmpty()) {
+                android.util.Log.d("TileNav", "States stale — refreshing inline")
+                repository.refreshStates()
+                    .onSuccess {
+                        allItems = itemCache.get() ?: allItems
+                        android.util.Log.d("TileNav", "Inline state refresh done")
+                    }
+                    .onFailure { e ->
+                        android.util.Log.w("TileNav", "Inline state refresh failed: ${e.message}")
+                    }
+            }
+
             allTileItems = allItems
             resourceVersion = System.currentTimeMillis().toString()
 
@@ -160,6 +174,10 @@ class OpenHabTileService : TileService() {
                         android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
                         if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
+                    } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE) {
+                        // None display: always neutral, no state indication
+                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (stateDisplay=none)")
+                        org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else {
                         // Value display, range items — always neutral
                         android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
@@ -173,6 +191,7 @@ class OpenHabTileService : TileService() {
                 val stateText = when {
                     tileItem.isPageNavigation -> null
                     tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR -> null
+                    tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE -> null
                     tileItem.isRangeControl -> formatRangeState(displayItem)
                     else -> formatState(state)
                 }
@@ -216,10 +235,10 @@ class OpenHabTileService : TileService() {
         // Invalidate states — tile renders dimmed until fresh states arrive
         itemCache.invalidateStates()
 
-        // Request a tile refresh (will render dimmed)
+        // Request a tile refresh (will render with stale/dimmed state)
         getUpdater(this).requestUpdate(OpenHabTileService::class.java)
 
-        // Fetch fresh states in background, then refresh tile again (lit)
+        // Fetch fresh states in background (single batch call), then refresh tile (lit)
         serviceScope.launch {
             repository.refreshStates()
                 .onSuccess {
@@ -230,22 +249,38 @@ class OpenHabTileService : TileService() {
                     android.util.Log.w("TileNav", "Failed to fetch states: ${e.message}")
                 }
 
-            // Start SSE after states are loaded
-            tileStateEventSource.watchedItems = allTileItems.map { it.displayItemName }.toSet()
+            // Build watched items set including Group members
+            val watchSet = buildWatchedItemsSet(allTileItems)
+            tileStateEventSource.watchedItems = watchSet
+
+            // Start SSE (handles reconnection + polling fallback internally)
             tileStateEventSource.start {
-                // SSE state change — refresh states from server then re-render tile
-                serviceScope.launch {
-                    repository.refreshStates()
-                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
-                }
+                // Cache already updated by TileStateEventSource — just re-render
+                getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
             }
         }
     }
 
     override fun onTileLeaveEvent(requestParams: EventBuilders.TileLeaveEvent) {
         super.onTileLeaveEvent(requestParams)
-        // Stop SSE connection when tile is no longer visible
+        // Stop SSE/polling when tile is no longer visible
         tileStateEventSource.stop()
+    }
+
+    /**
+     * Build the set of item names to watch for SSE state changes.
+     * Includes display items, action items, and Group members.
+     */
+    private fun buildWatchedItemsSet(items: List<TileItem>): Set<String> {
+        val names = mutableSetOf<String>()
+        for (item in items) {
+            names.add(item.displayItemName)
+            item.commandItemName?.let { names.add(it) }
+            // Include Group members so SSE picks up their state changes
+            item.item.members?.forEach { member -> names.add(member.name) }
+            item.valueItem?.members?.forEach { member -> names.add(member.name) }
+        }
+        return names
     }
 
     private fun buildTile(items: List<TileItem>, currentPage: String, requestParams: RequestBuilders.TileRequest): TileBuilders.Tile {
@@ -723,9 +758,12 @@ class OpenHabTileService : TileService() {
     /**
      * Builds the click action for a tile item.
      * Navigation buttons → loadAction (re-renders tile with new page).
-     * Switch items → launch TileActionReceiver (toggle).
-     * Range items → launch RotaryControlActivity.
      * Contact items → no action (display only).
+     * Range items → launch RotaryControlActivity.
+     * Color items → launch ColorPickerActivity.
+     * Rollershutter items → launch RollerShutterActivity.
+     * Items with commandOptions → launch ChoicePickerActivity.
+     * Switch/toggle items → launch TileActionReceiver (toggle/command).
      */
     private fun buildItemClickable(tileItem: TileItem): ModifiersBuilders.Clickable {
         val item = tileItem.item
@@ -782,6 +820,72 @@ class OpenHabTileService : TileService() {
                             .setAndroidActivity(
                                 ActionBuilders.AndroidActivity.Builder()
                                     .setClassName("org.openhab.habdroid.wear.ui.control.RotaryControlActivity")
+                                    .setPackageName("org.openhab.habdroid.wear")
+                                    .addKeyToExtraMapping(
+                                        "item_name",
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.commandTargetName)
+                                            .build()
+                                    )
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            }
+            item.type == "Color" -> {
+                // Color item → open color picker
+                ModifiersBuilders.Clickable.Builder()
+                    .setId("color_${item.name}")
+                    .setOnClick(
+                        ActionBuilders.LaunchAction.Builder()
+                            .setAndroidActivity(
+                                ActionBuilders.AndroidActivity.Builder()
+                                    .setClassName("org.openhab.habdroid.wear.ui.control.ColorPickerActivity")
+                                    .setPackageName("org.openhab.habdroid.wear")
+                                    .addKeyToExtraMapping(
+                                        "item_name",
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.commandTargetName)
+                                            .build()
+                                    )
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            }
+            item.type == "Rollershutter" -> {
+                // Rollershutter item → open roller shutter control
+                ModifiersBuilders.Clickable.Builder()
+                    .setId("shutter_${item.name}")
+                    .setOnClick(
+                        ActionBuilders.LaunchAction.Builder()
+                            .setAndroidActivity(
+                                ActionBuilders.AndroidActivity.Builder()
+                                    .setClassName("org.openhab.habdroid.wear.ui.control.RollerShutterActivity")
+                                    .setPackageName("org.openhab.habdroid.wear")
+                                    .addKeyToExtraMapping(
+                                        "item_name",
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.commandTargetName)
+                                            .build()
+                                    )
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            }
+            item.commandDescription?.commandOptions?.isNotEmpty() == true -> {
+                // Item with command options → open choice picker
+                ModifiersBuilders.Clickable.Builder()
+                    .setId("choice_${item.name}")
+                    .setOnClick(
+                        ActionBuilders.LaunchAction.Builder()
+                            .setAndroidActivity(
+                                ActionBuilders.AndroidActivity.Builder()
+                                    .setClassName("org.openhab.habdroid.wear.ui.control.ChoicePickerActivity")
                                     .setPackageName("org.openhab.habdroid.wear")
                                     .addKeyToExtraMapping(
                                         "item_name",

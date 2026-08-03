@@ -1,0 +1,145 @@
+package org.openhab.habdroid.wear.ui.control
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import javax.inject.Inject
+
+data class RollerShutterState(
+    val itemName: String = "",
+    val label: String = "",
+    val position: Float = 0f, // 0 = open, 100 = closed (openHAB convention)
+    val isMoving: Boolean = false,
+    val isLoading: Boolean = true,
+    val error: String? = null
+) {
+    /** Display text for position */
+    val positionDisplay: String
+        get() = when (position.toInt()) {
+            0 -> "OPEN"
+            100 -> "CLOSED"
+            else -> "${position.toInt()}%"
+        }
+}
+
+@HiltViewModel
+class RollerShutterViewModel @Inject constructor(
+    private val repository: OpenHabRepository,
+    savedStateHandle: SavedStateHandle
+) : ViewModel() {
+
+    private val itemName: String = savedStateHandle["item_name"] ?: ""
+
+    private val _state = MutableStateFlow(RollerShutterState(itemName = itemName))
+    val state: StateFlow<RollerShutterState> = _state.asStateFlow()
+
+    private var sendJob: Job? = null
+
+    init {
+        loadCurrentState()
+    }
+
+    private fun loadCurrentState() {
+        viewModelScope.launch {
+            repository.getItem(itemName)
+                .onSuccess { item ->
+                    val position = item.numericState?.toFloat()?.coerceIn(0f, 100f) ?: 0f
+                    _state.value = RollerShutterState(
+                        itemName = itemName,
+                        label = item.displayLabel,
+                        position = position,
+                        isLoading = false
+                    )
+                }
+                .onFailure { error ->
+                    _state.value = _state.value.copy(
+                        isLoading = false,
+                        error = error.localizedMessage ?: "Failed to load item"
+                    )
+                }
+        }
+    }
+
+    /**
+     * Send UP command — opens the shutter (moves toward 0%).
+     */
+    fun sendUp() {
+        val current = _state.value
+        if (current.isLoading || current.error != null) return
+        _state.value = current.copy(isMoving = true)
+        viewModelScope.launch {
+            repository.sendCommand(itemName, "UP")
+            _state.value = _state.value.copy(isMoving = false)
+        }
+    }
+
+    /**
+     * Send DOWN command — closes the shutter (moves toward 100%).
+     */
+    fun sendDown() {
+        val current = _state.value
+        if (current.isLoading || current.error != null) return
+        _state.value = current.copy(isMoving = true)
+        viewModelScope.launch {
+            repository.sendCommand(itemName, "DOWN")
+            _state.value = _state.value.copy(isMoving = false)
+        }
+    }
+
+    /**
+     * Send STOP command — halts shutter movement.
+     */
+    fun sendStop() {
+        val current = _state.value
+        if (current.isLoading || current.error != null) return
+        viewModelScope.launch {
+            repository.sendCommand(itemName, "STOP")
+            _state.value = _state.value.copy(isMoving = false)
+            // Refresh position after stop
+            delay(500)
+            refreshPosition()
+        }
+    }
+
+    /**
+     * Adjust position via bezel rotation.
+     * Scroll down = close (increase %), scroll up = open (decrease %).
+     */
+    fun onRotatePosition(delta: Float) {
+        val current = _state.value
+        if (current.isLoading || current.error != null) return
+
+        val newPosition = (current.position + delta / 30f).coerceIn(0f, 100f)
+        if (newPosition.toInt() == current.position.toInt()) return
+
+        _state.value = current.copy(position = newPosition)
+
+        // Debounce: send position command after 500ms
+        sendJob?.cancel()
+        sendJob = viewModelScope.launch {
+            delay(500)
+            sendPosition(newPosition.toInt())
+        }
+    }
+
+    private suspend fun sendPosition(position: Int) {
+        repository.sendCommand(itemName, position.toString())
+    }
+
+    private suspend fun refreshPosition() {
+        repository.getItem(itemName)
+            .onSuccess { item ->
+                val position = item.numericState?.toFloat()?.coerceIn(0f, 100f)
+                    ?: _state.value.position
+                _state.value = _state.value.copy(position = position)
+            }
+    }
+}

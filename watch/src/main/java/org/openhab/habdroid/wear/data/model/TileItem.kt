@@ -112,11 +112,14 @@ enum class ValueDisplay {
     /** Show state as text (ON/OFF, 60, 22.5°C) */
     VALUE,
     /** Show as color-highlighted circle (accent=active, grey=inactive, no text) */
-    COLOR;
+    COLOR,
+    /** No state indicator — neutral icon with no state text, useful for command-only buttons */
+    NONE;
 
     companion object {
         fun fromString(value: String?): ValueDisplay = when (value?.lowercase()) {
             "color" -> COLOR
+            "none" -> NONE
             else -> VALUE
         }
     }

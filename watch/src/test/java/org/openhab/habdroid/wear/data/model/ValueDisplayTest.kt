@@ -45,4 +45,19 @@ class ValueDisplayTest {
         assertEquals(ValueDisplay.VALUE, ValueDisplay.fromString("text"))
         assertEquals(ValueDisplay.VALUE, ValueDisplay.fromString("icon"))
     }
+
+    @Test
+    fun `fromString returns NONE for none`() {
+        assertEquals(ValueDisplay.NONE, ValueDisplay.fromString("none"))
+    }
+
+    @Test
+    fun `fromString returns NONE for NONE uppercase`() {
+        assertEquals(ValueDisplay.NONE, ValueDisplay.fromString("NONE"))
+    }
+
+    @Test
+    fun `fromString returns NONE for None mixed case`() {
+        assertEquals(ValueDisplay.NONE, ValueDisplay.fromString("None"))
+    }
 }
