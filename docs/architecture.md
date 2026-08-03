@@ -54,7 +54,6 @@ Connection options:
 
 **Auth methods:**
 - HTTP Basic (username + password)
-- API Token (openHAB 4+ token in username field, empty password)
 
 ### 3. Server-Side Configuration (wearTile metadata)
 
@@ -106,7 +105,6 @@ Connection options:
 | Serialization | kotlinx.serialization | Kotlin-native, no reflection, smaller APK than Gson |
 | Storage | DataStore Preferences | Coroutine-native replacement for SharedPreferences |
 | Images | Coil | Compose integration, SVG decoder for openHAB icons |
-| Push | Firebase Cloud Messaging | Same channel the openHAB Cloud connector uses |
 | Phone Sync | Wear Data Layer API | Standard phone↔watch messaging |
 | Background | WorkManager | Reliable background task scheduling |
 | Build | Kotlin DSL + Version Catalog | Type-safe, centralized dependency management |
@@ -143,14 +141,6 @@ VoiceCommandActivity
     → POST {serverUrl}/rest/voice/interpreters
       (with Accept-Language header)
   → openHAB server interprets and executes
-```
-
-### Push Notification
-```
-openHAB rule triggers sendNotification()
-  → openHAB Cloud → FCM → FcmListenerService
-    → Parse message type (notification / hideNotification)
-    → Display Android notification on watch
 ```
 
 ## Minimum Device Requirements

@@ -243,26 +243,7 @@ Available interpreters:
 
 ---
 
-## 3. Push Notifications
-
-Receive openHAB Cloud notifications directly on the watch.
-
-### How it works
-
-1. An openHAB rule calls `sendNotification()` or `sendBroadcastNotification()`
-2. openHAB Cloud pushes via FCM to registered devices
-3. `FcmListenerService` receives and displays a notification
-
-### Supported features
-
-- Title + message text
-- Notification grouping (by tag)
-- Replace/cancel notifications (by reference-id)
-- Notification channel with vibration
-
----
-
-## 4. App Menu (Launcher)
+## 3. App Menu (Launcher)
 
 Opening the app from the watch launcher shows:
 
@@ -279,7 +260,7 @@ Opening the app from the watch launcher shows:
 
 ---
 
-## 5. Theme Picker (Tile Long-Press)
+## 4. Theme Picker (Tile Long-Press)
 
 Accessed via long-press on tile → system pencil icon.
 
@@ -310,7 +291,7 @@ Accessed via long-press on tile → system pencil icon.
 
 ---
 
-## 6. Phone Companion App
+## 5. Phone Companion App
 
 A full Android phone application for managing the watch tile configuration.
 

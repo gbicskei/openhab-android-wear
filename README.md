@@ -10,7 +10,6 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 - **Watch Face Complications** — Display item values on the watch face (4 types: SHORT_TEXT, LONG_TEXT, RANGED_VALUE, MONOCHROMATIC_IMAGE)
 - **Themes** — 5 color themes (amber, blue, green, purple, red) with radial glow
 - **Voice Commands** — Natural language commands processed by openHAB's interpreter
-- **Push Notifications** — openHAB Cloud notifications via FCM
 - **Standalone Operation** — Connects directly to any openHAB server over WiFi/LTE (cloud relay, local, or VPN)
 - **Real-time Updates** — SSE with automatic reconnection + polling fallback
 - **Multi-page Navigation** — Sub-pages for organizing items (Security, Climate, etc.)
@@ -68,7 +67,6 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 | Networking | Retrofit + OkHttp + kotlinx.serialization |
 | Storage | DataStore Preferences |
 | Images | Coil (SVG support) |
-| Push | Firebase Cloud Messaging |
 | Build | Kotlin DSL, Gradle Version Catalog |
 
 ## Project Structure
