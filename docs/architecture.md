@@ -55,17 +55,17 @@ Connection options:
 **Auth methods:**
 - HTTP Basic (username + password)
 
-### 3. Server-Side Configuration (wearTile metadata)
+### 3. Server-Side Configuration (UI Components)
 
-**Decision:** Tile item selection is stored as openHAB item metadata, not on the watch. The watch is read-only with respect to metadata — it never writes, modifies, or deletes `wearTile` metadata.
+**Decision:** Tile layout is stored as UI components at `/rest/ui/components/wear:tile`, managed by the phone companion editor. The watch reads these components — it never writes them.
 
 **Rationale:**
 - The server is the single source of truth — survives watch resets
-- Configurable from the openHAB Main UI on desktop (big screen, search/filter)
-- No modification to the existing mobile app required
-- Watch simply queries "which items have wearTile metadata?" and displays them
+- Phone companion provides a visual editor (no JSON knowledge needed)
 - Multiple watches can share the same configuration
-- Keeps the watch app simple — no metadata CRUD, no conflict resolution
+- Keeps the watch app simple — read-only consumer of config
+
+**Legacy:** The watch still reads `wearTile` item metadata as a fallback for complication item discovery if the `wear:complication-list` document doesn't exist.
 
 ### 4. One-Time Credential Sync via Data Layer API
 

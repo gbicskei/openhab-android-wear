@@ -44,7 +44,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 5. Long-press tile on watch → pencil to change theme (or set via phone)
 
 ### Legacy: Manual item metadata
-If not using the phone companion, items can be configured directly in openHAB with `wearTile` metadata. See [openHAB Configuration](docs/openhab-configuration.md).
+Items with `wearTile` metadata are supported as a fallback for complication discovery only. Tile configuration is done via the phone companion editor.
 
 ## Documentation
 
@@ -52,7 +52,6 @@ If not using the phone companion, items can be configured directly in openHAB wi
 |----------|-------------|
 | [Architecture](docs/architecture.md) | System design, connectivity model, tech stack decisions |
 | [Features](docs/features.md) | Detailed feature descriptions and UX flows |
-| [openHAB Configuration](docs/openhab-configuration.md) | How to configure items for the watch tile |
 | [Complications](docs/complications.md) | Watch face complications setup and usage |
 | [Icons](docs/icons/ICONS.md) | Custom icon system — design spec, theming, creating new icons |
 | [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
