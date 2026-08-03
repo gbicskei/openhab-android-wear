@@ -2,27 +2,32 @@
 
 ## Overview
 
-The openHAB Wear OS app is a **standalone watch application** that communicates directly with an openHAB server (typically via the myopenhab.org cloud relay). It does not require the phone to be present or connected for day-to-day operation.
+The openHAB Wear OS app is a **standalone watch application** that communicates directly with any openHAB server — either through the myopenhab.org cloud relay, a self-hosted cloud instance, or a directly-accessible local/VPN server. It does not require the phone to be present or connected for day-to-day operation.
 
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│   Galaxy Watch  │◀──WiFi──▶│  myopenhab.org   │◀──────▶│  Home openHAB   │
-│   (Wear OS 5+) │  / LTE   │  (cloud relay)   │         │  Server (5.x)   │
+│   Galaxy Watch  │◀──WiFi──▶│  openHAB Server  │         │   OR: via cloud │
+│   (Wear OS 5+) │  / LTE   │  (direct/local)  │         │   relay proxy   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
         ▲
         │ one-time sync (Data Layer API)
         ▼
 ┌─────────────────┐
 │   Phone App     │
-│  (openHAB)      │
+│  (companion)    │
 └─────────────────┘
 ```
+
+Connection options:
+- **Cloud relay** (myopenhab.org) — no port forwarding needed, works on LTE away from home
+- **Direct connection** — local IP or hostname (requires watch to be on same network or via VPN)
+- **Self-hosted cloud** — custom openHAB Cloud instance
 
 ## Key Architecture Decisions
 
 ### 1. Standalone Watch App (not phone-dependent)
 
-**Decision:** The watch connects directly to myopenhab.org over WiFi/LTE.
+**Decision:** The watch connects directly to the user's openHAB server over WiFi/LTE.
 
 **Rationale:**
 - Modern watches (Galaxy Watch Ultra 2025) have LTE — not using it would waste the hardware
@@ -32,32 +37,35 @@ The openHAB Wear OS app is a **standalone watch application** that communicates 
 
 **Trade-off:** Initial setup requires the phone for credential sync (typing on a tiny screen is painful). After that one-time handshake, the watch operates independently.
 
-### 2. Cloud Relay (myopenhab.org) as Primary Connection
+### 2. Flexible Server Connection
 
-**Decision:** Use the openHAB Cloud service as the connection endpoint.
+**Decision:** Support any accessible openHAB server — cloud relay, direct local, or custom cloud.
 
 **Rationale:**
-- No port forwarding or VPN required on the home network
-- Same approach the existing mobile app uses
-- Works anywhere the watch has internet (home WiFi, LTE on the go)
-- The cloud connector handles authentication and proxying transparently
+- myopenhab.org cloud relay is convenient (no port forwarding, works on LTE)
+- But many users expose their server directly (reverse proxy, VPN, Tailscale, etc.)
+- The watch simply needs a base URL + credentials — connection topology is irrelevant
 
-**Connection details:**
-- Base URL: `https://myopenhab.org/rest/`
-- Auth: HTTP Basic (email + password)
-- Note: `connect.myopenhab.org` does NOT accept Basic Auth (redirects to login page)
+**Supported configurations:**
+- `https://myopenhab.org` — official cloud relay (email + password auth)
+- `https://openhab.example.com` — self-hosted, reverse-proxied instance
+- `http://192.168.1.x:8080` — local network (requires watch on same WiFi)
+- Any URL that exposes `/rest/items` and accepts Basic Auth or API tokens
 
-### 3. Server-Side Configuration (wearTile metadata)
+**Auth methods:**
+- HTTP Basic (username + password)
 
-**Decision:** Tile item selection is stored as openHAB item metadata, not on the watch. The watch is read-only with respect to metadata — it never writes, modifies, or deletes `wearTile` metadata.
+### 3. Server-Side Configuration (UI Components)
+
+**Decision:** Tile layout is stored as UI components at `/rest/ui/components/wear:tile`, managed by the phone companion editor. The watch reads these components — it never writes them.
 
 **Rationale:**
 - The server is the single source of truth — survives watch resets
-- Configurable from the openHAB Main UI on desktop (big screen, search/filter)
-- No modification to the existing mobile app required
-- Watch simply queries "which items have wearTile metadata?" and displays them
+- Phone companion provides a visual editor (no JSON knowledge needed)
 - Multiple watches can share the same configuration
-- Keeps the watch app simple — no metadata CRUD, no conflict resolution
+- Keeps the watch app simple — read-only consumer of config
+
+**Legacy:** The watch still reads `wearTile` item metadata as a fallback for complication item discovery if the `wear:complication-list` document doesn't exist.
 
 ### 4. One-Time Credential Sync via Data Layer API
 
@@ -97,7 +105,6 @@ The openHAB Wear OS app is a **standalone watch application** that communicates 
 | Serialization | kotlinx.serialization | Kotlin-native, no reflection, smaller APK than Gson |
 | Storage | DataStore Preferences | Coroutine-native replacement for SharedPreferences |
 | Images | Coil | Compose integration, SVG decoder for openHAB icons |
-| Push | Firebase Cloud Messaging | Same channel the openHAB Cloud connector uses |
 | Phone Sync | Wear Data Layer API | Standard phone↔watch messaging |
 | Background | WorkManager | Reliable background task scheduling |
 | Build | Kotlin DSL + Version Catalog | Type-safe, centralized dependency management |
@@ -109,8 +116,8 @@ The openHAB Wear OS app is a **standalone watch application** that communicates 
 TileService.onTileRequest()
   → OpenHabRepository.getTileItems()
     → OpenHabApiService.getItems(metadata="wearTile")
-      → OkHttp → AuthInterceptor (adds URL + Basic Auth)
-        → myopenhab.org/rest/items?metadata=wearTile
+      → OkHttp → AuthInterceptor (adds base URL + auth header)
+        → {serverUrl}/rest/items?metadata=wearTile
   → Filter items with wearTile metadata
   → Sort by position
   → Render 1-7 item buttons in grid layout
@@ -121,7 +128,7 @@ TileService.onTileRequest()
 User taps item button on tile
   → TileActionReceiver (transparent Activity)
     → OpenHabRepository.sendCommand(itemName, "ON"/"OFF")
-      → POST myopenhab.org/rest/items/{name}
+      → POST {serverUrl}/rest/items/{name}
     → Request tile refresh
 ```
 
@@ -131,17 +138,9 @@ VoiceCommandActivity
   → ACTION_RECOGNIZE_SPEECH (system speech UI)
   → Recognized text returned
   → OpenHabRepository.sendVoiceCommand(text)
-    → POST myopenhab.org/rest/voice/interpreters
+    → POST {serverUrl}/rest/voice/interpreters
       (with Accept-Language header)
   → openHAB server interprets and executes
-```
-
-### Push Notification
-```
-openHAB rule triggers sendNotification()
-  → openHAB Cloud → FCM → FcmListenerService
-    → Parse message type (notification / hideNotification)
-    → Display Android notification on watch
 ```
 
 ## Minimum Device Requirements
@@ -149,9 +148,8 @@ openHAB rule triggers sendNotification()
 | Requirement | Value | Reason |
 |-------------|-------|--------|
 | Wear OS version | 5+ (API 34) | Google Play minimum for new apps (Aug 2025) |
-| Connectivity | WiFi or LTE | Direct cloud connection required |
+| Connectivity | WiFi or LTE | Direct server connection (cloud relay, local, or VPN) |
 | Microphone | Required | Voice command input |
-| Speaker | Optional | TTS notifications (text fallback available) |
 
 ## Security Considerations
 

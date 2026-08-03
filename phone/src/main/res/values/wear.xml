@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Capability advertised to the watch so it can detect if the phone companion is installed -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>openhab_phone_app</item>
+    </string-array>
+</resources>
