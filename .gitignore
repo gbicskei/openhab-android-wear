@@ -9,8 +9,13 @@
 /captures
 .externalNativeBuild
 .cxx
+/watch/build
+/phone/build
+/shared/build
 /app/build
 /app/google-services.json
+/watch/google-services.json
+/phone/google-services.json
 keystore.properties
 *.jks
 *.keystore

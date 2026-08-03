@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "openhab-wear"
-include(":app")
+include(":watch", ":phone", ":shared")
