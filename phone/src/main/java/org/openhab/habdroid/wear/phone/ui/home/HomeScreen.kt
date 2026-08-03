@@ -97,6 +97,12 @@ fun HomeScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
+            Text(
+                text = "v${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME} (${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // Watch status chip
@@ -160,13 +166,6 @@ fun HomeScreen(
             )
 
             Spacer(modifier = Modifier.weight(1f))
-
-            Text(
-                text = "v0.1.0",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                textAlign = TextAlign.Center
-            )
         }
     }
 }
