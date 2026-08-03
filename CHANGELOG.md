@@ -23,7 +23,7 @@ A full Android phone application for configuring and managing the watch tile rem
 - Re-checks sync status on every RESUMED lifecycle event
 
 #### Connection Screen
-- **Main Server** — the openHAB cloud URL (remote access via myopenhab.org)
+- **Main Server** — the openHAB server URL (cloud relay like myopenhab.org, or direct URL)
 - **Config Server** — local network URL for direct REST API access to edit tile config
 - Connection testing with "Test" button before saving
 - Encrypted credential storage (EncryptedSharedPreferences)

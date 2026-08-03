@@ -317,7 +317,7 @@ A full Android phone application for managing the watch tile configuration.
 ### Connection Setup
 
 Two server connections:
-- **Main Server** — the openHAB Cloud URL (myopenhab.org) for watch communication
+- **Main Server** — the openHAB server URL used by the watch (cloud relay or direct)
 - **Config Server** — local network URL for REST API access to edit tile configuration
 
 Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences.

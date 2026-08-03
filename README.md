@@ -11,7 +11,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 - **Themes** — 5 color themes (amber, blue, green, purple, red) with radial glow
 - **Voice Commands** — Natural language commands processed by openHAB's interpreter
 - **Push Notifications** — openHAB Cloud notifications via FCM
-- **Standalone Operation** — Connects directly to myopenhab.org over WiFi/LTE
+- **Standalone Operation** — Connects directly to any openHAB server over WiFi/LTE (cloud relay, local, or VPN)
 - **Real-time Updates** — SSE with automatic reconnection + polling fallback
 - **Multi-page Navigation** — Sub-pages for organizing items (Security, Climate, etc.)
 - **Disk Caching** — Warm start from cached config on process restart
@@ -40,7 +40,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 
 ### Phone Companion (recommended)
 1. Install the phone app: `./gradlew :phone:assembleDebug`
-2. Configure Main Server (myopenhab.org) + Config Server (local openHAB URL)
+2. Configure Main Server (e.g. myopenhab.org or your own URL) + Config Server (local openHAB URL)
 3. Use Tile Design to visually configure your watch layout
 4. Tap "Sync to Watch" to push credentials + trigger reload
 5. Long-press tile on watch → pencil to change theme (or set via phone)
