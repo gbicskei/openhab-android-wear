@@ -80,17 +80,23 @@ openhab-android-wear/
 ## Build
 
 ```bash
-# Debug build
-./gradlew :app:assembleDebug
+# Build watch (release)
+./gradlew :watch:assembleRelease
 
-# Release build (requires signing config)
-./gradlew :app:assembleRelease
+# Build phone (debug)
+./gradlew :phone:assembleDebug
+
+# Build both
+./gradlew :phone:assembleDebug :watch:assembleRelease
 
 # Run lint checks
 ./gradlew lint
 
 # Run unit tests
 ./gradlew test
+
+# Run specific watch tests
+./gradlew :watch:test --tests "org.openhab.habdroid.wear.data.model.ValueDisplayTest"
 ```
 
 ## Firebase Setup
@@ -151,14 +157,14 @@ The watch WiFi debugging connection **drops frequently**. Known causes and mitig
 ### Deploy
 
 ```bash
-# Verify watch is connected
-adb devices
+# Verify devices connected
+adb devices -l
 
-# Install watch app to watch
-adb -s adb-RFAXA2EE8ZZ-mRPCxM._adb-tls-connect._tcp install -r app/build/outputs/apk/debug/app-debug.apk
+# Install watch app
+adb -t <watch_transport_id> install -r watch/build/outputs/apk/release/watch-release.apk
 
-# If multiple watch serial entries appear after reconnect, try each one:
-adb -s "adb-RFAXA2EE8ZZ-mRPCxM (2)._adb-tls-connect._tcp" install -r ...
+# Install phone app
+adb -s <phone_serial> install -r phone/build/outputs/apk/debug/phone-debug.apk
 ```
 
 ### Debug APK Size

@@ -22,6 +22,9 @@ Items behave differently based on their type and metadata configuration:
 |-----------|-------------|------------|
 | Switch | Label + state (ON/OFF or color) | Send toggle command, wait for SSE state update |
 | Dimmer/Number (with min/max) | Label + current value | Opens dedicated rotary control screen |
+| Color | Label + state (HSB or color) | Opens color picker (preset chips + bezel brightness) |
+| Rollershutter | Label + position % | Opens roller shutter control (UP/STOP/DOWN + bezel) |
+| Item with commandOptions | Label + current value | Opens choice picker (scrollable option list) |
 | Contact (read-only) | Label + value | No action (display only) |
 | Command button (`action: "command"`) | Label + state from `valueItem` or primary | Sends fixed `commandValue` to target item |
 | Navigation button (`action: "page:..."`) | Page label + icon | Navigate to sub-page (via LoadAction) |
@@ -49,6 +52,40 @@ Tapping a range item navigates to a dedicated control screen:
 - Min/max/step auto-detected from `stateDescription`
 - Value sent via debounced command (500ms after last rotation)
 - Back gesture or swipe-dismiss returns to the tile
+
+#### Color items (color picker)
+
+Tapping a Color item opens a dedicated color selection screen:
+
+- **Preset color chips** in a 2×5 grid: Red, Orange, Yellow, Green, Cyan, Blue, Purple, Pink, Warm White, Cool White
+- **Brightness arc** on the screen edge shows current brightness level
+- **Bezel rotation** adjusts brightness (0-100%)
+- Tap a chip to select hue + saturation (brightness preserved)
+- Tap ON/OFF label to toggle the light
+- Sends openHAB HSB command format (e.g. `120,100,50`) with 400ms debounce
+- Parses current state from item's HSB string on launch (supports `H,S,B`, percentage, ON/OFF)
+
+#### Rollershutter items (shutter control)
+
+Tapping a Rollershutter item opens a dedicated control screen:
+
+- Three large vertically-stacked buttons: **UP** (green), **STOP** (orange), **DOWN** (red)
+- Current position displayed in the center: `OPEN` (0%), `CLOSED` (100%), or percentage
+- **Position arc** on screen edge starts from top, fills clockwise as shutter closes
+- **Bezel rotation** adjusts position directly (sends percentage command with 500ms debounce)
+- UP/DOWN/STOP send their respective commands immediately
+- Position refreshes from server 500ms after STOP command
+
+#### Items with command options (choice picker)
+
+Items that have `commandDescription.commandOptions` (or `stateDescription.options` as fallback) open a scrollable list:
+
+- **ScalingLazyColumn** (Wear OS optimized for round screens)
+- Header shows item label
+- Each option displayed as a card with label and raw command value
+- Currently active option highlighted in amber
+- Tap sends the command immediately
+- Useful for scene selectors, input selectors, mode switches, and any item with predefined values
 
 ### Concentric Layout
 
@@ -121,16 +158,33 @@ Theme picker uses bezel/crown rotation with live preview.
 
 ### Caching
 
-- **Item configuration** (metadata, positions, labels, icons): cached in memory after first fetch. Persists until "Reload Items" in the app.
-- **Item states**: fetched fresh on each tile enter (swipe to tile). Updated via SSE while visible.
+- **Tile config**: persisted to disk as JSON (`TileConfigDiskCache`). On process restart, renders immediately from disk cache (warm start), then refreshes states from server in background.
+- **Item states**: fetched fresh on each tile enter (cold load = 2 API calls, hot path = 1 batch call). Updated via SSE while visible.
+- **Group item state**: when a Group's own state is NULL/UNDEF, derives activity from its members.
 - **Icon bytes**: LRU memory cache (30 entries). Survives tile refreshes.
 - **Composited bitmaps**: regenerated each render (theme/state dependent).
+- **SSE reconnection**: coroutine-based loop with 30s ALIVE timeout, 5s reconnect delay, 3-strike polling fallback (15s interval).
 
 ### Configuration
 
-Items are configured via openHAB item metadata (namespace: `wearTile`) in the openHAB Main UI. The watch reads this configuration — it never modifies server-side metadata.
+Items can be configured in two ways:
 
-See [openHAB Configuration](openhab-configuration.md) for setup instructions.
+1. **Phone Companion App** (recommended) — Visual tile editor writes `wear:tile-page` UI components to the server via REST API. No item metadata knowledge required.
+2. **openHAB item metadata** (legacy) — Set `wearTile` metadata namespace on items directly in the openHAB Main UI. The watch reads this configuration — it never modifies server-side metadata.
+
+The phone companion approach stores config as UI components at `/rest/ui/components/wear:tile`, supporting per-slot configuration including stateDisplay, action, actionItem, stateItem, and more.
+
+See [openHAB Configuration](openhab-configuration.md) for metadata setup instructions.
+
+### State Display Modes
+
+Each tile button's state indicator can be configured with one of three modes:
+
+| Mode | API Value | Visual | Use Case |
+|------|-----------|--------|----------|
+| **Color** | `"color"` | Icon ring colored (amber=active, grey=inactive), no text | Binary on/off indicators |
+| **Value** | `"value"` | Neutral icon ring + state text below (ON/OFF, 22.5°C, 50%) | Showing current values |
+| **None** | `"none"` | Neutral icon ring, no text, no active/inactive indication | Command-only buttons (gates, scenes) |
 
 ### Implementation
 
@@ -242,11 +296,65 @@ Accessed via long-press on tile → system pencil icon.
 
 | Decision | Rationale |
 |----------|-----------|
-| Server is source of truth for item config | No sync conflicts, openHAB Main UI is the single editor |
+| Server is source of truth for tile config | No sync conflicts, phone app is the visual editor |
 | Watch stores only theme + credentials locally | Minimal local state, no divergence from server |
 | Concentric layout from screen size | Responsive to all Wear OS screen sizes |
 | Box overlay positioning (absolute) | ProtoLayout doesn't support relative/grid positioning |
 | Dim/lit state machine | Clear online indicator, prevents commands before state is known |
 | SSE for real-time updates | Battery-efficient push-based, only while tile visible |
 | LoadAction for page navigation | Instant re-render without Activity launch overhead |
-| Item cache with state refresh on enter | Fast page renders, fresh states on each visit |
+| Disk cache with hot path refresh | Fast warm start, then 1 API call to refresh states |
+| Dedicated control activities per item type | Best UX for each interaction pattern (bezel, buttons, list) |
+| Phone companion edits UI components (not metadata) | Richer config (action, stateItem, etc.) beyond what metadata supports |
+| Config version counter for sync detection | Simple integer compare, no timestamp drift issues |
+
+---
+
+## 6. Phone Companion App
+
+A full Android phone application for managing the watch tile configuration.
+
+### Connection Setup
+
+Two server connections:
+- **Main Server** — the openHAB Cloud URL (myopenhab.org) for watch communication
+- **Config Server** — local network URL for REST API access to edit tile configuration
+
+Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences.
+
+### Tile Design Editor
+
+Visual editor for the watch tile layout:
+- **Page tabs** at the top for switching between tile pages
+- **Layout selector** to set the button count (1-7)
+- **Circular watch preview** rendering the actual tile layout
+- **Slot configuration** — tap any slot to open the config sheet:
+  - Item selection (searchable picker)
+  - Icon override (searchable bottom sheet: MDI, Material Symbols, openHAB icons)
+  - Label override
+  - State display mode (Color / Value / None)
+  - Action type (Toggle / Command / Navigate)
+  - Fixed command, action item, state item, invert state, confirmation, aggregate
+
+### Complication Editor
+
+Configure watch face complications:
+- List view of all configured complications with add/edit/remove
+- 4 supported types: SHORT_TEXT, LONG_TEXT, RANGED_VALUE, MONOCHROMATIC_IMAGE
+- Per-type expandable config sections with live pattern validation
+- Character limits enforced (7 chars for short text fields)
+- Import existing complication config from item metadata
+
+### Theme Sync
+
+- Select a theme color on the phone
+- Push to watch on "Sync to Watch" tap
+- Watch applies immediately (refreshes tile + saves to DataStore)
+- Phone reads current watch theme from DataClient when editor opens
+
+### Config Sync Detection
+
+- Watch writes its current `configVersion` to DataClient after each cold load
+- Phone reads this + fetches the server's version, compares
+- "Watch config out of sync" banner on home screen when they differ
+- Clears on sync, re-checks on app resume
