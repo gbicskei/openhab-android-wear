@@ -226,9 +226,18 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             val numericValue = item.numericState
             if (numericValue != null) {
                 return try {
-                    String.format(pattern, numericValue)
+                    // %d requires integer — convert if needed
+                    if (pattern.contains("%d")) {
+                        String.format(pattern, numericValue.toLong())
+                    } else {
+                        String.format(pattern, numericValue)
+                    }
                 } catch (_: Exception) {
-                    pattern // If format fails, return pattern as literal
+                    // Last resort: substitute value directly
+                    numericValue.let {
+                        if (it == it.toLong().toDouble()) it.toLong().toString()
+                        else String.format("%.1f", it)
+                    }
                 }
             }
             // For non-numeric items, try formatting with the state string

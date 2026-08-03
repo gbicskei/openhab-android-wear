@@ -158,7 +158,7 @@
 
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE,ICON" />
+                android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE" />
 
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"

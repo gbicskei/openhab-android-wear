@@ -159,6 +159,7 @@ class OpenHabTileService : TileService() {
             AppLog.d("TileNav", "=== onTileResourcesRequest start, ${currentPageItems.size} page items ===")
             val resources = ResourceBuilders.Resources.Builder()
                 .setVersion(resourceVersion)
+            var hasFailedIcons = false
 
             // Load icons only for current page items (max 7)
             for (tileItem in currentPageItems) {
@@ -226,6 +227,8 @@ class OpenHabTileService : TileService() {
                                 .build()
                         )
                     }
+                } else {
+                    hasFailedIcons = true
                 }
             }
 
@@ -236,6 +239,16 @@ class OpenHabTileService : TileService() {
             loadLogoResource(resources)
 
             AppLog.d("TileNav", "=== onTileResourcesRequest done: ${System.currentTimeMillis()-resStart}ms ===")
+
+            // If any icons failed to load (network), schedule a retry after 5s
+            if (hasFailedIcons) {
+                AppLog.d("TileNav", "Some icons failed — scheduling retry in 5s")
+                serviceScope.launch {
+                    kotlinx.coroutines.delay(5000)
+                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                }
+            }
+
             resources.build()
         }
 
