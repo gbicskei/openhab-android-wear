@@ -204,6 +204,7 @@ class OpenHabRepository @Inject constructor(
                     ),
                     page = page.uid,
                     slot = config.positionInt,
+                    pageLayout = page.config.layoutInt,
                     icon = config.icon,
                     label = config.label,
                     needsConfirmation = config.actionConfirmation,
