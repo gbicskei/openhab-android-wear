@@ -41,6 +41,9 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
     @Inject
     lateinit var complicationPreferenceStore: ComplicationPreferenceStore
 
+    @Inject
+    lateinit var iconResolver: org.openhab.habdroid.wear.data.icon.IconResolver
+
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         AppLog.d(TAG, "onComplicationRequest() id: ${request.complicationInstanceId}, type: ${request.complicationType}")
 
@@ -191,16 +194,14 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             .build()
     }
 
-    private fun buildMonochromaticImage(item: Item, config: WearComplicationConfig?, complicationId: Int): ComplicationData? {
+    private suspend fun buildMonochromaticImage(item: Item, config: WearComplicationConfig?, complicationId: Int): ComplicationData? {
         val typeConfig = config?.monochromaticImage
         val iconRef = typeConfig?.iconForState(item.isActive)?.takeIf { it.isNotBlank() }
             ?: config?.icon?.takeIf { it.isNotBlank() }
             ?: item.iconName
 
-        // For now, use a simple placeholder bitmap — full icon loading would require
-        // async bitmap resolution which ComplicationData doesn't support directly.
-        // TODO: Pre-cache icons and use Icon.createWithBitmap()
-        val icon = createPlaceholderIcon()
+        // Resolve icon from server/Iconify/Material and render to monochromatic bitmap
+        val icon = resolveIconToBitmap(iconRef, item.state) ?: createPlaceholderIcon()
 
         return MonochromaticImageComplicationData.Builder(
             monochromaticImage = MonochromaticImage.Builder(icon).build(),
@@ -338,6 +339,63 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+    }
+
+    /**
+     * Resolves an icon reference to a monochromatic bitmap suitable for complications.
+     * SVG icons are rendered via Android's SVG support; PNG icons are decoded directly.
+     * Returns null if resolution fails (falls back to placeholder).
+     */
+    private suspend fun resolveIconToBitmap(iconRef: String, state: String): android.graphics.drawable.Icon? {
+        val rawBytes = iconResolver.resolve(iconRef, state) ?: return null
+        val format = iconResolver.detectFormat(rawBytes)
+        val size = 48
+
+        return try {
+            val bitmap = when (format) {
+                org.openhab.habdroid.wear.data.icon.IconFormat.SVG -> {
+                    // Render SVG to monochromatic bitmap (white on transparent)
+                    val svgBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+                    val canvas = Canvas(svgBitmap)
+                    val svg = com.caverock.androidsvg.SVG.getFromString(String(rawBytes, Charsets.UTF_8))
+                    svg.documentWidth = size.toFloat()
+                    svg.documentHeight = size.toFloat()
+                    svg.renderToCanvas(canvas)
+                    // Convert to white-on-transparent for monochromatic display
+                    toMonochrome(svgBitmap)
+                }
+                org.openhab.habdroid.wear.data.icon.IconFormat.PNG -> {
+                    val decoded = android.graphics.BitmapFactory.decodeByteArray(rawBytes, 0, rawBytes.size)
+                        ?: return null
+                    val scaled = Bitmap.createScaledBitmap(decoded, size, size, true)
+                    if (scaled !== decoded) decoded.recycle()
+                    toMonochrome(scaled)
+                }
+                else -> return null
+            }
+            android.graphics.drawable.Icon.createWithBitmap(bitmap)
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Failed to render icon '$iconRef': ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Converts a color bitmap to monochromatic (white pixels where alpha > 0).
+     * Complications expect white-on-transparent for monochromatic images.
+     */
+    private fun toMonochrome(source: Bitmap): Bitmap {
+        val size = source.width
+        val mono = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val pixels = IntArray(size * size)
+        source.getPixels(pixels, 0, size, 0, 0, size, size)
+        for (i in pixels.indices) {
+            val alpha = (pixels[i] ushr 24) and 0xFF
+            pixels[i] = if (alpha > 30) Color.argb(alpha, 255, 255, 255) else Color.TRANSPARENT
+        }
+        mono.setPixels(pixels, 0, size, 0, 0, size, size)
+        source.recycle()
+        return mono
     }
 
     private fun createPlaceholderIcon(): android.graphics.drawable.Icon {
