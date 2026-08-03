@@ -3,14 +3,20 @@ package org.openhab.habdroid.wear.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
@@ -31,11 +37,24 @@ class AboutActivity : ComponentActivity() {
 }
 
 @Composable
-fun AboutScreen() {
+fun AboutScreen(
+    viewModel: MainViewModel = hiltViewModel()
+) {
+    val configVersion by viewModel.configVersion.collectAsState()
+
     ScalingLazyColumn(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        item {
+            Image(
+                painter = painterResource(R.drawable.ic_openhab_logo),
+                contentDescription = "openHAB",
+                modifier = Modifier
+                    .size(48.dp)
+                    .padding(top = 8.dp)
+            )
+        }
         item {
             ListHeader {
                 Text(stringResource(R.string.about))
@@ -55,6 +74,15 @@ fun AboutScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp)
+            )
+        }
+        item {
+            Text(
+                text = "Config version: $configVersion",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 2.dp)
             )
         }
     }

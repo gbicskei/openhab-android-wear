@@ -10,9 +10,13 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.data.repository.CredentialStore
+import org.openhab.habdroid.wear.data.repository.ItemCache
+import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import org.openhab.habdroid.wear.tile.OpenHabTileService
+import androidx.wear.tiles.TileService
 import javax.inject.Inject
 
 /**
@@ -31,6 +35,18 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var json: Json
 
+    @Inject
+    lateinit var itemCache: ItemCache
+
+    @Inject
+    lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
+
+    @Inject
+    lateinit var repository: org.openhab.habdroid.wear.data.repository.OpenHabRepository
+
+    @Inject
+    lateinit var watchStatusWriter: WatchStatusWriter
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -38,6 +54,8 @@ class WearDataLayerListenerService : WearableListenerService() {
 
         when (messageEvent.path) {
             SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
+            SyncConstants.PATH_RELOAD -> handleReloadMessage()
+            SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             else -> super.onMessageReceived(messageEvent)
         }
     }
@@ -57,9 +75,41 @@ class WearDataLayerListenerService : WearableListenerService() {
                 )
                 credentialStore.saveCredentials(credentials)
                 Log.d(TAG, "Credentials saved from phone sync")
+                // Also trigger tile refresh after credential update
+                TileService.getUpdater(this@WearDataLayerListenerService)
+                    .requestUpdate(OpenHabTileService::class.java)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to parse config message", e)
+        }
+    }
+
+    private fun handleReloadMessage() {
+        Log.d(TAG, "Reload message received — clearing cache and refreshing tile")
+        serviceScope.launch {
+            repository.clearAndReload()
+                .onSuccess { count ->
+                    Log.d(TAG, "Reload complete: $count items loaded")
+                }
+                .onFailure { e ->
+                    Log.e(TAG, "Reload failed: ${e.message}")
+                }
+            TileService.getUpdater(this@WearDataLayerListenerService)
+                .requestUpdate(OpenHabTileService::class.java)
+        }
+    }
+
+    private fun handleThemeMessage(messageEvent: MessageEvent) {
+        val themeName = String(messageEvent.data, Charsets.UTF_8).trim()
+        Log.d(TAG, "Theme message received: $themeName")
+        serviceScope.launch {
+            val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
+            themeStore.setTheme(theme)
+            // Write theme to DataClient so phone can read it
+            watchStatusWriter.writeTheme(themeName)
+            // Refresh tile to apply new theme
+            TileService.getUpdater(this@WearDataLayerListenerService)
+                .requestUpdate(OpenHabTileService::class.java)
         }
     }
 
