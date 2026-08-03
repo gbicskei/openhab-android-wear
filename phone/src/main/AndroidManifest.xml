@@ -36,7 +36,7 @@
                 <data
                     android:scheme="wear"
                     android:host="*"
-                    android:pathPrefix="/openhab/open-app" />
+                    android:pathPrefix="/openhab" />
             </intent-filter>
         </service>
 

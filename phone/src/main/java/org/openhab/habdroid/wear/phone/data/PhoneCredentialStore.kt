@@ -33,6 +33,13 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_SERVER_URL = "server_url"
         const val KEY_USERNAME = "username"
         const val KEY_PASSWORD = "password"
+        const val KEY_LOCAL_SERVER_URL = "local_server_url"
+        const val KEY_LOCAL_USERNAME = "local_username"
+        const val KEY_LOCAL_PASSWORD = "local_password"
+        const val KEY_LOCAL_API_TOKEN = "local_api_token"
+        const val KEY_HOME_WIFI_SSID = "home_wifi_ssid"
+        const val KEY_SELECTED_THEME = "selected_theme"
+        const val DEFAULT_THEME = "AMBER"
     }
 
     private val masterKey = MasterKey.Builder(context)
@@ -40,23 +47,44 @@ class PhoneCredentialStore @Inject constructor(
         .build()
 
     private val encryptedPrefs: SharedPreferences by lazy {
-        EncryptedSharedPreferences.create(
-            context,
-            PREFS_FILE,
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        try {
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_FILE,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        } catch (e: Exception) {
+            // Keystore key mismatch after reinstall — clear and recreate
+            context.getSharedPreferences(PREFS_FILE, android.content.Context.MODE_PRIVATE)
+                .edit().clear().apply()
+            // Delete the file to force recreation
+            val prefsFile = java.io.File(context.filesDir.parent, "shared_prefs/$PREFS_FILE.xml")
+            prefsFile.delete()
+            EncryptedSharedPreferences.create(
+                context,
+                PREFS_FILE,
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+        }
     }
 
     private val _credentials = MutableStateFlow<ServerCredentials?>(null)
+    private val _localCredentials = MutableStateFlow<LocalServerConfig?>(null)
 
-    /** Flow of current credentials. Emits null if not configured. */
+    /** Flow of remote (watch) credentials. Emits null if not configured. */
     val credentials: Flow<ServerCredentials?> = _credentials.asStateFlow()
+
+    /** Flow of local server config. Emits null if not configured. */
+    val localConfig: Flow<LocalServerConfig?> = _localCredentials.asStateFlow()
 
     init {
         // Load initial state from encrypted storage
-        _credentials.value = readCredentials()
+        _credentials.value = try { readCredentials() } catch (_: Exception) { null }
+        _localCredentials.value = try { readLocalConfig() } catch (_: Exception) { null }
     }
 
     private fun readCredentials(): ServerCredentials? {
@@ -68,7 +96,18 @@ class PhoneCredentialStore @Inject constructor(
         )
     }
 
-    /** Save server credentials securely. */
+    private fun readLocalConfig(): LocalServerConfig? {
+        val url = encryptedPrefs.getString(KEY_LOCAL_SERVER_URL, null) ?: return null
+        return LocalServerConfig(
+            serverUrl = url,
+            username = encryptedPrefs.getString(KEY_LOCAL_USERNAME, "") ?: "",
+            password = encryptedPrefs.getString(KEY_LOCAL_PASSWORD, "") ?: "",
+            apiToken = encryptedPrefs.getString(KEY_LOCAL_API_TOKEN, "") ?: "",
+            homeWifiSsid = encryptedPrefs.getString(KEY_HOME_WIFI_SSID, "") ?: ""
+        )
+    }
+
+    /** Save remote server credentials securely. */
     suspend fun saveCredentials(credentials: ServerCredentials) {
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
@@ -80,11 +119,40 @@ class PhoneCredentialStore @Inject constructor(
         _credentials.value = credentials
     }
 
+    /** Save local server configuration securely. */
+    suspend fun saveLocalConfig(config: LocalServerConfig) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putString(KEY_LOCAL_SERVER_URL, config.serverUrl)
+                .putString(KEY_LOCAL_USERNAME, config.username)
+                .putString(KEY_LOCAL_PASSWORD, config.password)
+                .putString(KEY_LOCAL_API_TOKEN, config.apiToken)
+                .putString(KEY_HOME_WIFI_SSID, config.homeWifiSsid)
+                .apply()
+        }
+        _localCredentials.value = config
+    }
+
     /** Clear all stored credentials. */
     suspend fun clear() {
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit().clear().apply()
         }
         _credentials.value = null
+        _localCredentials.value = null
+    }
+
+    /** Get the currently selected tile theme name. */
+    fun getSelectedTheme(): String {
+        return encryptedPrefs.getString(KEY_SELECTED_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
+    }
+
+    /** Save the selected tile theme name. */
+    suspend fun saveSelectedTheme(themeName: String) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putString(KEY_SELECTED_THEME, themeName)
+                .apply()
+        }
     }
 }

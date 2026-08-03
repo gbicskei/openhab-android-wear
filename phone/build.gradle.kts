@@ -115,6 +115,10 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.play.services)
 
+    // Image Loading (icons from openHAB server)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
