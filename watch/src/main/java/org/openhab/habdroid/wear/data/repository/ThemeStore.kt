@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Singleton
 
+/** Available tile color themes with their ARGB color values. */
 enum class TileTheme(val displayName: String, val color: Int, val glowOpacity: Float) {
     AMBER("Amber", 0xFFFFB300.toInt(), 0.6f),
     BLUE("Blue", 0xFF42A5F5.toInt(), 0.55f),
@@ -22,6 +23,7 @@ enum class TileTheme(val displayName: String, val color: Int, val glowOpacity: F
     }
 }
 
+/** Persists the user's selected tile theme color to DataStore preferences. */
 @Singleton
 class ThemeStore(
     private val dataStore: DataStore<Preferences>

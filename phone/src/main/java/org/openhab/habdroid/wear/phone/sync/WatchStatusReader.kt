@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.phone.sync
 
 import android.content.Context
-import android.util.Log
+import org.openhab.habdroid.wear.phone.util.AppLog
 import com.google.android.gms.wearable.DataClient
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
@@ -54,10 +54,10 @@ class WatchStatusReader @Inject constructor(
             }
 
             dataItems.release()
-            Log.d(TAG, "Read status: $result")
+            AppLog.d(TAG, "Read status: $result")
             result
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to read watch status", e)
+            AppLog.w(TAG, "Failed to read watch status", e)
             null
         }
     }

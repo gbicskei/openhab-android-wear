@@ -31,6 +31,10 @@ data class ChoiceOption(
     val label: String
 )
 
+/**
+ * Loads an item's commandOptions (or stateOptions as fallback) and presents
+ * them as a selectable list. Sends the chosen option's command to the server.
+ */
 @HiltViewModel
 class ChoicePickerViewModel @Inject constructor(
     private val repository: OpenHabRepository,

@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.tile
 
 import android.os.Bundle
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +48,7 @@ class TileActionReceiver : ComponentActivity() {
         val label = intent.getStringExtra("label") ?: itemName ?: ""
 
         if (itemName == null) {
-            Log.w(TAG, "Tile action received with missing item_name extra")
+            AppLog.w(TAG, "Tile action received with missing item_name extra")
             finish()
             return
         }
@@ -99,24 +99,24 @@ class TileActionReceiver : ComponentActivity() {
     }
 
     private fun executeCommand(itemName: String) {
-        Log.d(TAG, "Tile action: sending command to '$itemName'")
+        AppLog.d(TAG, "Tile action: sending command to '$itemName'")
         CoroutineScope(Dispatchers.IO).launch {
             val command = intent.getStringExtra("command")
             if (command != null) {
                 // Fixed command from tile builder
-                Log.d(TAG, "Sending fixed command: $command")
+                AppLog.d(TAG, "Sending fixed command: $command")
                 repository.sendCommand(itemName, command)
             } else {
                 // Toggle: fetch current state and send opposite
                 repository.getItem(itemName)
                     .onSuccess { item ->
                         val toggleCommand = if (item.isOn) "OFF" else "ON"
-                        Log.d(TAG, "Current state: ${item.state}, sending: $toggleCommand")
+                        AppLog.d(TAG, "Current state: ${item.state}, sending: $toggleCommand")
                         repository.sendCommand(itemName, toggleCommand)
                     }
                     .onFailure { error ->
                         val fallbackCommand = "ON"
-                        Log.w(TAG, "Failed to fetch state, using fallback: $fallbackCommand", error)
+                        AppLog.w(TAG, "Failed to fetch state, using fallback: $fallbackCommand", error)
                         repository.sendCommand(itemName, fallbackCommand)
                     }
             }

@@ -6,7 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.wear.watchface.complications.data.ComplicationData
 import androidx.wear.watchface.complications.data.ComplicationType
 import androidx.wear.watchface.complications.data.LongTextComplicationData
@@ -42,21 +42,21 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
     lateinit var complicationPreferenceStore: ComplicationPreferenceStore
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
-        Log.d(TAG, "onComplicationRequest() id: ${request.complicationInstanceId}, type: ${request.complicationType}")
+        AppLog.d(TAG, "onComplicationRequest() id: ${request.complicationInstanceId}, type: ${request.complicationType}")
 
         // 1. Read which item is configured for this complication slot
         val itemName = complicationPreferenceStore.getItemForSlot(request.complicationInstanceId)
 
         // 2. If no item configured, show "Tap to configure" prompt
         if (itemName == null) {
-            Log.d(TAG, "No item configured for complication ${request.complicationInstanceId}")
+            AppLog.d(TAG, "No item configured for complication ${request.complicationInstanceId}")
             return buildConfigPrompt(request.complicationType, request.complicationInstanceId)
         }
 
         // 3. Fetch item state from server
         val item = repository.getItem(itemName).getOrNull()
         if (item == null) {
-            Log.w(TAG, "Failed to fetch item $itemName")
+            AppLog.w(TAG, "Failed to fetch item $itemName")
             return null
         }
 
@@ -70,7 +70,7 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             ComplicationType.RANGED_VALUE -> buildRangedValue(item, config, request.complicationInstanceId)
             ComplicationType.MONOCHROMATIC_IMAGE -> buildMonochromaticImage(item, config, request.complicationInstanceId)
             else -> {
-                Log.w(TAG, "Unsupported complication type: ${request.complicationType}")
+                AppLog.w(TAG, "Unsupported complication type: ${request.complicationType}")
                 null
             }
         }
@@ -115,7 +115,7 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
     }
 
     override fun onComplicationDeactivated(complicationInstanceId: Int) {
-        Log.d(TAG, "onComplicationDeactivated() id: $complicationInstanceId")
+        AppLog.d(TAG, "onComplicationDeactivated() id: $complicationInstanceId")
         kotlinx.coroutines.runBlocking {
             complicationPreferenceStore.removeSlot(complicationInstanceId)
         }

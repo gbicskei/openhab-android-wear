@@ -3,7 +3,7 @@ package org.openhab.habdroid.wear.tile
 import android.app.KeyguardManager
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.wear.tiles.TileService
@@ -40,7 +40,7 @@ class PageNavigationActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK) {
             navigateToPage()
         } else {
-            Log.d(TAG, "Credential confirmation cancelled")
+            AppLog.d(TAG, "Credential confirmation cancelled")
             finish()
         }
     }
@@ -51,7 +51,7 @@ class PageNavigationActivity : ComponentActivity() {
         targetPage = intent.getStringExtra(EXTRA_TARGET_PAGE) ?: "main"
         val needsConfirmation = intent.getBooleanExtra(EXTRA_NEEDS_CONFIRMATION, false)
 
-        Log.d(TAG, "Navigation to '$targetPage', confirmation=$needsConfirmation")
+        AppLog.d(TAG, "Navigation to '$targetPage', confirmation=$needsConfirmation")
 
         if (needsConfirmation) {
             val keyguardManager = getSystemService(KeyguardManager::class.java)

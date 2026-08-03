@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.sync
 
 import android.content.Context
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import com.google.android.gms.wearable.PutDataMapRequest
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -45,9 +45,9 @@ class WatchStatusWriter @Inject constructor(
                 // Preserve existing theme if already set
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
-            Log.d(TAG, "Wrote configTimestamp: $timestamp")
+            AppLog.d(TAG, "Wrote configTimestamp: $timestamp")
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to write configTimestamp", e)
+            AppLog.w(TAG, "Failed to write configTimestamp", e)
         }
     }
 
@@ -61,9 +61,9 @@ class WatchStatusWriter @Inject constructor(
                 dataMap.putString(KEY_THEME, themeName)
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
-            Log.d(TAG, "Wrote theme: $themeName")
+            AppLog.d(TAG, "Wrote theme: $themeName")
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to write theme", e)
+            AppLog.w(TAG, "Failed to write theme", e)
         }
     }
 
@@ -78,9 +78,9 @@ class WatchStatusWriter @Inject constructor(
                 dataMap.putString(KEY_THEME, themeName)
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
-            Log.d(TAG, "Wrote status: configTimestamp=$configTimestamp, theme=$themeName")
+            AppLog.d(TAG, "Wrote status: configTimestamp=$configTimestamp, theme=$themeName")
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to write status", e)
+            AppLog.w(TAG, "Failed to write status", e)
         }
     }
 }

@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.complications
 
-import android.util.Log
+import org.openhab.habdroid.wear.phone.util.AppLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -29,6 +29,10 @@ sealed interface ComplicationUiState {
     data class Error(val message: String) : ComplicationUiState
 }
 
+/**
+ * Manages the complication editor — loads, saves, and deletes complication configurations
+ * via the wear:complication-list REST API endpoint. Supports import from legacy wearTile metadata.
+ */
 @HiltViewModel
 class ComplicationViewModel @Inject constructor(
     private val apiService: TileApiService,
@@ -277,10 +281,10 @@ class ComplicationViewModel @Inject constructor(
 
             result
                 .onSuccess {
-                    Log.d(TAG, "Complications saved (${editor.complications.size} items)")
+                    AppLog.d(TAG, "Complications saved (${editor.complications.size} items)")
                 }
                 .onFailure { e ->
-                    Log.w(TAG, "Failed to save complications", e)
+                    AppLog.w(TAG, "Failed to save complications", e)
                     _snackbarMessage.value = "Save failed: ${e.message}"
                 }
 

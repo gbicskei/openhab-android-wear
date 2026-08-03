@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.setup
 
-import android.util.Log
+import org.openhab.habdroid.wear.phone.util.AppLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +21,10 @@ import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import javax.inject.Inject
 
+/**
+ * Orchestrates phone-side setup flow — manages server connections (main + config),
+ * credential persistence, watch sync, and config version checking.
+ */
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     private val connectionTester: ConnectionTester,
@@ -98,7 +102,7 @@ class SetupViewModel @Inject constructor(
             try {
                 val watchStatus = watchStatusReader.readStatus()
                 val watchVersion = watchStatus?.configTimestamp?.toIntOrNull()
-                Log.d("SetupVM", "Sync check: watchVersion=$watchVersion")
+                AppLog.d("SetupVM", "Sync check: watchVersion=$watchVersion")
                 if (watchVersion == null) {
                     // Watch hasn't synced yet — show as out of sync
                     _uiState.update { it.copy(configOutOfSync = true) }
@@ -113,7 +117,7 @@ class SetupViewModel @Inject constructor(
                 val password = local?.password?.takeIf { it.isNotBlank() } ?: creds.password
 
                 val serverVersion = connectionTester.fetchConfigVersion(serverUrl, username, password)
-                Log.d("SetupVM", "Sync check: serverVersion=$serverVersion")
+                AppLog.d("SetupVM", "Sync check: serverVersion=$serverVersion")
 
                 if (serverVersion == null) {
                     _uiState.update { it.copy(configOutOfSync = false) }
@@ -121,10 +125,10 @@ class SetupViewModel @Inject constructor(
                 }
 
                 val outOfSync = watchVersion != serverVersion
-                Log.d("SetupVM", "Sync check: outOfSync=$outOfSync")
+                AppLog.d("SetupVM", "Sync check: outOfSync=$outOfSync")
                 _uiState.update { it.copy(configOutOfSync = outOfSync) }
             } catch (e: Exception) {
-                Log.w("SetupVM", "Config sync check failed", e)
+                AppLog.w("SetupVM", "Config sync check failed", e)
             }
         }
     }

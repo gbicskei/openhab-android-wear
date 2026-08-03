@@ -2,7 +2,7 @@ package org.openhab.habdroid.wear.complication
 
 import android.content.ComponentName
 import android.content.Context
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.hilt.work.HiltWorker
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import androidx.work.Constraints
@@ -32,7 +32,7 @@ class ComplicationUpdateWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "ComplicationUpdateWorker running — requesting update for all complications")
+        AppLog.d(TAG, "ComplicationUpdateWorker running — requesting update for all complications")
 
         val requester = ComplicationDataSourceUpdateRequester.create(
             context = applicationContext,
@@ -56,7 +56,7 @@ class ComplicationUpdateWorker @AssistedInject constructor(
          * Call this when a complication is first activated.
          */
         fun schedule(context: Context) {
-            Log.d(TAG, "Scheduling periodic complication refresh (15 min)")
+            AppLog.d(TAG, "Scheduling periodic complication refresh (15 min)")
 
             val request = PeriodicWorkRequestBuilder<ComplicationUpdateWorker>(
                 15, TimeUnit.MINUTES
@@ -80,7 +80,7 @@ class ComplicationUpdateWorker @AssistedInject constructor(
          * Call this when no complications remain active.
          */
         fun cancel(context: Context) {
-            Log.d(TAG, "Cancelling periodic complication refresh")
+            AppLog.d(TAG, "Cancelling periodic complication refresh")
             WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
     }

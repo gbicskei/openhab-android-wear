@@ -49,6 +49,10 @@ data class RotaryControlState(
         get() = ((currentValue - min) / (max - min)).coerceIn(0.0, 1.0).toFloat()
 }
 
+/**
+ * Controls bezel-driven adjustment of range items (Dimmer, Number with min/max).
+ * Loads item metadata for range bounds, debounces command sending on rotation.
+ */
 @HiltViewModel
 class RotaryControlViewModel @Inject constructor(
     private val repository: OpenHabRepository,

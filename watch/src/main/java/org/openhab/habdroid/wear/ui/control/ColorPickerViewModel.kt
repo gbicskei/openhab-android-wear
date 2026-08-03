@@ -57,6 +57,10 @@ val PRESET_COLORS = listOf(
     PresetColor("Cool", 210f, 20f)
 )
 
+/**
+ * Manages Color item state — handles preset color selection, bezel-driven brightness
+ * adjustment, and HSB command sending with debounce.
+ */
 @HiltViewModel
 class ColorPickerViewModel @Inject constructor(
     private val repository: OpenHabRepository,

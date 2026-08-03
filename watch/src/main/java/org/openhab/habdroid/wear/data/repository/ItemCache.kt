@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.data.repository
 
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import org.openhab.habdroid.wear.data.model.TileItem
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +42,7 @@ class ItemCache @Inject constructor(
         // Memory miss — try disk
         val fromDisk = diskCache.load()
         if (fromDisk != null) {
-            Log.d(TAG, "Warm start: loaded ${fromDisk.size} items from disk")
+            AppLog.d(TAG, "Warm start: loaded ${fromDisk.size} items from disk")
             cachedItems = fromDisk
             // States are stale from disk — don't mark statesLoaded
         }

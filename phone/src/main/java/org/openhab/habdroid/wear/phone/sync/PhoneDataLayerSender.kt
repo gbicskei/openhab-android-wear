@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.phone.sync
 
 import android.content.Context
-import android.util.Log
+import org.openhab.habdroid.wear.phone.util.AppLog
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -62,16 +62,16 @@ class PhoneDataLayerSender @Inject constructor(
      * The flow is lifecycle-aware when collected in a viewModelScope.
      */
     fun watchConnectionState(intervalMs: Long = 5_000L): Flow<WatchConnectionInfo?> = flow {
-        Log.i(TAG, "watchConnectionState flow started")
+        AppLog.i(TAG, "watchConnectionState flow started")
         while (currentCoroutineContext().isActive) {
             val hasNetwork = hasNetworkConnectivity()
             val node = if (hasNetwork) getConnectedWatch() else null
             val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby) }
-            Log.i(TAG, "Poll: hasNetwork=$hasNetwork, node=${info?.displayName}, nearby=${info?.isNearby}")
+            AppLog.i(TAG, "Poll: hasNetwork=$hasNetwork, node=${info?.displayName}, nearby=${info?.isNearby}")
             emit(info)
             delay(intervalMs)
         }
-        Log.i(TAG, "watchConnectionState flow ended")
+        AppLog.i(TAG, "watchConnectionState flow ended")
     }
 
     companion object {

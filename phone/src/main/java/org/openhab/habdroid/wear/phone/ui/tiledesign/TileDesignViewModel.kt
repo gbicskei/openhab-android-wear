@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.tiledesign
 
-import android.util.Log
+import org.openhab.habdroid.wear.phone.util.AppLog
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.wearable.Wearable
@@ -467,7 +467,7 @@ class TileDesignViewModel @Inject constructor(
                     _snackbarMessage.value = "No watch connected"
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Failed to send reload to watch", e)
+                AppLog.w(TAG, "Failed to send reload to watch", e)
                 _snackbarMessage.value = "Failed to reach watch: ${e.message}"
             }
         }

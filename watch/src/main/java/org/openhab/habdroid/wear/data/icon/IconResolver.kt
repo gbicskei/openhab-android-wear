@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.data.icon
 
-import android.util.Log
 import android.util.LruCache
+import org.openhab.habdroid.wear.util.AppLog
 import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -126,13 +126,13 @@ class IconResolver @Inject constructor(
             val bytes = if (response.isSuccessful) {
                 response.body?.bytes()
             } else {
-                Log.w(TAG, "Icon fetch failed: $url → ${response.code}")
+                AppLog.w(TAG, "Icon fetch failed: $url → ${response.code}")
                 null
             }
             response.close()
             bytes
         } catch (e: Exception) {
-            Log.e(TAG, "Icon fetch error: $url", e)
+            AppLog.e(TAG, "Icon fetch error: $url", e)
             null
         }
     }

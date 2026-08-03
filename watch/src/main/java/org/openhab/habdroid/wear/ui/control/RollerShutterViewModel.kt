@@ -30,6 +30,10 @@ data class RollerShutterState(
         }
 }
 
+/**
+ * Controls a Rollershutter item — sends UP/DOWN/STOP commands and adjusts
+ * position via bezel rotation with debounced percentage commands.
+ */
 @HiltViewModel
 class RollerShutterViewModel @Inject constructor(
     private val repository: OpenHabRepository,

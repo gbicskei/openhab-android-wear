@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.data.repository
 
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -100,7 +100,7 @@ class OpenHabRepository @Inject constructor(
         }.distinct().toSet()
 
         // Single batch call — fetch all items with state fields only
-        Log.d(TAG, "refreshStates: batch fetching ${neededNames.size} items")
+        AppLog.d(TAG, "refreshStates: batch fetching ${neededNames.size} items")
         val allItems = apiService.getItems(
             fields = STATE_REFRESH_FIELDS,
             recursive = true
@@ -147,9 +147,9 @@ class OpenHabRepository @Inject constructor(
      */
     private suspend fun coldLoad(): List<TileItem> {
         // 1. Fetch tile config from wear:tile UI components
-        Log.d(TAG, "coldLoad: fetching tile components")
+        AppLog.d(TAG, "coldLoad: fetching tile components")
         val components = apiService.getTileComponents()
-        Log.d(TAG, "coldLoad: got ${components.size} components")
+        AppLog.d(TAG, "coldLoad: got ${components.size} components")
         val tilePages = components.filter { it.isTilePage }
 
         // Capture the config version from the main page
@@ -166,16 +166,16 @@ class OpenHabRepository @Inject constructor(
         }.distinct().toSet()
 
         // 2. Batch fetch all items with full metadata (single API call)
-        Log.d(TAG, "coldLoad: batch fetching items (need ${allItemNames.size} names)")
+        AppLog.d(TAG, "coldLoad: batch fetching items (need ${allItemNames.size} names)")
         val allItems = apiService.getItems(
             fields = COLD_LOAD_FIELDS,
             recursive = true
         )
-        Log.d(TAG, "coldLoad: got ${allItems.size} items from server")
+        AppLog.d(TAG, "coldLoad: got ${allItems.size} items from server")
 
         // Filter to only items we need
         val itemMap = allItems.filter { it.name in allItemNames }.associateBy { it.name }
-        Log.d(TAG, "coldLoad: matched ${itemMap.size}/${allItemNames.size} referenced items")
+        AppLog.d(TAG, "coldLoad: matched ${itemMap.size}/${allItemNames.size} referenced items")
 
         // Build TileItems from page slots
         val tileItems = tilePages.flatMap { page ->

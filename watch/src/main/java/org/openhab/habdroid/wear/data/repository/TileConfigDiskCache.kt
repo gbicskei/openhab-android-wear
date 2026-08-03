@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.data.repository
 
 import android.content.Context
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -40,9 +40,9 @@ class TileConfigDiskCache @Inject constructor(
             val dtos = items.map { it.toDto() }
             val jsonStr = json.encodeToString(dtos)
             cacheFile.writeText(jsonStr)
-            Log.d(TAG, "Saved ${items.size} items to disk (${jsonStr.length} bytes)")
+            AppLog.d(TAG, "Saved ${items.size} items to disk (${jsonStr.length} bytes)")
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to save tile config to disk", e)
+            AppLog.w(TAG, "Failed to save tile config to disk", e)
         }
     }
 
@@ -53,16 +53,16 @@ class TileConfigDiskCache @Inject constructor(
     fun load(): List<TileItem>? {
         return try {
             if (!cacheFile.exists()) {
-                Log.d(TAG, "No disk cache found")
+                AppLog.d(TAG, "No disk cache found")
                 return null
             }
             val jsonStr = cacheFile.readText()
             val dtos = json.decodeFromString<List<CachedTileItem>>(jsonStr)
             val items = dtos.map { it.toTileItem() }
-            Log.d(TAG, "Loaded ${items.size} items from disk cache")
+            AppLog.d(TAG, "Loaded ${items.size} items from disk cache")
             items
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load tile config from disk", e)
+            AppLog.w(TAG, "Failed to load tile config from disk", e)
             null
         }
     }
@@ -74,10 +74,10 @@ class TileConfigDiskCache @Inject constructor(
         try {
             if (cacheFile.exists()) {
                 cacheFile.delete()
-                Log.d(TAG, "Disk cache cleared")
+                AppLog.d(TAG, "Disk cache cleared")
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to clear disk cache", e)
+            AppLog.w(TAG, "Failed to clear disk cache", e)
         }
     }
 }

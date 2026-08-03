@@ -25,6 +25,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.openhab.habdroid.wear.data.api.TileStateEventSource
+import org.openhab.habdroid.wear.util.AppLog
 import org.openhab.habdroid.wear.data.icon.IconCompositor
 import org.openhab.habdroid.wear.data.icon.IconResolver
 import org.openhab.habdroid.wear.data.model.Item
@@ -84,21 +85,21 @@ class OpenHabTileService : TileService() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> =
         serviceScope.future {
             val startTime = System.currentTimeMillis()
-            android.util.Log.d("TileNav", "=== onTileRequest start ===")
+            AppLog.d("TileNav", "=== onTileRequest start ===")
 
             // Read current page from persistent prefs
             val currentPage = tilePreferenceStore.currentPage.first()
-            android.util.Log.d("TileNav", "currentPage=$currentPage lastClickableId=${requestParams.currentState.lastClickableId}")
+            AppLog.d("TileNav", "currentPage=$currentPage lastClickableId=${requestParams.currentState.lastClickableId}")
 
             // Handle back button via loadAction (resets to main)
             val effectivePage = if (requestParams.currentState.lastClickableId == "nav_back") {
-                android.util.Log.d("TileNav", "→ nav_back → main")
+                AppLog.d("TileNav", "→ nav_back → main")
                 tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
                 TileItem.PAGE_MAIN
             } else if (requestParams.currentState.lastClickableId?.startsWith("nav_page_") == true) {
                 // Forward navigation via loadAction
                 val targetPage = requestParams.currentState.lastClickableId!!.removePrefix("nav_page_")
-                android.util.Log.d("TileNav", "→ nav_page → $targetPage")
+                AppLog.d("TileNav", "→ nav_page → $targetPage")
                 tilePreferenceStore.setCurrentPage(targetPage)
                 targetPage
             } else {
@@ -109,18 +110,18 @@ class OpenHabTileService : TileService() {
             val t1 = System.currentTimeMillis()
             var allItems = repository.getAvailableTileItems().getOrDefault(emptyList())
             val t2 = System.currentTimeMillis()
-            android.util.Log.d("TileNav", "getAvailableTileItems: ${t2-t1}ms, ${allItems.size} items, cache=${allItems.isNotEmpty()}")
+            AppLog.d("TileNav", "getAvailableTileItems: ${t2-t1}ms, ${allItems.size} items, cache=${allItems.isNotEmpty()}")
 
             // If states are stale (warm start from disk or after process restart), refresh now
             if (!itemCache.statesLoaded && allItems.isNotEmpty()) {
-                android.util.Log.d("TileNav", "States stale — refreshing inline")
+                AppLog.d("TileNav", "States stale — refreshing inline")
                 repository.refreshStates()
                     .onSuccess {
                         allItems = itemCache.get() ?: allItems
-                        android.util.Log.d("TileNav", "Inline state refresh done")
+                        AppLog.d("TileNav", "Inline state refresh done")
                     }
                     .onFailure { e ->
-                        android.util.Log.w("TileNav", "Inline state refresh failed: ${e.message}")
+                        AppLog.w("TileNav", "Inline state refresh failed: ${e.message}")
                     }
             }
 
@@ -132,16 +133,16 @@ class OpenHabTileService : TileService() {
                 .sortedBy { it.slot }
                 .take(7)
 
-            android.util.Log.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
+            AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
             val tile = buildTile(pageItems, effectivePage, requestParams)
-            android.util.Log.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
+            AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
             tile
         }
 
     override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> =
         serviceScope.future {
             val resStart = System.currentTimeMillis()
-            android.util.Log.d("TileNav", "=== onTileResourcesRequest start, ${allTileItems.size} items ===")
+            AppLog.d("TileNav", "=== onTileResourcesRequest start, ${allTileItems.size} items ===")
             val resources = ResourceBuilders.Resources.Builder()
                 .setVersion(resourceVersion)
 
@@ -164,23 +165,23 @@ class OpenHabTileService : TileService() {
                             }
                             else -> false
                         }
-                        android.util.Log.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isActive=$isActive")
+                        AppLog.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isActive=$isActive")
                         // Nav buttons: active if determined above, otherwise neutral (not inactive)
                         if (isActive) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR) {
                         // Color display: binary active/inactive
                         val result = tileItem.isDisplayActive
-                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
+                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
                         if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
                     } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE) {
                         // None display: always neutral, no state indication
-                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (stateDisplay=none)")
+                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (stateDisplay=none)")
                         org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else {
                         // Value display, range items — always neutral
-                        android.util.Log.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
+                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
                         org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     }
                 } else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
@@ -224,13 +225,13 @@ class OpenHabTileService : TileService() {
             // Load openHAB logo for title area
             loadLogoResource(resources)
 
-            android.util.Log.d("TileNav", "=== onTileResourcesRequest done: ${System.currentTimeMillis()-resStart}ms ===")
+            AppLog.d("TileNav", "=== onTileResourcesRequest done: ${System.currentTimeMillis()-resStart}ms ===")
             resources.build()
         }
 
     override fun onTileEnterEvent(requestParams: EventBuilders.TileEnterEvent) {
         super.onTileEnterEvent(requestParams)
-        android.util.Log.d("TileNav", "onTileEnterEvent — invalidating states, fetching fresh")
+        AppLog.d("TileNav", "onTileEnterEvent — invalidating states, fetching fresh")
 
         // Invalidate states — tile renders dimmed until fresh states arrive
         itemCache.invalidateStates()
@@ -242,11 +243,11 @@ class OpenHabTileService : TileService() {
         serviceScope.launch {
             repository.refreshStates()
                 .onSuccess {
-                    android.util.Log.d("TileNav", "Fresh states loaded, requesting lit render")
+                    AppLog.d("TileNav", "Fresh states loaded, requesting lit render")
                     getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
                 }
                 .onFailure { e ->
-                    android.util.Log.w("TileNav", "Failed to fetch states: ${e.message}")
+                    AppLog.w("TileNav", "Failed to fetch states: ${e.message}")
                 }
 
             // Build watched items set including Group members
@@ -377,7 +378,7 @@ class OpenHabTileService : TileService() {
         // Compute absolute button center positions (x, y) and button size for this layout
         val (positions, btnSize) = computePositions(count, screenW, screenH)
 
-        android.util.Log.d("TilePos", "=== buildPageLayout ===")
+        AppLog.d("TilePos", "=== buildPageLayout ===")
 
         // Single Box = full screen. Buttons + title + mic all stacked as overlays.
         val root = LayoutElementBuilders.Box.Builder()
@@ -395,7 +396,7 @@ class OpenHabTileService : TileService() {
             val padLeft = (cx - halfBtn).coerceAtLeast(0f)
             val padTop = (cy - halfBtn).coerceAtLeast(0f)
 
-            android.util.Log.d("TilePos", "  render btn${index+1}: center=($cx,$cy) padLeft=$padLeft padTop=$padTop")
+            AppLog.d("TilePos", "  render btn${index+1}: center=($cx,$cy) padLeft=$padLeft padTop=$padTop")
 
             val tileItem = items.getOrNull(index) ?: continue
 
@@ -511,8 +512,8 @@ class OpenHabTileService : TileService() {
         val centerX = screenW / 2f
         val centerY = screenH / 2f
 
-        android.util.Log.d("TilePos", "=== computePositions count=$count screenW=$screenW screenH=$screenH ===")
-        android.util.Log.d("TilePos", "btn=$btn centerX=$centerX centerY=$centerY")
+        AppLog.d("TilePos", "=== computePositions count=$count screenW=$screenW screenH=$screenH ===")
+        AppLog.d("TilePos", "btn=$btn centerX=$centerX centerY=$centerY")
 
         val (positions, layoutBtn) = when (count) {
             1 -> {
@@ -523,7 +524,7 @@ class OpenHabTileService : TileService() {
                 val btn2 = 74f
                 val spacing = btn2 + 4f
                 val halfSpacing = spacing / 2f
-                android.util.Log.d("TilePos", "layout2: btn2=$btn2 spacing=$spacing")
+                AppLog.d("TilePos", "layout2: btn2=$btn2 spacing=$spacing")
                 listOf(
                     centerX - halfSpacing to centerY,
                     centerX + halfSpacing to centerY
@@ -537,7 +538,7 @@ class OpenHabTileService : TileService() {
                 val sideY = centerY + vShift
                 val centerBtnY = centerY - vShift
                 val hPos = computeHorizontal2(screenW, btn3, edgeRatio = 1.5f)
-                android.util.Log.d("TilePos", "layout3: btn3=$btn3 sideY=$sideY centerBtnY=$centerBtnY hPos=${hPos.toList()}")
+                AppLog.d("TilePos", "layout3: btn3=$btn3 sideY=$sideY centerBtnY=$centerBtnY hPos=${hPos.toList()}")
                 listOf(
                     hPos[0] to sideY,
                     centerX to centerBtnY,
@@ -551,7 +552,7 @@ class OpenHabTileService : TileService() {
                 val halfSpacing = spacing / 2f
                 // Shift grid up slightly to clear mic button
                 val gridCenterY = centerY - 4f
-                android.util.Log.d("TilePos", "layout4: btn4=$btn4 spacing=$spacing gridCenterY=$gridCenterY")
+                AppLog.d("TilePos", "layout4: btn4=$btn4 spacing=$spacing gridCenterY=$gridCenterY")
                 listOf(
                     centerX - halfSpacing to gridCenterY - halfSpacing,
                     centerX + halfSpacing to gridCenterY - halfSpacing,
@@ -564,7 +565,7 @@ class OpenHabTileService : TileService() {
                 val hPos = computeHorizontal2(screenW, btn, edgeRatio = 1.0f)
                 val gap = computeGap2(screenW, btn, 1.0f)
                 val vOffset = (btn + gap) / 2f
-                android.util.Log.d("TilePos", "layout5: hPos=${hPos.toList()} gap=$gap vOffset=$vOffset")
+                AppLog.d("TilePos", "layout5: hPos=${hPos.toList()} gap=$gap vOffset=$vOffset")
                 listOf(
                     hPos[0] to centerY - vOffset,
                     centerX to centerY,
@@ -578,7 +579,7 @@ class OpenHabTileService : TileService() {
                 val mid = computeHorizontal3(screenW, btn, edgeRatio = 0.6f)
                 val topBottomX = floatArrayOf((mid[0] + mid[1]) / 2f, (mid[1] + mid[2]) / 2f)
                 val yOffset = btn * 0.85f // Fixed vertical spacing
-                android.util.Log.d("TilePos", "layout6: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
+                AppLog.d("TilePos", "layout6: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
                 listOf(
                     topBottomX[0] to centerY - yOffset,
                     topBottomX[1] to centerY - yOffset,
@@ -593,7 +594,7 @@ class OpenHabTileService : TileService() {
                 val mid = computeHorizontal3(screenW, btn, edgeRatio = 0.6f)
                 val topBottomX = floatArrayOf((mid[0] + mid[1]) / 2f, (mid[1] + mid[2]) / 2f)
                 val yOffset = btn * 0.85f // Fixed vertical spacing
-                android.util.Log.d("TilePos", "layout7: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
+                AppLog.d("TilePos", "layout7: mid=${mid.toList()} topBottomX=${topBottomX.toList()} yOffset=$yOffset")
                 listOf(
                     topBottomX[0] to centerY - yOffset,
                     topBottomX[1] to centerY - yOffset,
@@ -608,7 +609,7 @@ class OpenHabTileService : TileService() {
         }
 
         for ((i, pos) in positions.withIndex()) {
-            android.util.Log.d("TilePos", "  btn${i+1}: x=${pos.first} y=${pos.second}")
+            AppLog.d("TilePos", "  btn${i+1}: x=${pos.first} y=${pos.second}")
         }
 
         return positions to layoutBtn
@@ -1035,7 +1036,7 @@ class OpenHabTileService : TileService() {
                     .build()
             )
         } catch (e: Exception) {
-            android.util.Log.w("TileNav", "Failed to load mic icon: ${e.message}")
+            AppLog.w("TileNav", "Failed to load mic icon: ${e.message}")
         }
     }
 
@@ -1072,7 +1073,7 @@ class OpenHabTileService : TileService() {
                     .build()
             )
         } catch (e: Exception) {
-            android.util.Log.w("TileNav", "Failed to load logo icon: ${e.message}")
+            AppLog.w("TileNav", "Failed to load logo icon: ${e.message}")
         }
     }
 

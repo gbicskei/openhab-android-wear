@@ -22,6 +22,7 @@ sealed interface ReloadState {
     data class Error(val message: String) : ReloadState
 }
 
+/** Handles main activity state — reload items from server, check configuration status. */
 @HiltViewModel
 class MainViewModel @Inject constructor(
     credentialStore: CredentialStore,

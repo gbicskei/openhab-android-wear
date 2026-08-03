@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.data.api
 
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,13 +78,13 @@ class TileStateEventSource @Inject constructor(
      */
     fun start(onChanged: () -> Unit) {
         if (connectionJob?.isActive == true) {
-            Log.d(TAG, "Already running, skipping start")
+            AppLog.d(TAG, "Already running, skipping start")
             return
         }
 
         connectionJob = scope.launch {
             val credentials = credentialStore.credentials.first() ?: run {
-                Log.w(TAG, "No credentials, cannot connect SSE")
+                AppLog.w(TAG, "No credentials, cannot connect SSE")
                 return@launch
             }
 
@@ -94,7 +94,7 @@ class TileStateEventSource @Inject constructor(
             // Main loop: try SSE, fall back to polling if unstable
             while (isActive) {
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
-                    Log.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")
+                    AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")
                     pollLoop(onChanged)
                     return@launch // pollLoop runs until cancelled (tile leave)
                 }
@@ -108,7 +108,7 @@ class TileStateEventSource @Inject constructor(
                         val elapsed = System.currentTimeMillis() - connectTime
                         if (elapsed < QUICK_FAILURE_THRESHOLD_MS) {
                             consecutiveQuickFailures++
-                            Log.d(TAG, "Quick failure #$consecutiveQuickFailures (${elapsed}ms)")
+                            AppLog.d(TAG, "Quick failure #$consecutiveQuickFailures (${elapsed}ms)")
                         } else {
                             // Connection lasted a while — reset counter
                             consecutiveQuickFailures = 0
@@ -117,7 +117,7 @@ class TileStateEventSource @Inject constructor(
                     SseResult.TIMEOUT -> {
                         // No events for 30s — reconnect (not a "quick" failure)
                         consecutiveQuickFailures = 0
-                        Log.d(TAG, "Event timeout, reconnecting")
+                        AppLog.d(TAG, "Event timeout, reconnecting")
                     }
                 }
 
@@ -132,7 +132,7 @@ class TileStateEventSource @Inject constructor(
      * Stop the SSE connection and any polling. Called on tile leave.
      */
     fun stop() {
-        Log.d(TAG, "Stopping")
+        AppLog.d(TAG, "Stopping")
         connectionJob?.cancel()
         connectionJob = null
     }
@@ -142,7 +142,7 @@ class TileStateEventSource @Inject constructor(
      */
     private suspend fun runSseSession(baseUrl: String, onChanged: () -> Unit): SseResult {
         val url = "$baseUrl$EVENTS_PATH?topics=$TOPIC_FILTER"
-        Log.d(TAG, "Connecting SSE: $url")
+        AppLog.d(TAG, "Connecting SSE: $url")
 
         val sseClient = okHttpClient.newBuilder()
             .readTimeout(0, TimeUnit.SECONDS)
@@ -159,7 +159,7 @@ class TileStateEventSource @Inject constructor(
         val factory = EventSources.createFactory(sseClient)
         val eventSource = factory.newEventSource(request, object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
-                Log.d(TAG, "SSE connected")
+                AppLog.d(TAG, "SSE connected")
                 channel.trySend(SseEvent.Connected)
             }
 
@@ -168,12 +168,12 @@ class TileStateEventSource @Inject constructor(
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                Log.w(TAG, "SSE failed: ${t?.message ?: "status ${response?.code}"}")
+                AppLog.w(TAG, "SSE failed: ${t?.message ?: "status ${response?.code}"}")
                 channel.trySend(SseEvent.Failed(t))
             }
 
             override fun onClosed(eventSource: EventSource) {
-                Log.d(TAG, "SSE closed by server")
+                AppLog.d(TAG, "SSE closed by server")
                 channel.trySend(SseEvent.Closed)
             }
         })
@@ -205,7 +205,7 @@ class TileStateEventSource @Inject constructor(
                     channel.receive()
                 } ?: run {
                     // No event within timeout — assume dead
-                    Log.d(TAG, "No events for ${EVENT_TIMEOUT_MS}ms, connection presumed dead")
+                    AppLog.d(TAG, "No events for ${EVENT_TIMEOUT_MS}ms, connection presumed dead")
                     eventSource.cancel()
                     return SseResult.TIMEOUT
                 }
@@ -236,22 +236,22 @@ class TileStateEventSource @Inject constructor(
      * Runs until the coroutine is cancelled (tile leave → stop()).
      */
     private suspend fun pollLoop(onChanged: () -> Unit) {
-        Log.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
+        AppLog.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
         while (true) {
             delay(POLL_INTERVAL_MS)
             try {
                 repository.refreshStates()
                     .onSuccess {
-                        Log.d(TAG, "Poll: states refreshed")
+                        AppLog.d(TAG, "Poll: states refreshed")
                         onChanged()
                     }
                     .onFailure { e ->
-                        Log.w(TAG, "Poll: refresh failed: ${e.message}")
+                        AppLog.w(TAG, "Poll: refresh failed: ${e.message}")
                     }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Poll: unexpected error", e)
+                AppLog.w(TAG, "Poll: unexpected error", e)
             }
         }
     }
@@ -263,7 +263,7 @@ class TileStateEventSource @Inject constructor(
         try {
             // Check for ALIVE event (server heartbeat)
             if (data.contains("\"type\":\"ALIVE\"") || data.contains("\"ALIVE\"")) {
-                Log.d(TAG, "ALIVE heartbeat received")
+                AppLog.d(TAG, "ALIVE heartbeat received")
                 return
             }
 
@@ -283,7 +283,7 @@ class TileStateEventSource @Inject constructor(
             val newState = extractNewState(data)
 
             if (watchedItems.isEmpty() || watchedItems.contains(itemName)) {
-                Log.d(TAG, "State changed: $itemName → $newState")
+                AppLog.d(TAG, "State changed: $itemName → $newState")
                 // Update cache directly from SSE event (avoids full refresh)
                 if (newState != null) {
                     itemCache.updateItemState(itemName, newState)
@@ -294,12 +294,12 @@ class TileStateEventSource @Inject constructor(
                 itemCache.updateItemState(itemName, newState)
                 // Check if this member update changed any visible tile item's state
                 if (itemCache.get()?.any { it.item.isGroup && it.item.members?.any { m -> m.name == itemName } == true } == true) {
-                    Log.d(TAG, "Group member state changed: $itemName → $newState")
+                    AppLog.d(TAG, "Group member state changed: $itemName → $newState")
                     onChanged()
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Error parsing SSE event", e)
+            AppLog.w(TAG, "Error parsing SSE event", e)
         }
     }
 

@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognizerIntent
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -51,7 +51,7 @@ class VoiceCommandActivity : ComponentActivity() {
                 ?.firstOrNull()
 
             if (spokenText != null) {
-                Log.d(TAG, "Recognized: $spokenText")
+                AppLog.d(TAG, "Recognized: $spokenText")
                 viewModel.sendVoiceCommand(spokenText)
             } else {
                 viewModel.setError("No speech recognized")
@@ -94,7 +94,7 @@ class VoiceCommandActivity : ComponentActivity() {
         try {
             speechLauncher.launch(intent)
         } catch (e: Exception) {
-            Log.e(TAG, "Speech recognition not available", e)
+            AppLog.e(TAG, "Speech recognition not available", e)
             viewModel.setError("Speech recognition not available")
         }
     }

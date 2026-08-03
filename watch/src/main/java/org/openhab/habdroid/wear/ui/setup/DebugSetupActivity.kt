@@ -1,7 +1,7 @@
 package org.openhab.habdroid.wear.ui.setup
 
 import android.os.Bundle
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import androidx.activity.ComponentActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.runBlocking
@@ -36,9 +36,9 @@ class DebugSetupActivity : ComponentActivity() {
                     ServerCredentials(serverUrl = url, username = user, password = pass)
                 )
             }
-            Log.d("DebugSetup", "Credentials saved: url=$url user=$user")
+            AppLog.d("DebugSetup", "Credentials saved: url=$url user=$user")
         } else {
-            Log.e("DebugSetup", "No URL provided")
+            AppLog.e("DebugSetup", "No URL provided")
         }
 
         finish()

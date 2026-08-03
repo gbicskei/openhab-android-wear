@@ -17,6 +17,7 @@ sealed interface VoiceUiState {
     data class Error(val message: String) : VoiceUiState
 }
 
+/** Handles voice command flow — sends recognized speech text to the openHAB voice interpreter endpoint. */
 @HiltViewModel
 class VoiceCommandViewModel @Inject constructor(
     private val repository: OpenHabRepository

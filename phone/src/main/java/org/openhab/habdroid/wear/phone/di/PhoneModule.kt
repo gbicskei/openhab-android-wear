@@ -11,6 +11,7 @@ import org.openhab.habdroid.wear.phone.BuildConfig
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
+/** Hilt DI module for the phone companion app. Provides OkHttpClient and kotlinx.serialization Json instances. */
 @Module
 @InstallIn(SingletonComponent::class)
 object PhoneModule {

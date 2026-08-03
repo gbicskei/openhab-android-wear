@@ -27,6 +27,7 @@ sealed interface TileConfigUiState {
     data class Error(val message: String) : TileConfigUiState
 }
 
+/** Provides the list of configured tile items for the on-watch tile configuration screen. */
 @HiltViewModel
 class TileConfigViewModel @Inject constructor(
     private val repository: OpenHabRepository,

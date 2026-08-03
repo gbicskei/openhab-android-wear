@@ -22,6 +22,7 @@ sealed interface SetupUiState {
     data class Error(val message: String) : SetupUiState
 }
 
+/** Manages watch-side server connection setup — validates credentials, stores to DataStore. */
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     private val credentialStore: CredentialStore,

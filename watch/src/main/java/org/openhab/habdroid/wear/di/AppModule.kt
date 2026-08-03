@@ -30,6 +30,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 private val Context.tileDataStore: DataStore<Preferences> by preferencesDataStore(name = "tile_selection_prefs")
 private val Context.complicationDataStore: DataStore<Preferences> by preferencesDataStore(name = "complication_prefs")
 
+/** Hilt dependency injection module providing app-wide singletons: OkHttpClient, Retrofit, DataStore, API service. */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {

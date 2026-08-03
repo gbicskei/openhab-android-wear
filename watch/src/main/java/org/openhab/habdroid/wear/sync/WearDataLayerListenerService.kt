@@ -1,6 +1,6 @@
 package org.openhab.habdroid.wear.sync
 
-import android.util.Log
+import org.openhab.habdroid.wear.util.AppLog
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
@@ -50,7 +50,7 @@ class WearDataLayerListenerService : WearableListenerService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
-        Log.d(TAG, "Message received on path: ${messageEvent.path}")
+        AppLog.d(TAG, "Message received on path: ${messageEvent.path}")
 
         when (messageEvent.path) {
             SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
@@ -63,7 +63,7 @@ class WearDataLayerListenerService : WearableListenerService() {
     private fun handleConfigMessage(messageEvent: MessageEvent) {
         try {
             val payload = String(messageEvent.data, Charsets.UTF_8)
-            Log.d(TAG, "Config payload received (${payload.length} chars)")
+            AppLog.d(TAG, "Config payload received (${payload.length} chars)")
 
             val configData = json.decodeFromString<SyncConfigPayload>(payload)
 
@@ -74,25 +74,25 @@ class WearDataLayerListenerService : WearableListenerService() {
                     password = configData.password
                 )
                 credentialStore.saveCredentials(credentials)
-                Log.d(TAG, "Credentials saved from phone sync")
+                AppLog.d(TAG, "Credentials saved from phone sync")
                 // Also trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
                     .requestUpdate(OpenHabTileService::class.java)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to parse config message", e)
+            AppLog.e(TAG, "Failed to parse config message", e)
         }
     }
 
     private fun handleReloadMessage() {
-        Log.d(TAG, "Reload message received — clearing cache and refreshing tile")
+        AppLog.d(TAG, "Reload message received — clearing cache and refreshing tile")
         serviceScope.launch {
             repository.clearAndReload()
                 .onSuccess { count ->
-                    Log.d(TAG, "Reload complete: $count items loaded")
+                    AppLog.d(TAG, "Reload complete: $count items loaded")
                 }
                 .onFailure { e ->
-                    Log.e(TAG, "Reload failed: ${e.message}")
+                    AppLog.e(TAG, "Reload failed: ${e.message}")
                 }
             TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(OpenHabTileService::class.java)
@@ -101,7 +101,7 @@ class WearDataLayerListenerService : WearableListenerService() {
 
     private fun handleThemeMessage(messageEvent: MessageEvent) {
         val themeName = String(messageEvent.data, Charsets.UTF_8).trim()
-        Log.d(TAG, "Theme message received: $themeName")
+        AppLog.d(TAG, "Theme message received: $themeName")
         serviceScope.launch {
             val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
             themeStore.setTheme(theme)
