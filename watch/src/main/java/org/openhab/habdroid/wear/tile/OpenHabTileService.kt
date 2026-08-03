@@ -133,7 +133,10 @@ class OpenHabTileService : TileService() {
             val pageItems = allItems
                 .filter { it.page == effectivePage }
                 .sortedBy { it.slot }
-                .take(7)
+                .let { items ->
+                    val layout = items.firstOrNull()?.pageLayout ?: 7
+                    items.take(layout)
+                }
 
             currentPageItems = pageItems
 

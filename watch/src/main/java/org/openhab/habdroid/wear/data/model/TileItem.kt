@@ -19,6 +19,7 @@ data class TileItem(
     val item: Item,
     val page: String = PAGE_MAIN,
     val slot: Int = 1,
+    val pageLayout: Int = 6,
     val icon: String? = null,
     val label: String? = null,
     val needsConfirmation: Boolean = false,
