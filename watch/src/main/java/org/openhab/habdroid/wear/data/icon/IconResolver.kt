@@ -113,7 +113,8 @@ class IconResolver @Inject constructor(
                 "$ICONIFY_BASE/${source.set}/${source.name}.svg"
             }
             is IconSource.Material -> {
-                "$MATERIAL_BASE/${source.name}/default/48px.svg"
+                val gstaticName = source.name.replace("-", "_")
+                "$MATERIAL_BASE/$gstaticName/default/48px.svg"
             }
         }
     }

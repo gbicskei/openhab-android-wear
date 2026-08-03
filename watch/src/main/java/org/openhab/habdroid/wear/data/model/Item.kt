@@ -19,7 +19,13 @@ data class Item(
     val link: String? = null,
     val stateDescription: StateDescription? = null,
     val commandDescription: CommandDescription? = null,
-    val metadata: Map<String, MetadataEntry>? = null
+    val metadata: Map<String, MetadataEntry>? = null,
+    /** Group members — present when type starts with "Group" and fetched with recursive=true */
+    val members: List<Item>? = null,
+    /** Base type of a Group (e.g. "Switch" for Group:Switch:OR(ON,OFF)) */
+    val groupType: String? = null,
+    /** Aggregation function for Group items (e.g. {"name":"OR","params":["ON","OFF"]}) */
+    val function: GroupFunction? = null
 ) {
     /** Display label — falls back to item name if label is null */
     val displayLabel: String get() = label ?: name
@@ -27,6 +33,7 @@ data class Item(
     /** Whether this item is a switch-like type that can be toggled */
     val isToggleable: Boolean
         get() = type in listOf("Switch", "Dimmer", "Color") ||
+            (isGroup && groupType in listOf("Switch", "Dimmer", "Color")) ||
             commandDescription?.commandOptions?.any { it.command in listOf("ON", "OFF") } == true
 
     /** Whether this item is a range/slider type (has min/max and is not read-only) */
@@ -53,9 +60,23 @@ data class Item(
     /** Icon name for use with openHAB icon API */
     val iconName: String get() = category ?: "none"
 
-    /** Whether the item is currently in an active state (ON, OPEN, or numeric > 0) */
+    /** Whether this is a Group item */
+    val isGroup: Boolean get() = type.startsWith("Group")
+
+    /**
+     * Whether the item is currently in an active state (ON, OPEN, or numeric > 0).
+     * For Group items with NULL/UNDEF state: derives activity from members if available.
+     */
     val isActive: Boolean
-        get() = state == "ON" || state == "OPEN" || (state.toIntOrNull() ?: 0) > 0
+        get() {
+            val ownState = state == "ON" || state == "OPEN" || (state.toIntOrNull() ?: 0) > 0
+            if (ownState) return true
+            // For Group items with NULL/UNDEF state, check if any member is active
+            if (isGroup && state in listOf("NULL", "UNDEF") && !members.isNullOrEmpty()) {
+                return members.any { it.isActive }
+            }
+            return false
+        }
 
     /** Whether the item is currently in ON state */
     val isOn: Boolean get() = isActive
@@ -113,4 +134,10 @@ data class CommandOption(
 data class MetadataEntry(
     val value: String = "",
     val config: Map<String, String>? = null
+)
+
+@Serializable
+data class GroupFunction(
+    val name: String = "",
+    val params: List<String> = emptyList()
 )

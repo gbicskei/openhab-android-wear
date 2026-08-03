@@ -1,18 +1,29 @@
 package org.openhab.habdroid.wear.data.repository
 
+import android.util.Log
 import org.openhab.habdroid.wear.data.model.TileItem
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * In-memory cache for tile items. Stores configuration (metadata, positions)
- * and last-known states. States are updated via SSE events.
+ * In-memory + disk cache for tile items.
  *
- * Config is loaded once and persists until "Reload Items" clears it.
- * States are refreshed on each tile enter (swipe to tile).
+ * Stores configuration (item metadata, positions, actions) and last-known states.
+ * On process restart, loads from disk (warm start) so the tile renders immediately.
+ * States are refreshed via the hot path (single batch API call) on tile enter.
+ *
+ * Lifecycle:
+ * - Cold load (network): config + items fetched → stored in memory + disk
+ * - Warm load (disk): process restart → loaded from disk → states stale, refreshed on tile enter
+ * - Hot path (network): state-only batch fetch → updates memory cache
  */
 @Singleton
-class ItemCache @Inject constructor() {
+class ItemCache @Inject constructor(
+    private val diskCache: TileConfigDiskCache
+) {
+    companion object {
+        private const val TAG = "ItemCache"
+    }
 
     @Volatile
     private var cachedItems: List<TileItem>? = null
@@ -21,26 +32,51 @@ class ItemCache @Inject constructor() {
     @Volatile
     var statesLoaded: Boolean = false
 
-    /** Returns cached items, or null if cache is empty (needs fetch). */
-    fun get(): List<TileItem>? = cachedItems
+    /**
+     * Returns cached items from memory. If memory is empty, attempts to load from disk.
+     * Returns null only if both memory and disk are empty (needs network cold load).
+     */
+    fun get(): List<TileItem>? {
+        cachedItems?.let { return it }
 
-    /** Store items in cache. */
-    fun put(items: List<TileItem>) {
-        cachedItems = items
+        // Memory miss — try disk
+        val fromDisk = diskCache.load()
+        if (fromDisk != null) {
+            Log.d(TAG, "Warm start: loaded ${fromDisk.size} items from disk")
+            cachedItems = fromDisk
+            // States are stale from disk — don't mark statesLoaded
+        }
+        return cachedItems
     }
 
-    /** Clear cache — next access will return null, forcing a re-fetch. */
+    /** Store items in cache after a cold load. Persists to disk. */
+    fun put(items: List<TileItem>) {
+        cachedItems = items
+        diskCache.save(items)
+    }
+
+    /**
+     * Replace cached items with state-updated versions (hot path result).
+     * Does NOT persist to disk — states are ephemeral, only config is persisted.
+     */
+    fun putStates(items: List<TileItem>) {
+        cachedItems = items
+        statesLoaded = true
+    }
+
+    /** Clear cache (memory + disk). Next access will require a network cold load. */
     fun clear() {
         cachedItems = null
         statesLoaded = false
+        diskCache.clear()
     }
 
-    /** Whether cache has config data. */
-    val isLoaded: Boolean get() = cachedItems != null
+    /** Whether cache has config data (from memory or disk). */
+    val isLoaded: Boolean get() = get() != null
 
     /**
-     * Update a single item's state in the cache (from SSE or state fetch).
-     * Checks both primary item names and valueItem names for matches.
+     * Update a single item's state in the cache (from SSE event).
+     * Checks primary item names, valueItem names, and Group members for matches.
      */
     fun updateItemState(itemName: String, newState: String) {
         val items = cachedItems ?: return
@@ -50,40 +86,19 @@ class ItemCache @Inject constructor() {
                     tileItem.copy(valueItem = tileItem.valueItem?.copy(state = newState))
                 tileItem.item.name ->
                     tileItem.copy(item = tileItem.item.copy(state = newState))
-                else -> tileItem
-            }
-        }
-    }
-
-    /**
-     * Bulk update states from fresh server data.
-     * Matches by item name (both primary and valueItem), updates state only (preserves cached config).
-     */
-    fun updateStates(freshItems: List<TileItem>) {
-        val items = cachedItems ?: return
-        // Build state map from both primary items and valueItems
-        val stateMap = mutableMapOf<String, String>()
-        for (fresh in freshItems) {
-            stateMap[fresh.item.name] = fresh.item.state
-            if (fresh.valueItem != null) {
-                stateMap[fresh.valueItem.name] = fresh.valueItem.state
-            }
-        }
-        cachedItems = items.map { tileItem ->
-            var updated = tileItem
-            // Update primary item state
-            stateMap[tileItem.item.name]?.let { newState ->
-                updated = updated.copy(item = updated.item.copy(state = newState))
-            }
-            // Update valueItem state
-            tileItem.valueItemName?.let { valueName ->
-                stateMap[valueName]?.let { newState ->
-                    updated = updated.copy(valueItem = updated.valueItem?.copy(state = newState))
+                else -> {
+                    // Check if itemName is a member of a Group item — update member state
+                    if (tileItem.item.isGroup && tileItem.item.members?.any { it.name == itemName } == true) {
+                        val updatedMembers = tileItem.item.members.map { member ->
+                            if (member.name == itemName) member.copy(state = newState) else member
+                        }
+                        tileItem.copy(item = tileItem.item.copy(members = updatedMembers))
+                    } else {
+                        tileItem
+                    }
                 }
             }
-            updated
         }
-        statesLoaded = true
     }
 
     /** Mark states as stale (tile was left and re-entered). */

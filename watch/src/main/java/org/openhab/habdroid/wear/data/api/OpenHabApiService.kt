@@ -2,6 +2,7 @@ package org.openhab.habdroid.wear.data.api
 
 import okhttp3.RequestBody
 import org.openhab.habdroid.wear.data.model.Item
+import org.openhab.habdroid.wear.data.model.WearTileComponent
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -21,6 +22,7 @@ interface OpenHabApiService {
     suspend fun getItems(
         @Query("metadata") metadata: String? = null,
         @Query("fields") fields: String? = null,
+        @Query("recursive") recursive: Boolean? = null,
         @Header("Accept-Language") language: String? = null
     ): List<Item>
 
@@ -51,6 +53,19 @@ interface OpenHabApiService {
         @Body command: RequestBody,
         @Header("Accept-Language") language: String? = null
     )
+
+    /**
+     * Get all wear:tile UI components (tile page configs + complications).
+     */
+    @GET("rest/ui/components/wear:tile")
+    suspend fun getTileComponents(): List<WearTileComponent>
+
+    /**
+     * Get the complication-list document as raw JSON for flexible parsing.
+     * Returns the document with nested per-type config objects intact.
+     */
+    @GET("rest/ui/components/wear:tile/complications")
+    suspend fun getComplicationListRaw(): kotlinx.serialization.json.JsonObject
 
     /**
      * Get the server's icon for an item category.
