@@ -18,6 +18,7 @@ data class ChoicePickerState(
     val label: String = "",
     val options: List<ChoiceOption> = emptyList(),
     val currentValue: String = "",
+    val themeColor: Long = 0xFFFFB300,
     val isSending: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null
@@ -38,6 +39,7 @@ data class ChoiceOption(
 @HiltViewModel
 class ChoicePickerViewModel @Inject constructor(
     private val repository: OpenHabRepository,
+    private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -48,6 +50,14 @@ class ChoicePickerViewModel @Inject constructor(
 
     init {
         loadOptions()
+        loadTheme()
+    }
+
+    private fun loadTheme() {
+        viewModelScope.launch {
+            val theme = themeStore.getTheme()
+            _state.value = _state.value.copy(themeColor = theme.color.toLong() and 0xFFFFFFFFL)
+        }
     }
 
     /**

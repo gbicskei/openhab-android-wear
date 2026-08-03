@@ -93,18 +93,27 @@ class SetupViewModel @Inject constructor(
     }
 
     /**
-     * Check if the watch's config is out of sync with the server.
-     * Reads the watch's configVersion from DataClient and compares with
-     * the server's configVersion from the main tile page.
+     * Check if the watch's config is out of sync with the phone/server.
+     * Compares both configVersion (tile layout) and theme.
      */
     fun checkConfigSync() {
         viewModelScope.launch {
             try {
                 val watchStatus = watchStatusReader.readStatus()
                 val watchVersion = watchStatus?.configTimestamp?.toIntOrNull()
-                AppLog.d("SetupVM", "Sync check: watchVersion=$watchVersion")
+                val watchTheme = watchStatus?.theme
+                AppLog.d("SetupVM", "Sync check: watchVersion=$watchVersion, watchTheme=$watchTheme")
+
                 if (watchVersion == null) {
                     // Watch hasn't synced yet — show as out of sync
+                    _uiState.update { it.copy(configOutOfSync = true) }
+                    return@launch
+                }
+
+                // Check theme mismatch
+                val selectedTheme = credentialStore.getSelectedTheme()
+                if (watchTheme != null && !watchTheme.equals(selectedTheme, ignoreCase = true)) {
+                    AppLog.d("SetupVM", "Sync check: theme mismatch (watch=$watchTheme, phone=$selectedTheme)")
                     _uiState.update { it.copy(configOutOfSync = true) }
                     return@launch
                 }

@@ -22,6 +22,7 @@ data class RotaryControlState(
     val max: Double = 100.0,
     val step: Double = 1.0,
     val pattern: String? = null,
+    val themeColor: Long = 0xFFFFB300,
     val isLoading: Boolean = true,
     val error: String? = null
 ) {
@@ -56,6 +57,7 @@ data class RotaryControlState(
 @HiltViewModel
 class RotaryControlViewModel @Inject constructor(
     private val repository: OpenHabRepository,
+    private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -69,6 +71,14 @@ class RotaryControlViewModel @Inject constructor(
     init {
         loadCachedMetadata()
         refreshLiveState()
+        loadTheme()
+    }
+
+    private fun loadTheme() {
+        viewModelScope.launch {
+            val theme = themeStore.getTheme()
+            _state.value = _state.value.copy(themeColor = theme.color.toLong() and 0xFFFFFFFFL)
+        }
     }
 
     /**
@@ -83,7 +93,7 @@ class RotaryControlViewModel @Inject constructor(
                     if (tileItem != null) {
                         val item = tileItem.item
                         val stateDesc = item.stateDescription
-                        _state.value = RotaryControlState(
+                        _state.value = _state.value.copy(
                             itemName = item.name,
                             label = tileItem.effectiveLabel,
                             icon = tileItem.effectiveIcon,
@@ -138,7 +148,9 @@ class RotaryControlViewModel @Inject constructor(
         val current = _state.value
         if (current.isLoading || current.error != null) return
 
-        val scaledDelta = (delta / 50f) * current.step
+        val range = current.max - current.min
+        // Scale so a full bezel rotation (~1800px) covers the entire range
+        val scaledDelta = (delta / 1800f) * range
         val newValue = (current.currentValue + scaledDelta)
             .coerceIn(current.min, current.max)
 

@@ -27,7 +27,7 @@ class IconResolver @Inject constructor(
 ) {
     companion object {
         private const val TAG = "IconResolver"
-        private const val CACHE_SIZE = 30 // max cached icon byte arrays
+        private const val CACHE_SIZE = 100 // max cached icon byte arrays
         private const val ICONIFY_BASE = "https://api.iconify.design"
         private const val MATERIAL_BASE = "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined"
     }
@@ -56,9 +56,21 @@ class IconResolver @Inject constructor(
 
         if (bytes != null) {
             cache.put(cacheKey, bytes)
+            return bytes
         }
 
-        return bytes
+        // Fallback for openHAB icons: try any previously cached state
+        if (source is IconSource.OpenHab) {
+            // Check if we have this icon cached with any state
+            val snapshot = cache.snapshot()
+            val fallback = snapshot.keys.firstOrNull { it.startsWith("${iconRef}_") }
+            if (fallback != null) {
+                AppLog.d(TAG, "Icon fallback: using cached '$fallback' for state '$state'")
+                return cache.get(fallback)
+            }
+        }
+
+        return null
     }
 
     /**

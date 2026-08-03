@@ -70,12 +70,14 @@ class TileDesignViewModel @Inject constructor(
     private val _selectedTheme = MutableStateFlow(credentialStore.getSelectedTheme())
     val selectedTheme: StateFlow<String> = _selectedTheme.asStateFlow()
 
+    /** Tracks if user manually changed the theme this session (prevents DataClient override) */
+    private var themeModifiedByUser = false
+
     /** Cached local config for write operations. */
     private var localConfig: LocalServerConfig? = null
 
     init {
         loadTileConfig()
-        loadWatchTheme()
     }
 
     /**
@@ -85,7 +87,7 @@ class TileDesignViewModel @Inject constructor(
     private fun loadWatchTheme() {
         viewModelScope.launch {
             val watchTheme = watchStatusReader.readTheme()
-            if (watchTheme != null && watchTheme.isNotBlank()) {
+            if (watchTheme != null && watchTheme.isNotBlank() && !themeModifiedByUser) {
                 _selectedTheme.value = watchTheme
                 credentialStore.saveSelectedTheme(watchTheme)
             }
@@ -207,6 +209,7 @@ class TileDesignViewModel @Inject constructor(
     }
 
     fun onThemeSelected(themeName: String) {
+        themeModifiedByUser = true
         _selectedTheme.value = themeName
         viewModelScope.launch {
             credentialStore.saveSelectedTheme(themeName)

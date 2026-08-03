@@ -10,8 +10,8 @@ import android.graphics.PorterDuffColorFilter
 import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
+import android.util.LruCache
 import com.caverock.androidsvg.SVG
-import java.nio.ByteBuffer
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -19,7 +19,12 @@ import javax.inject.Singleton
  * Composites icon bitmaps for the tile: renders the icon graphic (SVG or PNG),
  * applies tinting based on state, and draws a ring around it.
  *
- * The final output is raw ARGB_8888 bytes ready for ProtoLayout inline image resources.
+ * The final output is PNG-compressed bytes for ProtoLayout inline image resources.
+ * PNG keeps the payload small enough to avoid Binder TransactionTooLargeException.
+ *
+ * Results are cached in an LRU keyed on the full input tuple (icon content hash,
+ * format, state, theme color, label, state text). Cache hits skip all rendering
+ * and compression work entirely.
  */
 @Singleton
 class IconCompositor @Inject constructor() {
@@ -63,11 +68,34 @@ class IconCompositor @Inject constructor() {
 
         /** State text size in pixels */
         private const val STATE_TEXT_SIZE = 14f
+
+        /** Max cached composited icons (each ~3-5KB compressed, so ~500KB total max) */
+        private const val CACHE_MAX_ENTRIES = 128
     }
+
+    /**
+     * LRU cache: composite input key → compressed image bytes.
+     * Sized by entry count (not bytes) since entries are uniformly small.
+     */
+    private val cache = LruCache<CompositeKey, ByteArray>(CACHE_MAX_ENTRIES)
+
+    /**
+     * Cache key representing the full set of inputs that determine the output image.
+     */
+    private data class CompositeKey(
+        val iconContentHash: Int,
+        val format: IconFormat,
+        val state: IconState,
+        val themeColor: Int,
+        val label: String?,
+        val stateText: String?
+    )
 
     /**
      * Composites a final tile icon bitmap from raw icon bytes.
      * Includes label text at the top and icon graphic below, all inside the ring.
+     *
+     * Returns a cached result if the same inputs were seen before.
      *
      * @param bytes Raw icon bytes (SVG or PNG)
      * @param format Detected format from IconResolver
@@ -75,9 +103,29 @@ class IconCompositor @Inject constructor() {
      * @param themeColor The user's chosen accent color (e.g., 0xFFFF9800)
      * @param label Optional label text to render at the top inside the ring
      * @param stateText Optional state text to render below the icon (for valueDisplay=value)
-     * @return Raw ARGB_8888 pixel bytes for ProtoLayout, or null on failure
+     * @return Compressed pixel bytes for ProtoLayout, or null on failure
      */
     fun composite(bytes: ByteArray, format: IconFormat, state: IconState, themeColor: Int, label: String? = null, stateText: String? = null): ByteArray? {
+        val key = CompositeKey(
+            iconContentHash = bytes.contentHashCode(),
+            format = format,
+            state = state,
+            themeColor = themeColor,
+            label = label,
+            stateText = stateText
+        )
+
+        cache.get(key)?.let { return it }
+
+        val result = render(bytes, format, state, themeColor, label, stateText) ?: return null
+        cache.put(key, result)
+        return result
+    }
+
+    /**
+     * Renders the composited icon (no cache involvement).
+     */
+    private fun render(bytes: ByteArray, format: IconFormat, state: IconState, themeColor: Int, label: String?, stateText: String?): ByteArray? {
         val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
@@ -89,14 +137,14 @@ class IconCompositor @Inject constructor() {
         // 2. Draw ring
         drawRing(canvas, state, themeColor)
 
-        // 2. Draw label at top (inside ring)
+        // 3. Draw label at top (inside ring)
         val hasLabel = !label.isNullOrBlank()
         val hasState = !stateText.isNullOrBlank()
         if (hasLabel) {
             drawLabel(canvas, label!!)
         }
 
-        // 3. Render and draw icon (shifted based on label/state presence)
+        // 4. Render and draw icon (shifted based on label/state presence)
         val iconBitmap = when (format) {
             IconFormat.SVG -> renderSvg(bytes, hasLabel = hasLabel, hasState = hasState)
             IconFormat.PNG -> renderPng(bytes, hasLabel = hasLabel, hasState = hasState)
@@ -106,21 +154,21 @@ class IconCompositor @Inject constructor() {
             return null
         }
 
-        // 3. Apply tint/alpha and draw centered
+        // 5. Apply tint/alpha and draw centered
         drawIcon(canvas, iconBitmap, state, themeColor, hasLabel, hasState)
         iconBitmap.recycle()
 
-        // 4. Draw state text below icon
+        // 6. Draw state text below icon
         if (hasState) {
             drawStateText(canvas, stateText!!, state, themeColor)
         }
 
-        // 5. Convert to raw ARGB_8888 bytes
-        val buffer = ByteBuffer.allocate(bitmap.byteCount)
-        bitmap.copyPixelsToBuffer(buffer)
+        // 7. Compress to WebP lossless (fast encode with alpha, avoids TransactionTooLargeException)
+        val stream = java.io.ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, stream)
         bitmap.recycle()
 
-        return buffer.array()
+        return stream.toByteArray()
     }
 
     /**

@@ -38,9 +38,14 @@ data class Item(
 
     /** Whether this item is a range/slider type (has min/max and is not read-only) */
     val isRange: Boolean
-        get() = stateDescription?.let {
-            it.minimum != null && it.maximum != null && !it.isReadOnly
-        } ?: false
+        get() {
+            // Dimmer is always range 0-100 by definition
+            if (type == "Dimmer") return true
+            if (isGroup && groupType == "Dimmer") return true
+            return stateDescription?.let {
+                it.minimum != null && it.maximum != null && !it.isReadOnly
+            } ?: false
+        }
 
     /** Whether this item is a Contact type (display-only, OPEN/CLOSED) */
     val isContact: Boolean
@@ -71,6 +76,11 @@ data class Item(
         get() {
             val ownState = state == "ON" || state == "OPEN" || (state.toIntOrNull() ?: 0) > 0
             if (ownState) return true
+            // HSB color state: "H,S,B" — active if brightness > 0
+            if (state.contains(',')) {
+                val brightness = state.split(',').getOrNull(2)?.trim()?.toDoubleOrNull()
+                if (brightness != null && brightness > 0) return true
+            }
             // For Group items with NULL/UNDEF state, check if any member is active
             if (isGroup && state in listOf("NULL", "UNDEF") && !members.isNullOrEmpty()) {
                 return members.any { it.isActive }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -80,15 +81,31 @@ fun ChoicePickerScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header with item label
+                // Header with logo and item label
                 item {
                     ListHeader {
-                        Text(
-                            text = state.label,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        androidx.compose.foundation.layout.Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            val context = androidx.compose.ui.platform.LocalContext.current
+                            val logoPainter = coil.compose.rememberAsyncImagePainter(
+                                model = coil.request.ImageRequest.Builder(context)
+                                    .data("file:///android_asset/ic_openhab_logo.svg")
+                                    .decoderFactory(coil.decode.SvgDecoder.Factory())
+                                    .build()
+                            )
+                            androidx.compose.foundation.Image(
+                                painter = logoPainter,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = state.label,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
 
@@ -99,6 +116,7 @@ fun ChoicePickerScreen(
                         option = option,
                         isActive = isActive,
                         isSending = state.isSending,
+                        themeColor = Color(state.themeColor),
                         onClick = { viewModel.selectOption(option) }
                     )
                 }
@@ -112,6 +130,7 @@ private fun OptionCard(
     option: ChoiceOption,
     isActive: Boolean,
     isSending: Boolean,
+    themeColor: Color = Color(0xFFFFB300),
     onClick: () -> Unit
 ) {
     TitleCard(
@@ -120,7 +139,7 @@ private fun OptionCard(
             Text(
                 text = option.label,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                color = if (isActive) Color(0xFFFF9800) else Color.White,
+                color = if (isActive) themeColor else Color.White,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )

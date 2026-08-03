@@ -18,6 +18,7 @@ data class RollerShutterState(
     val label: String = "",
     val position: Float = 0f, // 0 = open, 100 = closed (openHAB convention)
     val isMoving: Boolean = false,
+    val themeColor: Long = 0xFFFFB300,
     val isLoading: Boolean = true,
     val error: String? = null
 ) {
@@ -37,6 +38,7 @@ data class RollerShutterState(
 @HiltViewModel
 class RollerShutterViewModel @Inject constructor(
     private val repository: OpenHabRepository,
+    private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -49,6 +51,14 @@ class RollerShutterViewModel @Inject constructor(
 
     init {
         loadCurrentState()
+        loadTheme()
+    }
+
+    private fun loadTheme() {
+        viewModelScope.launch {
+            val theme = themeStore.getTheme()
+            _state.value = _state.value.copy(themeColor = theme.color.toLong() and 0xFFFFFFFFL)
+        }
     }
 
     private fun loadCurrentState() {
@@ -56,7 +66,7 @@ class RollerShutterViewModel @Inject constructor(
             repository.getItem(itemName)
                 .onSuccess { item ->
                     val position = item.numericState?.toFloat()?.coerceIn(0f, 100f) ?: 0f
-                    _state.value = RollerShutterState(
+                    _state.value = _state.value.copy(
                         itemName = itemName,
                         label = item.displayLabel,
                         position = position,
@@ -78,7 +88,7 @@ class RollerShutterViewModel @Inject constructor(
     fun sendUp() {
         val current = _state.value
         if (current.isLoading || current.error != null) return
-        _state.value = current.copy(isMoving = true)
+        _state.value = current.copy(isMoving = true, position = 0f)
         viewModelScope.launch {
             repository.sendCommand(itemName, "UP")
             _state.value = _state.value.copy(isMoving = false)
@@ -91,7 +101,7 @@ class RollerShutterViewModel @Inject constructor(
     fun sendDown() {
         val current = _state.value
         if (current.isLoading || current.error != null) return
-        _state.value = current.copy(isMoving = true)
+        _state.value = current.copy(isMoving = true, position = 100f)
         viewModelScope.launch {
             repository.sendCommand(itemName, "DOWN")
             _state.value = _state.value.copy(isMoving = false)
@@ -121,7 +131,7 @@ class RollerShutterViewModel @Inject constructor(
         val current = _state.value
         if (current.isLoading || current.error != null) return
 
-        val newPosition = (current.position + delta / 30f).coerceIn(0f, 100f)
+        val newPosition = (current.position + (delta / 1800f) * 100f).coerceIn(0f, 100f)
         if (newPosition.toInt() == current.position.toInt()) return
 
         _state.value = current.copy(position = newPosition)

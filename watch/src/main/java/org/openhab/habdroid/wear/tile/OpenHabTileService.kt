@@ -74,8 +74,10 @@ class OpenHabTileService : TileService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
 
-    /** Cache all tile items (all pages) for resource loading */
+    /** Cache all tile items (all pages) for aggregate state calculation */
     private var allTileItems: List<TileItem> = emptyList()
+    /** Cache items for current page only (used for resource generation) */
+    private var currentPageItems: List<TileItem> = emptyList()
     /** Shared resource version */
     private var resourceVersion: String = "0"
 
@@ -133,21 +135,33 @@ class OpenHabTileService : TileService() {
                 .sortedBy { it.slot }
                 .take(7)
 
+            currentPageItems = pageItems
+
             AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
             val tile = buildTile(pageItems, effectivePage, requestParams)
             AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
+
+            // Ensure SSE is running (covers process restart while tile is visible)
+            if (allItems.isNotEmpty()) {
+                val watchSet = buildWatchedItemsSet(allItems)
+                tileStateEventSource.watchedItems = watchSet
+                tileStateEventSource.start {
+                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                }
+            }
+
             tile
         }
 
     override fun onTileResourcesRequest(requestParams: RequestBuilders.ResourcesRequest): ListenableFuture<ResourceBuilders.Resources> =
         serviceScope.future {
             val resStart = System.currentTimeMillis()
-            AppLog.d("TileNav", "=== onTileResourcesRequest start, ${allTileItems.size} items ===")
+            AppLog.d("TileNav", "=== onTileResourcesRequest start, ${currentPageItems.size} page items ===")
             val resources = ResourceBuilders.Resources.Builder()
                 .setVersion(resourceVersion)
 
-            // Load icons for ALL items across all pages
-            for (tileItem in allTileItems) {
+            // Load icons only for current page items (max 7)
+            for (tileItem in currentPageItems) {
                 val iconRef = tileItem.effectiveIcon
                 val displayItem = tileItem.displayItem
                 val state = displayItem.state
@@ -166,21 +180,17 @@ class OpenHabTileService : TileService() {
                             else -> false
                         }
                         AppLog.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isActive=$isActive")
-                        // Nav buttons: active if determined above, otherwise neutral (not inactive)
                         if (isActive) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR) {
-                        // Color display: binary active/inactive
                         val result = tileItem.isDisplayActive
                         AppLog.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
                         if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
                     } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE) {
-                        // None display: always neutral, no state indication
                         AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (stateDisplay=none)")
                         org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else {
-                        // Value display, range items — always neutral
                         AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
                         org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     }
@@ -210,7 +220,7 @@ class OpenHabTileService : TileService() {
                                         .setData(composited)
                                         .setWidthPx(IconCompositor.SIZE)
                                         .setHeightPx(IconCompositor.SIZE)
-                                        .setFormat(ResourceBuilders.IMAGE_FORMAT_ARGB_8888)
+                                        .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
                                         .build()
                                 )
                                 .build()
@@ -990,6 +1000,9 @@ class OpenHabTileService : TileService() {
             } catch (e: Exception) {
                 value.toInt().toString()
             }
+            // Infer unit suffix from item type when no pattern is available
+            item.type == "Dimmer" || item.type == "Rollershutter" -> "${value.toInt()}%"
+            item.type.startsWith("Number:Temperature") -> "${String.format("%.0f", value)}°"
             value == value.toLong().toDouble() -> value.toLong().toString()
             else -> String.format("%.1f", value)
         }
@@ -1018,8 +1031,8 @@ class OpenHabTileService : TileService() {
             svg.documentHeight = size.toFloat()
             svg.renderToCanvas(canvas)
 
-            val buffer = java.nio.ByteBuffer.allocate(bitmap.byteCount)
-            bitmap.copyPixelsToBuffer(buffer)
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
             bitmap.recycle()
 
             resources.addIdToImageMapping(
@@ -1027,10 +1040,10 @@ class OpenHabTileService : TileService() {
                 ResourceBuilders.ImageResource.Builder()
                     .setInlineResource(
                         ResourceBuilders.InlineImageResource.Builder()
-                            .setData(buffer.array())
+                            .setData(stream.toByteArray())
                             .setWidthPx(size)
                             .setHeightPx(size)
-                            .setFormat(ResourceBuilders.IMAGE_FORMAT_ARGB_8888)
+                            .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
                             .build()
                     )
                     .build()
@@ -1055,8 +1068,8 @@ class OpenHabTileService : TileService() {
             svg.documentHeight = size.toFloat()
             svg.renderToCanvas(canvas)
 
-            val buffer = java.nio.ByteBuffer.allocate(bitmap.byteCount)
-            bitmap.copyPixelsToBuffer(buffer)
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
             bitmap.recycle()
 
             resources.addIdToImageMapping(
@@ -1064,10 +1077,10 @@ class OpenHabTileService : TileService() {
                 ResourceBuilders.ImageResource.Builder()
                     .setInlineResource(
                         ResourceBuilders.InlineImageResource.Builder()
-                            .setData(buffer.array())
+                            .setData(stream.toByteArray())
                             .setWidthPx(size)
                             .setHeightPx(size)
-                            .setFormat(ResourceBuilders.IMAGE_FORMAT_ARGB_8888)
+                            .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
                             .build()
                     )
                     .build()

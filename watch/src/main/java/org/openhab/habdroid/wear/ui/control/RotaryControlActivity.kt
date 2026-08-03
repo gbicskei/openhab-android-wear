@@ -86,7 +86,7 @@ fun RotaryControlScreen(
                 val progress = ((state.currentValue - state.min) / (state.max - state.min))
                     .coerceIn(0.0, 1.0).toFloat()
 
-                EdgeProgressIndicator(progress = progress)
+                EdgeProgressIndicator(progress = progress, progressColor = Color(state.themeColor))
 
                 // Center content
                 Column(
@@ -140,7 +140,7 @@ fun RotaryControlScreen(
 private fun EdgeProgressIndicator(
     progress: Float,
     trackColor: Color = Color(0xFF333333),
-    progressColor: Color = Color(0xFFFF9800)
+    progressColor: Color = Color(0xFFFFB300)
 ) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val strokeWidth = 8.dp.toPx()

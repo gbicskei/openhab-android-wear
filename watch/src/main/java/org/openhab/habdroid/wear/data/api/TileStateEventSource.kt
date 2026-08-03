@@ -95,8 +95,13 @@ class TileStateEventSource @Inject constructor(
             while (isActive) {
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
                     AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")
-                    pollLoop(onChanged)
-                    return@launch // pollLoop runs until cancelled (tile leave)
+                    val pollResult = pollLoop(onChanged)
+                    // Poll succeeded → network is back, reset and retry SSE
+                    consecutiveQuickFailures = 0
+                    if (pollResult == SseResult.CANCELLED) return@launch
+                    AppLog.d(TAG, "Retrying SSE after successful poll")
+                    delay(RECONNECT_DELAY_MS)
+                    continue
                 }
 
                 val connectTime = System.currentTimeMillis()
@@ -233,17 +238,19 @@ class TileStateEventSource @Inject constructor(
 
     /**
      * Polling fallback: fetch states periodically when SSE is unstable.
-     * Runs until the coroutine is cancelled (tile leave → stop()).
+     * After a successful poll (network is back), retries SSE.
+     * Runs until SSE is re-established or the coroutine is cancelled (tile leave → stop()).
      */
-    private suspend fun pollLoop(onChanged: () -> Unit) {
+    private suspend fun pollLoop(onChanged: () -> Unit): SseResult {
         AppLog.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
         while (true) {
             delay(POLL_INTERVAL_MS)
             try {
                 repository.refreshStates()
                     .onSuccess {
-                        AppLog.d(TAG, "Poll: states refreshed")
+                        AppLog.d(TAG, "Poll: states refreshed — promoting back to SSE")
                         onChanged()
+                        return SseResult.TIMEOUT // signals main loop to retry SSE
                     }
                     .onFailure { e ->
                         AppLog.w(TAG, "Poll: refresh failed: ${e.message}")

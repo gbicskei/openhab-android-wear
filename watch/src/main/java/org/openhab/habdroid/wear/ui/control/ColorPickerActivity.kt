@@ -90,6 +90,20 @@ fun ColorPickerScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(28.dp)
                 ) {
+                    // openHAB logo
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val logoPainter = coil.compose.rememberAsyncImagePainter(
+                        model = coil.request.ImageRequest.Builder(context)
+                            .data("file:///android_asset/ic_openhab_logo.svg")
+                            .decoderFactory(coil.decode.SvgDecoder.Factory())
+                            .build()
+                    )
+                    androidx.compose.foundation.Image(
+                        painter = logoPainter,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+
                     // Item label
                     Text(
                         text = state.label,

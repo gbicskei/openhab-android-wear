@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Text
+import coil.compose.rememberAsyncImagePainter
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -80,65 +83,75 @@ fun RollerShutterScreen(
             }
 
             else -> {
-                // Edge position arc (0% = fully open at top, 100% = fully closed)
-                PositionArc(position = state.position / 100f)
+                // Edge position arc
+                val themeComposeColor = Color(state.themeColor)
+                PositionArc(position = state.position / 100f, progressColor = themeComposeColor)
 
-                // Center content: UP / position / STOP / DOWN
+                // openHAB logo at top
+                val context = LocalContext.current
+                val logoPainter = rememberAsyncImagePainter(
+                    model = coil.request.ImageRequest.Builder(context)
+                        .data("file:///android_asset/ic_openhab_logo.svg")
+                        .decoderFactory(coil.decode.SvgDecoder.Factory())
+                        .build()
+                )
+                Image(
+                    painter = logoPainter,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 14.dp)
+                        .size(20.dp)
+                )
+
+                // Item label below logo
+                Text(
+                    text = state.label,
+                    fontSize = 12.sp,
+                    color = Color(0xFFAAAAAA),
+                    maxLines = 1,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 36.dp)
+                )
+
+                // Position value at bottom
+                Text(
+                    text = state.positionDisplay,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = themeComposeColor,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                )
+
+                // Center: compact UP / STOP / DOWN
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 40.dp, vertical = 32.dp)
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(horizontal = 50.dp)
                 ) {
-                    // Item label
-                    Text(
-                        text = state.label,
-                        fontSize = 12.sp,
-                        color = Color(0xFFAAAAAA),
-                        maxLines = 1
-                    )
-
-                    // UP button
                     Button(
                         onClick = { viewModel.sendUp() },
-                        modifier = Modifier.size(width = 80.dp, height = 36.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2E7D32)
-                        )
+                        modifier = Modifier.size(width = 72.dp, height = 34.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = themeComposeColor)
                     ) {
                         Text("UP", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    // Current position display
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Text(
-                            text = state.positionDisplay,
-                            fontSize = 28.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-
-                    // STOP button
                     Button(
                         onClick = { viewModel.sendStop() },
-                        modifier = Modifier.size(width = 80.dp, height = 36.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF6F00)
-                        )
+                        modifier = Modifier.size(width = 72.dp, height = 34.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = themeComposeColor.copy(alpha = 0.5f))
                     ) {
                         Text("STOP", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    // DOWN button
                     Button(
                         onClick = { viewModel.sendDown() },
-                        modifier = Modifier.size(width = 80.dp, height = 36.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFC62828)
-                        )
+                        modifier = Modifier.size(width = 72.dp, height = 34.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = themeComposeColor.copy(alpha = 0.3f))
                     ) {
                         Text("DOWN", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
@@ -157,7 +170,7 @@ fun RollerShutterScreen(
  * 0% = open (no arc), 100% = closed (full arc).
  */
 @Composable
-private fun PositionArc(position: Float) {
+private fun PositionArc(position: Float, progressColor: Color = Color(0xFFFFB300)) {
     Canvas(modifier = Modifier.fillMaxSize()) {
         val strokeWidth = 8.dp.toPx()
         val padding = 4.dp.toPx()
@@ -181,7 +194,7 @@ private fun PositionArc(position: Float) {
         // Position arc (starts at top = -90°, sweeps clockwise)
         if (position > 0f) {
             drawArc(
-                color = Color(0xFFFF9800),
+                color = progressColor,
                 startAngle = -90f,
                 sweepAngle = 360f * position,
                 useCenter = false,
