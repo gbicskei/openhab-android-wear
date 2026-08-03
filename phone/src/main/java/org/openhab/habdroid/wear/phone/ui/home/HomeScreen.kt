@@ -1,7 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.home
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,17 +8,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,16 +40,28 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.openhab.habdroid.wear.phone.R
+import org.openhab.habdroid.wear.phone.ui.setup.ConnectionStatus
 import org.openhab.habdroid.wear.phone.ui.setup.SetupViewModel
+import org.openhab.habdroid.wear.phone.ui.setup.SyncResult
 import org.openhab.habdroid.wear.phone.ui.setup.WatchStatus
 
 @Composable
 fun HomeScreen(
     onNavigateToConnection: () -> Unit,
     onNavigateToTileDesign: () -> Unit,
+    onNavigateToComplications: () -> Unit,
     viewModel: SetupViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // Re-check sync status whenever this screen becomes visible
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.loadSavedCredentials()
+            viewModel.checkConfigSync()
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -69,7 +84,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // App title
             Text(
                 text = "openHAB",
                 style = MaterialTheme.typography.headlineLarge,
@@ -78,7 +92,7 @@ fun HomeScreen(
             )
 
             Text(
-                text = "Wear OS Companion",
+                text = "Wear OS Configurator",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -92,28 +106,61 @@ fun HomeScreen(
                 connectionType = uiState.connectionTypeLabel
             )
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             // Navigation cards
             NavigationCard(
                 title = "Connection",
-                subtitle = "Server credentials & watch sync",
+                subtitle = "Server credentials & config server",
                 icon = Icons.Outlined.Settings,
                 onClick = onNavigateToConnection
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val configReady = uiState.configConnectionStatus == ConnectionStatus.Success ||
+                uiState.configHasStoredPassword
 
             NavigationCard(
                 title = "Tile Design",
-                subtitle = "Configure watch tile layout",
+                subtitle = if (configReady) "Configure watch tile layout"
+                    else "Set up config server first",
                 icon = Icons.Default.GridView,
-                onClick = onNavigateToTileDesign
+                onClick = onNavigateToTileDesign,
+                enabled = configReady
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            NavigationCard(
+                title = "Complications",
+                subtitle = if (configReady) "Configure watch face data"
+                    else "Set up config server first",
+                icon = Icons.Default.Watch,
+                onClick = onNavigateToComplications,
+                enabled = configReady
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Sync to Watch button
+            if (uiState.configOutOfSync && configReady) {
+                Text(
+                    text = "Watch config out of sync",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+
+            SyncToWatchButton(
+                syncResult = uiState.syncResult,
+                canSync = uiState.canSendToWatch,
+                onSync = viewModel::sendToWatch
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Version
             Text(
                 text = "v0.1.0",
                 style = MaterialTheme.typography.bodySmall,
@@ -190,13 +237,16 @@ private fun NavigationCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
     Card(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
+            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceVariant
+                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
         ),
         shape = MaterialTheme.shapes.large
     ) {
@@ -233,13 +283,51 @@ private fun NavigationCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
 
+@Composable
+private fun SyncToWatchButton(
+    syncResult: SyncResult?,
+    canSync: Boolean,
+    onSync: () -> Unit
+) {
+    Button(
+        onClick = onSync,
+        enabled = canSync,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        if (syncResult == SyncResult.Sending) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        } else {
             Icon(
-                imageVector = Icons.Default.Watch,
+                imageVector = Icons.AutoMirrored.Filled.Send,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text("Sync to Watch")
+    }
+
+    if (syncResult is SyncResult.Success) {
+        Text(
+            text = "Credentials & tile config synced",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    } else if (syncResult is SyncResult.Error) {
+        Text(
+            text = syncResult.message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(top = 4.dp)
+        )
     }
 }

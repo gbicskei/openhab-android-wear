@@ -1,5 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.setup
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,11 +12,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.phone.data.ConnectionTester
 import org.openhab.habdroid.wear.phone.data.InvalidCredentialsException
+import org.openhab.habdroid.wear.phone.data.LocalServerConfig
 import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
+import org.openhab.habdroid.wear.phone.data.WriteNotAllowedException
 import org.openhab.habdroid.wear.phone.sync.NoNetworkException
 import org.openhab.habdroid.wear.phone.sync.NoWatchConnectedException
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
-import org.openhab.habdroid.wear.phone.sync.WatchConnectionInfo
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import javax.inject.Inject
 
@@ -23,7 +25,8 @@ import javax.inject.Inject
 class SetupViewModel @Inject constructor(
     private val connectionTester: ConnectionTester,
     private val dataLayerSender: PhoneDataLayerSender,
-    private val credentialStore: PhoneCredentialStore
+    private val credentialStore: PhoneCredentialStore,
+    private val watchStatusReader: org.openhab.habdroid.wear.phone.sync.WatchStatusReader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SetupUiState())
@@ -32,9 +35,10 @@ class SetupViewModel @Inject constructor(
     init {
         loadSavedCredentials()
         observeWatchConnection()
+        checkConfigSync()
     }
 
-    private fun loadSavedCredentials() {
+    fun loadSavedCredentials() {
         viewModelScope.launch {
             val saved = credentialStore.credentials.first()
             if (saved != null) {
@@ -48,18 +52,27 @@ class SetupViewModel @Inject constructor(
                     )
                 }
             }
+            val local = credentialStore.localConfig.first()
+            if (local != null) {
+                _uiState.update {
+                    it.copy(
+                        configServerUrl = local.serverUrl,
+                        configUsername = local.username,
+                        configPassword = "",
+                        configApiToken = local.apiToken,
+                        configUseApiToken = local.hasApiToken,
+                        configHasStoredPassword = local.password.isNotBlank(),
+                        configPasswordModifiedThisSession = false
+                    )
+                }
+            }
         }
     }
 
-    /**
-     * Observes watch connectivity in real-time via polling NodeClient every 5s.
-     * Updates UI state immediately when the watch connects or disconnects.
-     */
     private fun observeWatchConnection() {
         viewModelScope.launch {
             dataLayerSender.watchConnectionState().collect { info ->
                 _uiState.update { state ->
-                    // Don't downgrade from Synced to Connected (sync status is sticky)
                     val newStatus = when {
                         info == null -> WatchStatus.NotFound
                         state.watchStatus == WatchStatus.Synced -> WatchStatus.Synced
@@ -71,6 +84,47 @@ class SetupViewModel @Inject constructor(
                         watchNearby = info?.isNearby ?: false
                     )
                 }
+            }
+        }
+    }
+
+    /**
+     * Check if the watch's config is out of sync with the server.
+     * Reads the watch's configVersion from DataClient and compares with
+     * the server's configVersion from the main tile page.
+     */
+    fun checkConfigSync() {
+        viewModelScope.launch {
+            try {
+                val watchStatus = watchStatusReader.readStatus()
+                val watchVersion = watchStatus?.configTimestamp?.toIntOrNull()
+                Log.d("SetupVM", "Sync check: watchVersion=$watchVersion")
+                if (watchVersion == null) {
+                    // Watch hasn't synced yet — show as out of sync
+                    _uiState.update { it.copy(configOutOfSync = true) }
+                    return@launch
+                }
+
+                // Fetch server's configVersion from main page
+                val creds = credentialStore.credentials.first() ?: return@launch
+                val local = credentialStore.localConfig.first()
+                val serverUrl = local?.serverUrl?.takeIf { it.isNotBlank() } ?: creds.serverUrl
+                val username = local?.username?.takeIf { it.isNotBlank() } ?: creds.username
+                val password = local?.password?.takeIf { it.isNotBlank() } ?: creds.password
+
+                val serverVersion = connectionTester.fetchConfigVersion(serverUrl, username, password)
+                Log.d("SetupVM", "Sync check: serverVersion=$serverVersion")
+
+                if (serverVersion == null) {
+                    _uiState.update { it.copy(configOutOfSync = false) }
+                    return@launch
+                }
+
+                val outOfSync = watchVersion != serverVersion
+                Log.d("SetupVM", "Sync check: outOfSync=$outOfSync")
+                _uiState.update { it.copy(configOutOfSync = outOfSync) }
+            } catch (e: Exception) {
+                Log.w("SetupVM", "Config sync check failed", e)
             }
         }
     }
@@ -87,6 +141,8 @@ class SetupViewModel @Inject constructor(
         }
     }
 
+    // ─── Main (Remote) Connection ───
+
     fun onServerUrlChanged(url: String) {
         _uiState.update { it.copy(serverUrl = url, connectionStatus = ConnectionStatus.Idle) }
     }
@@ -97,11 +153,7 @@ class SetupViewModel @Inject constructor(
 
     fun onPasswordChanged(password: String) {
         _uiState.update {
-            it.copy(
-                password = password,
-                connectionStatus = ConnectionStatus.Idle,
-                passwordModifiedThisSession = true
-            )
+            it.copy(password = password, connectionStatus = ConnectionStatus.Idle, passwordModifiedThisSession = true)
         }
     }
 
@@ -119,7 +171,6 @@ class SetupViewModel @Inject constructor(
                 password = effectivePassword
             ).onSuccess {
                 _uiState.update { it.copy(connectionStatus = ConnectionStatus.Success) }
-                // Save credentials locally on successful test
                 credentialStore.saveCredentials(
                     ServerCredentials(
                         serverUrl = state.serverUrl.trim(),
@@ -132,17 +183,72 @@ class SetupViewModel @Inject constructor(
                     is InvalidCredentialsException -> "Invalid username or password"
                     else -> error.message ?: "Connection failed"
                 }
-                _uiState.update {
-                    it.copy(connectionStatus = ConnectionStatus.Failed, errorMessage = message)
-                }
+                _uiState.update { it.copy(connectionStatus = ConnectionStatus.Failed, errorMessage = message) }
             }
         }
     }
 
+    // ─── Config (Local) Connection ───
+
+    fun onConfigServerUrlChanged(url: String) {
+        _uiState.update { it.copy(configServerUrl = url, configConnectionStatus = ConnectionStatus.Idle) }
+    }
+
+    fun onConfigUsernameChanged(username: String) {
+        _uiState.update { it.copy(configUsername = username, configConnectionStatus = ConnectionStatus.Idle) }
+    }
+
+    fun onConfigPasswordChanged(password: String) {
+        _uiState.update {
+            it.copy(configPassword = password, configConnectionStatus = ConnectionStatus.Idle, configPasswordModifiedThisSession = true)
+        }
+    }
+
+    fun onConfigApiTokenChanged(token: String) {
+        _uiState.update { it.copy(configApiToken = token, configConnectionStatus = ConnectionStatus.Idle) }
+    }
+
+    fun onConfigAuthModeChanged(useApiToken: Boolean) {
+        _uiState.update { it.copy(configUseApiToken = useApiToken, configConnectionStatus = ConnectionStatus.Idle) }
+    }
+
+    fun testConfigConnection() {
+        val state = _uiState.value
+        if (state.configServerUrl.isBlank()) return
+
+        _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Testing, configErrorMessage = null) }
+
+        viewModelScope.launch {
+            val effectivePassword = getEffectiveConfigPassword()
+            connectionTester.testConfigConnection(
+                serverUrl = state.configServerUrl.trim(),
+                username = state.configUsername.trim(),
+                password = effectivePassword
+            ).onSuccess {
+                _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success, configHasStoredPassword = true) }
+                credentialStore.saveLocalConfig(
+                    LocalServerConfig(
+                        serverUrl = state.configServerUrl.trim(),
+                        username = state.configUsername.trim(),
+                        password = effectivePassword,
+                        apiToken = state.configApiToken.trim()
+                    )
+                )
+            }.onFailure { error ->
+                val message = when (error) {
+                    is InvalidCredentialsException -> "Invalid username or password"
+                    is WriteNotAllowedException -> "Write access denied — enable Basic Auth in Settings > API Security"
+                    else -> error.message ?: "Connection failed"
+                }
+                _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Failed, configErrorMessage = message) }
+            }
+        }
+    }
+
+    // ─── Watch Sync ───
+
     fun sendToWatch() {
         val state = _uiState.value
-        if (state.connectionStatus != ConnectionStatus.Success) return
-
         _uiState.update { it.copy(syncResult = SyncResult.Sending) }
 
         viewModelScope.launch {
@@ -155,12 +261,19 @@ class SetupViewModel @Inject constructor(
 
             dataLayerSender.sendCredentials(credentials)
                 .onSuccess {
-                    _uiState.update {
-                        it.copy(
-                            syncResult = SyncResult.Success,
-                            watchStatus = WatchStatus.Synced
-                        )
-                    }
+                    // Also send reload signal so the watch refreshes tile config
+                    try {
+                        dataLayerSender.sendReload()
+                    } catch (_: Exception) {}
+                    // Send the selected theme to the watch
+                    try {
+                        val theme = credentialStore.getSelectedTheme()
+                        dataLayerSender.sendTheme(theme)
+                    } catch (_: Exception) {}
+                    _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
+                    // Re-check sync status after a short delay (watch needs time to reload + write DataItem)
+                    kotlinx.coroutines.delay(3000)
+                    checkConfigSync()
                 }
                 .onFailure { error ->
                     val message = when (error) {
@@ -168,9 +281,7 @@ class SetupViewModel @Inject constructor(
                         is NoNetworkException -> "No network connection"
                         else -> error.message ?: "Failed to send"
                     }
-                    _uiState.update {
-                        it.copy(syncResult = SyncResult.Error(message))
-                    }
+                    _uiState.update { it.copy(syncResult = SyncResult.Error(message)) }
                 }
         }
     }
@@ -179,22 +290,21 @@ class SetupViewModel @Inject constructor(
         _uiState.update { it.copy(syncResult = null) }
     }
 
-    /**
-     * Returns the password to use for operations.
-     * If the user modified the password this session, use what they typed.
-     * Otherwise, read the stored password directly from the encrypted store.
-     */
     private suspend fun getEffectivePassword(): String {
         val state = _uiState.value
-        return if (state.passwordModifiedThisSession) {
-            state.password
-        } else {
-            credentialStore.credentials.first()?.password ?: ""
-        }
+        return if (state.passwordModifiedThisSession) state.password
+        else credentialStore.credentials.first()?.password ?: ""
+    }
+
+    private suspend fun getEffectiveConfigPassword(): String {
+        val state = _uiState.value
+        return if (state.configPasswordModifiedThisSession) state.configPassword
+        else credentialStore.localConfig.first()?.password ?: ""
     }
 }
 
 data class SetupUiState(
+    // Main (Remote) connection
     val serverUrl: String = "https://myopenhab.org",
     val username: String = "",
     val password: String = "",
@@ -202,22 +312,36 @@ data class SetupUiState(
     val passwordModifiedThisSession: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.Idle,
     val errorMessage: String? = null,
+    // Config (Local) connection
+    val configServerUrl: String = "",
+    val configUsername: String = "",
+    val configPassword: String = "",
+    val configApiToken: String = "",
+    val configUseApiToken: Boolean = false,
+    val configHasStoredPassword: Boolean = false,
+    val configPasswordModifiedThisSession: Boolean = false,
+    val configConnectionStatus: ConnectionStatus = ConnectionStatus.Idle,
+    val configErrorMessage: String? = null,
+    // Watch
     val watchStatus: WatchStatus = WatchStatus.Unknown,
     val watchName: String? = null,
     val watchNearby: Boolean = false,
-    val syncResult: SyncResult? = null
+    val syncResult: SyncResult? = null,
+    val configOutOfSync: Boolean = false
 ) {
     val canTest: Boolean get() = serverUrl.isNotBlank() && connectionStatus != ConnectionStatus.Testing
-    val canSendToWatch: Boolean get() = connectionStatus == ConnectionStatus.Success &&
+    val canTestConfig: Boolean get() = configServerUrl.isNotBlank() && configConnectionStatus != ConnectionStatus.Testing
+    val canSendToWatch: Boolean get() = (connectionStatus == ConnectionStatus.Success || hasStoredPassword) &&
         watchStatus != WatchStatus.NotFound &&
+        watchStatus != WatchStatus.Unknown &&
         syncResult != SyncResult.Sending
     val connectionTypeLabel: String? get() = when {
         watchStatus == WatchStatus.NotFound || watchStatus == WatchStatus.Unknown -> null
         watchNearby -> "Bluetooth"
         else -> "Cloud"
     }
-    /** The placeholder to show in the password field when not modified this session */
     val passwordPlaceholder: String get() = if (hasStoredPassword && !passwordModifiedThisSession) "••••••••" else ""
+    val configPasswordPlaceholder: String get() = if (configHasStoredPassword && !configPasswordModifiedThisSession) "••••••••" else ""
 }
 
 enum class ConnectionStatus { Idle, Testing, Success, Failed }

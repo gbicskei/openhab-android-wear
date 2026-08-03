@@ -16,10 +16,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        val navigateTo = intent?.getStringExtra(
+            org.openhab.habdroid.wear.phone.sync.PhoneWearListenerService.EXTRA_NAVIGATE_TO
+        )
+
         setContent {
             OpenHabWearPhoneTheme {
                 val navController = rememberNavController()
                 AppNavHost(navController = navController)
+
+                // Deep-link navigation from watch
+                androidx.compose.runtime.LaunchedEffect(navigateTo) {
+                    if (navigateTo != null) {
+                        navController.navigate(navigateTo)
+                    }
+                }
             }
         }
     }
