@@ -32,10 +32,9 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 ## Quick Start
 
 ### Watch (standalone)
-1. Configure items in openHAB with `wearTile` metadata ([guide](docs/openhab-configuration.md))
-2. Build and deploy: `./gradlew :watch:assembleRelease`
-3. Open the app on the watch → configure server connection
-4. Swipe to your new tile
+1. Build and deploy: `./gradlew :watch:assembleRelease`
+2. Open the app on the watch → configure server connection
+3. Swipe to your new tile
 
 ### Phone Companion (recommended)
 1. Install the phone app: `./gradlew :phone:assembleDebug`
@@ -43,6 +42,9 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 3. Use Tile Design to visually configure your watch layout
 4. Tap "Sync to Watch" to push credentials + trigger reload
 5. Long-press tile on watch → pencil to change theme (or set via phone)
+
+### Legacy: Manual item metadata
+If not using the phone companion, items can be configured directly in openHAB with `wearTile` metadata. See [openHAB Configuration](docs/openhab-configuration.md).
 
 ## Documentation
 
