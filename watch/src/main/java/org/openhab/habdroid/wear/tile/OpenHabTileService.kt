@@ -78,7 +78,7 @@ class OpenHabTileService : TileService() {
     /** Shared resource version */
     private var resourceVersion: String = "0"
 
-    /** Default theme color (amber) — TODO: read from user preferences */
+    /** Theme color from user preferences (e.g. amber, blue, green) */
     private val themeColor: Int get() = runBlocking { themeStore.getTheme().color }
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> =

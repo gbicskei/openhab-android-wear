@@ -245,7 +245,6 @@ private fun BrightnessArc(brightness: Float, hue: Float) {
  * Convert HSB (hue 0-360, saturation 0-100, brightness 0-100) to Compose Color.
  */
 private fun hsbToColor(hue: Float, saturation: Float, brightness: Float): Color {
-    val h = hue / 360f
     val s = saturation / 100f
     val b = brightness / 100f
     val color = android.graphics.Color.HSVToColor(floatArrayOf(hue, s, b))
