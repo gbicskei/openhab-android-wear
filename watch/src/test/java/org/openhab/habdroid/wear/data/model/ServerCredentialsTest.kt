@@ -3,6 +3,7 @@ package org.openhab.habdroid.wear.data.model
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openhab.habdroid.wear.shared.model.ServerCredentials
 
 class ServerCredentialsTest {
 
