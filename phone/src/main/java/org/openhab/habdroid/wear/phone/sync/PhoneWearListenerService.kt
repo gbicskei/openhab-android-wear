@@ -19,11 +19,20 @@ class PhoneWearListenerService : WearableListenerService() {
                 }
                 startActivity(intent)
             }
+            PATH_OPEN_TILE_EDITOR -> {
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra(EXTRA_NAVIGATE_TO, "tile_design")
+                }
+                startActivity(intent)
+            }
             else -> super.onMessageReceived(messageEvent)
         }
     }
 
     companion object {
         const val PATH_OPEN_APP = "/openhab/open-app"
+        const val PATH_OPEN_TILE_EDITOR = "/openhab/open-tile-editor"
+        const val EXTRA_NAVIGATE_TO = "navigate_to"
     }
 }

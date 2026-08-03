@@ -80,7 +80,6 @@ class PhoneDataLayerSender @Inject constructor(
 
     /**
      * Send credentials to the connected watch.
-     * @return Result.success if sent, Result.failure with exception if no watch or send failed.
      */
     suspend fun sendCredentials(credentials: ServerCredentials): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
@@ -104,6 +103,32 @@ class PhoneDataLayerSender @Inject constructor(
             watchNode.id,
             SyncConstants.PATH_CONFIG,
             payload.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
+
+    /**
+     * Send reload signal to the watch (clears cache, refreshes tile).
+     */
+    suspend fun sendReload(): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_RELOAD,
+            ByteArray(0)
+        ).await()
+    }
+
+    /**
+     * Send theme name to the watch.
+     */
+    suspend fun sendTheme(themeName: String): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_THEME,
+            themeName.toByteArray(Charsets.UTF_8)
         ).await()
     }
 }
