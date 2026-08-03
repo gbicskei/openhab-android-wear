@@ -104,27 +104,16 @@ fun MainScreen(
                             val nodes = nodeClient.connectedNodes.await()
                             val phoneNode = nodes.firstOrNull()
                             if (phoneNode != null) {
-                                // Check if phone has the companion app installed
-                                val capClient = Wearable.getCapabilityClient(context)
-                                val capInfo = try {
-                                    capClient.getCapability("openhab_phone_app", com.google.android.gms.wearable.CapabilityClient.FILTER_REACHABLE).await()
-                                } catch (_: Exception) { null }
-
-                                if (capInfo != null && capInfo.nodes.isNotEmpty()) {
-                                    // Phone app is installed — send open message
-                                    val messageClient = Wearable.getMessageClient(context)
-                                    messageClient.sendMessage(
-                                        phoneNode.id,
-                                        "/openhab/open-app",
-                                        ByteArray(0)
-                                    ).await()
-                                    Toast.makeText(context, "Opening on phone…", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    // Phone connected but companion app not installed
-                                    Toast.makeText(context, "Install openHAB companion on phone", Toast.LENGTH_LONG).show()
-                                }
+                                // Phone is connected — send open message
+                                val messageClient = Wearable.getMessageClient(context)
+                                messageClient.sendMessage(
+                                    phoneNode.id,
+                                    "/openhab/open-app",
+                                    ByteArray(0)
+                                ).await()
+                                Toast.makeText(context, "Opening on phone…", Toast.LENGTH_SHORT).show()
                             } else {
-                                Toast.makeText(context, "Phone not connected via Bluetooth", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Phone not connected.\nInstall companion app and enable Bluetooth.", Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, "Could not reach phone", Toast.LENGTH_SHORT).show()
