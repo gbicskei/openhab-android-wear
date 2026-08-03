@@ -150,7 +150,6 @@ VoiceCommandActivity
 | Wear OS version | 5+ (API 34) | Google Play minimum for new apps (Aug 2025) |
 | Connectivity | WiFi or LTE | Direct server connection (cloud relay, local, or VPN) |
 | Microphone | Required | Voice command input |
-| Speaker | Optional | TTS notifications (text fallback available) |
 
 ## Security Considerations
 
