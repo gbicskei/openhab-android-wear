@@ -18,8 +18,8 @@ android {
         applicationId = "org.openhab.habdroid.wear"
         minSdk = 34
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.2"
+        versionCode = 14
+        versionName = "1.0.3"
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
