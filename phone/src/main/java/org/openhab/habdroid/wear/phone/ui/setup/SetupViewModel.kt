@@ -72,7 +72,7 @@ class SetupViewModel @Inject constructor(
             }
             // Load user key
             val userKey = credentialStore.currentUserKey
-            _uiState.update { it.copy(userKey = userKey) }
+            _uiState.update { it.copy(userKey = userKey, hasUnsavedChanges = false) }
         }
     }
 
@@ -162,16 +162,16 @@ class SetupViewModel @Inject constructor(
     // ─── Main (Remote) Connection ───
 
     fun onServerUrlChanged(url: String) {
-        _uiState.update { it.copy(serverUrl = url, connectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(serverUrl = url, connectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun onUsernameChanged(username: String) {
-        _uiState.update { it.copy(username = username, connectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(username = username, connectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun onPasswordChanged(password: String) {
         _uiState.update {
-            it.copy(password = password, connectionStatus = ConnectionStatus.Idle, passwordModifiedThisSession = true)
+            it.copy(password = password, connectionStatus = ConnectionStatus.Idle, passwordModifiedThisSession = true, hasUnsavedChanges = true)
         }
     }
 
@@ -189,13 +189,6 @@ class SetupViewModel @Inject constructor(
                 password = effectivePassword
             ).onSuccess {
                 _uiState.update { it.copy(connectionStatus = ConnectionStatus.Success) }
-                credentialStore.saveCredentials(
-                    ServerCredentials(
-                        serverUrl = state.serverUrl.trim(),
-                        username = state.username.trim(),
-                        password = effectivePassword
-                    )
-                )
             }.onFailure { error ->
                 val message = when (error) {
                     is InvalidCredentialsException -> "Invalid username or password"
@@ -211,34 +204,31 @@ class SetupViewModel @Inject constructor(
     fun onUserKeyChanged(key: String) {
         // Validate: only allow [a-z0-9_-]
         val sanitized = key.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '-' }
-        _uiState.update { it.copy(userKey = sanitized) }
-        viewModelScope.launch {
-            credentialStore.saveUserKey(sanitized)
-        }
+        _uiState.update { it.copy(userKey = sanitized, hasUnsavedChanges = true) }
     }
 
     // ─── Config (Local) Connection ───
 
     fun onConfigServerUrlChanged(url: String) {
-        _uiState.update { it.copy(configServerUrl = url, configConnectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(configServerUrl = url, configConnectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun onConfigUsernameChanged(username: String) {
-        _uiState.update { it.copy(configUsername = username, configConnectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(configUsername = username, configConnectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun onConfigPasswordChanged(password: String) {
         _uiState.update {
-            it.copy(configPassword = password, configConnectionStatus = ConnectionStatus.Idle, configPasswordModifiedThisSession = true)
+            it.copy(configPassword = password, configConnectionStatus = ConnectionStatus.Idle, configPasswordModifiedThisSession = true, hasUnsavedChanges = true)
         }
     }
 
     fun onConfigApiTokenChanged(token: String) {
-        _uiState.update { it.copy(configApiToken = token, configConnectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(configApiToken = token, configConnectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun onConfigAuthModeChanged(useApiToken: Boolean) {
-        _uiState.update { it.copy(configUseApiToken = useApiToken, configConnectionStatus = ConnectionStatus.Idle) }
+        _uiState.update { it.copy(configUseApiToken = useApiToken, configConnectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
     fun testConfigConnection() {
@@ -255,15 +245,7 @@ class SetupViewModel @Inject constructor(
                 password = effectivePassword,
                 namespace = credentialStore.tileNamespace
             ).onSuccess {
-                _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success, configHasStoredPassword = true) }
-                credentialStore.saveLocalConfig(
-                    LocalServerConfig(
-                        serverUrl = state.configServerUrl.trim(),
-                        username = state.configUsername.trim(),
-                        password = effectivePassword,
-                        apiToken = state.configApiToken.trim()
-                    )
-                )
+                _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success) }
             }.onFailure { error ->
                 val message = when (error) {
                     is InvalidCredentialsException -> "Invalid username or password"
@@ -275,6 +257,52 @@ class SetupViewModel @Inject constructor(
         }
     }
 
+    // ─── Save All ───
+
+    fun saveAll() {
+        val state = _uiState.value
+
+        viewModelScope.launch {
+            // Save user key
+            credentialStore.saveUserKey(state.userKey)
+
+            // Save main server credentials
+            val effectivePassword = getEffectivePassword()
+            if (state.serverUrl.isNotBlank()) {
+                credentialStore.saveCredentials(
+                    ServerCredentials(
+                        serverUrl = state.serverUrl.trim(),
+                        username = state.username.trim(),
+                        password = effectivePassword,
+                        userKey = state.userKey
+                    )
+                )
+            }
+
+            // Save config server credentials
+            val effectiveConfigPassword = getEffectiveConfigPassword()
+            if (state.configServerUrl.isNotBlank()) {
+                credentialStore.saveLocalConfig(
+                    LocalServerConfig(
+                        serverUrl = state.configServerUrl.trim(),
+                        username = state.configUsername.trim(),
+                        password = effectiveConfigPassword,
+                        apiToken = state.configApiToken.trim()
+                    )
+                )
+            }
+
+            _uiState.update {
+                it.copy(
+                    hasUnsavedChanges = false,
+                    hasStoredPassword = effectivePassword.isNotBlank(),
+                    configHasStoredPassword = effectiveConfigPassword.isNotBlank()
+                )
+            }
+            AppLog.d("SetupVM", "All settings saved")
+        }
+    }
+
     // ─── Watch Sync ───
 
     fun sendToWatch() {
@@ -282,12 +310,17 @@ class SetupViewModel @Inject constructor(
         _uiState.update { it.copy(syncResult = SyncResult.Sending) }
 
         viewModelScope.launch {
+            // Ensure settings are saved before syncing
+            if (state.hasUnsavedChanges) {
+                saveAll()
+            }
+
             val effectivePassword = getEffectivePassword()
             val credentials = ServerCredentials(
                 serverUrl = state.serverUrl.trim(),
                 username = state.username.trim(),
                 password = effectivePassword,
-                userKey = credentialStore.currentUserKey
+                userKey = state.userKey
             )
 
             dataLayerSender.sendCredentials(credentials)
@@ -360,10 +393,13 @@ data class SetupUiState(
     val watchName: String? = null,
     val watchNearby: Boolean = false,
     val syncResult: SyncResult? = null,
-    val configOutOfSync: Boolean = false
+    val configOutOfSync: Boolean = false,
+    // Unsaved changes tracking
+    val hasUnsavedChanges: Boolean = false
 ) {
     val canTest: Boolean get() = serverUrl.isNotBlank() && connectionStatus != ConnectionStatus.Testing
     val canTestConfig: Boolean get() = configServerUrl.isNotBlank() && configConnectionStatus != ConnectionStatus.Testing
+    val canSave: Boolean get() = serverUrl.isNotBlank() && hasUnsavedChanges
     val canSendToWatch: Boolean get() = (connectionStatus == ConnectionStatus.Success || hasStoredPassword) &&
         watchStatus != WatchStatus.NotFound &&
         watchStatus != WatchStatus.Unknown &&

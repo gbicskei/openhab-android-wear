@@ -73,16 +73,16 @@ fun HomeScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Logo
             Image(
                 painter = painterResource(id = R.drawable.ic_openhab_logo),
                 contentDescription = "openHAB",
-                modifier = Modifier.size(96.dp)
+                modifier = Modifier.size(64.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = "openHAB",
@@ -98,12 +98,17 @@ fun HomeScreen(
             )
 
             Text(
-                text = "v${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME} (${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_CODE})",
+                text = buildString {
+                    append("v${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME} (${org.openhab.habdroid.wear.phone.BuildConfig.VERSION_CODE})")
+                    if (uiState.userKey.isNotBlank()) {
+                        append(" - ${uiState.userKey}")
+                    }
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Watch status chip
             WatchStatusChip(

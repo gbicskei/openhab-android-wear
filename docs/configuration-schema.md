@@ -1,15 +1,46 @@
 # Configuration Schema
 
-Tile and complication configuration is stored server-side in openHAB's JsonDB as UI components under the `wear:tile` namespace.
+Tile and complication configuration is stored server-side in openHAB's JsonDB as UI components under the `wear:tile` namespace (or a user-scoped namespace for multi-user setups).
 
 ## Storage
 
-- **REST endpoint:** `GET /rest/ui/components/wear:tile`
-- **JsonDB location:** `{userdata}/jsondb/uicomponents_wear%3Atile.json`
+- **REST endpoint:** `GET /rest/ui/components/{namespace}`
+- **Default namespace:** `wear:tile`
+- **User-scoped namespace:** `wear:tile:{userKey}` (e.g. `wear:tile:gabor`)
+- **JsonDB location:** `{userdata}/jsondb/uicomponents_wear%3Atile.json` (default) or `uicomponents_wear_tile_{userKey}.json` (user-scoped)
 - **Managed by:** Phone companion app (creates/updates/deletes via REST PUT/DELETE)
 - **Read by:** Watch app (read-only, fetches on cold load)
 
 The phone companion requires access to a server that exposes the REST API directly (the "Config Server" in connection settings). The watch can read from any server (including cloud relay).
+
+## Multi-User Configuration
+
+Multiple users can share the same openHAB instance with separate tile/complication layouts by setting a **User Key** in the phone companion app's connection settings.
+
+### How it works
+
+- Each user sets a unique key (e.g. `gabor`, `anna`) on their phone
+- The key determines the REST namespace: `wear:tile:gabor`, `wear:tile:anna`
+- Each user's tile pages and complications are stored independently on the server
+- The key is synced to the paired watch via Data Layer, so the watch reads from the correct namespace
+- If no key is set, the default shared namespace `wear:tile` is used (backward compatible)
+
+### User Key rules
+
+- Optional — leave blank for single-user setups
+- Allowed characters: `[a-z0-9_-]` (lowercase alphanumeric, underscore, hyphen)
+- Set once per phone/watch pair in Connection settings
+- Synced to the watch automatically on "Sync to Watch"
+
+### Example
+
+Two family members sharing one openHAB server:
+
+| User | User Key | Namespace | JsonDB file |
+|------|----------|-----------|-------------|
+| Gabor | `gabor` | `wear:tile:gabor` | `uicomponents_wear_tile_gabor.json` |
+| Anna | `anna` | `wear:tile:anna` | `uicomponents_wear_tile_anna.json` |
+| (shared) | _(empty)_ | `wear:tile` | `uicomponents_wear%3Atile.json` |
 
 ## Document Types
 
@@ -20,7 +51,7 @@ The phone companion requires access to a server that exposes the REST API direct
 
 ## Tile Page Schema
 
-Each page is a document at `/rest/ui/components/wear:tile/{uid}`:
+Each page is a document at `/rest/ui/components/{namespace}/{uid}`:
 
 ```json
 {
@@ -97,7 +128,7 @@ Based on slot config + item type, the watch determines the tap behavior:
 
 ## Complication List Schema
 
-Single document at `/rest/ui/components/wear:tile/complications`:
+Single document at `/rest/ui/components/{namespace}/complications`:
 
 ```json
 {

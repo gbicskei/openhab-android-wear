@@ -41,33 +41,31 @@ fun AboutScreen(
     viewModel: MainViewModel = hiltViewModel()
 ) {
     val configVersion by viewModel.configVersion.collectAsState()
+    val userKey by viewModel.userKey.collectAsState(initial = "")
 
-    ScalingLazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
+    androidx.compose.foundation.layout.Box(
+        modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            Image(
-                painter = painterResource(R.drawable.ic_openhab_logo),
-                contentDescription = "openHAB",
-                modifier = Modifier
-                    .size(48.dp)
-                    .padding(top = 8.dp)
-            )
-        }
-        item {
-            ListHeader {
-                Text(stringResource(R.string.about))
-            }
-        }
-        item {
+        // Icon pinned to top center
+        Image(
+            painter = painterResource(R.drawable.ic_openhab_logo),
+            contentDescription = "openHAB",
+            modifier = Modifier
+                .size(48.dp)
+                .align(Alignment.TopCenter)
+                .padding(top = 16.dp)
+        )
+
+        // Text vertically centered
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center
             )
-        }
-        item {
             Text(
                 text = "${stringResource(R.string.version_label)} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 style = MaterialTheme.typography.bodyMedium,
@@ -75,10 +73,17 @@ fun AboutScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 4.dp)
             )
-        }
-        item {
+            if (userKey.isNotBlank()) {
+                Text(
+                    text = "User: $userKey",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
             Text(
-                text = "Config version: $configVersion",
+                text = "Config: v$configVersion",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

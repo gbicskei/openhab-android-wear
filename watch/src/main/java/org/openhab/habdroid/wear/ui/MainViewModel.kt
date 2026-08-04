@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
@@ -30,6 +31,9 @@ class MainViewModel @Inject constructor(
     @ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
     val isConfigured: Flow<Boolean> = credentialStore.isConfigured
+
+    /** Current user key from credentials (empty = default namespace) */
+    val userKey: Flow<String> = credentialStore.credentials.map { it?.userKey ?: "" }
 
     /** Current config version — updates after cold load */
     private val _configVersion = MutableStateFlow(repository.lastConfigVersion)

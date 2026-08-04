@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -79,83 +80,89 @@ fun MainScreen(
         }
     }
 
-    ScalingLazyColumn(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item {
+        // Fixed header: title overlaid on logo, bottoms aligned
+        androidx.compose.foundation.layout.Box(
+            contentAlignment = Alignment.BottomCenter,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_openhab_logo),
-                contentDescription = "openHAB",
-                modifier = Modifier.size(36.dp)
+                contentDescription = null,
+                modifier = Modifier.size(48.dp)
             )
+            Text(text = "openHAB")
         }
-        item {
-            ListHeader {
-                Text("openHAB")
-            }
-        }
-        item {
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        try {
-                            val nodeClient = Wearable.getNodeClient(context)
-                            val nodes = nodeClient.connectedNodes.await()
-                            val phoneNode = nodes.firstOrNull()
-                            if (phoneNode != null) {
-                                // Phone is connected — send open message
-                                val messageClient = Wearable.getMessageClient(context)
-                                messageClient.sendMessage(
-                                    phoneNode.id,
-                                    "/openhab/open-app",
-                                    ByteArray(0)
-                                ).await()
-                                Toast.makeText(context, "Opening on phone…", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Phone not connected.\nInstall companion app and enable Bluetooth.", Toast.LENGTH_LONG).show()
+
+        // Scrollable buttons underneath
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            try {
+                                val nodeClient = Wearable.getNodeClient(context)
+                                val nodes = nodeClient.connectedNodes.await()
+                                val phoneNode = nodes.firstOrNull()
+                                if (phoneNode != null) {
+                                    val messageClient = Wearable.getMessageClient(context)
+                                    messageClient.sendMessage(
+                                        phoneNode.id,
+                                        "/openhab/open-app",
+                                        ByteArray(0)
+                                    ).await()
+                                    Toast.makeText(context, "Opening on phone…", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Phone not connected.\nInstall companion app and enable Bluetooth.", Toast.LENGTH_LONG).show()
+                                }
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Could not reach phone", Toast.LENGTH_SHORT).show()
                             }
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Could not reach phone", Toast.LENGTH_SHORT).show()
                         }
+                    },
+                    label = { Text("Setup on Phone") },
+                    icon = {
+                        Icon(
+                            Icons.Default.PhoneAndroid,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
-                },
-                label = { Text("Setup on Phone") },
-                icon = {
-                    Icon(
-                        Icons.Default.PhoneAndroid,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            )
-        }
-        item {
-            Button(
-                onClick = { viewModel.reloadItems() },
-                enabled = reloadState !is ReloadState.Loading,
-                label = { Text(if (reloadState is ReloadState.Loading) "Loading..." else "Reload Items") },
-                icon = {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            )
-        }
-        item {
-            Button(
-                onClick = onAbout,
-                label = { Text("About") },
-                icon = {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            )
+                )
+            }
+            item {
+                Button(
+                    onClick = { viewModel.reloadItems() },
+                    enabled = reloadState !is ReloadState.Loading,
+                    label = { Text(if (reloadState is ReloadState.Loading) "Loading..." else "Reload Items") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
+            item {
+                Button(
+                    onClick = onAbout,
+                    label = { Text("About") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
         }
     }
 }
