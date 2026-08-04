@@ -2,6 +2,7 @@ package org.openhab.habdroid.wear.phone.sync
 
 import android.content.Context
 import org.openhab.habdroid.wear.phone.util.AppLog
+import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,31 @@ class PhoneDataLayerSender @Inject constructor(
 ) {
     private val messageClient by lazy { Wearable.getMessageClient(context) }
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
+    private val capabilityClient by lazy { Wearable.getCapabilityClient(context) }
+
+    companion object {
+        private const val TAG = "PhoneDataLayer"
+        private const val WATCH_APP_CAPABILITY = "openhab_watch_app"
+    }
+    /**
+     * Checks if the openHAB watch app is installed on any connected watch
+     * by querying for the openhab_watch_app capability.
+     */
+    suspend fun isWatchAppInstalled(): Boolean {
+        return withTimeoutOrNull(3_000L) {
+            try {
+                val capabilityInfo = capabilityClient.getCapability(
+                    WATCH_APP_CAPABILITY,
+                    CapabilityClient.FILTER_REACHABLE
+                ).await()
+                capabilityInfo.nodes.isNotEmpty()
+            } catch (e: Exception) {
+                AppLog.w(TAG, "Failed to check watch app capability", e)
+                // If capability check fails, assume installed to avoid false negatives
+                true
+            }
+        } ?: true // Timeout → assume installed (don't block UX on timeout)
+    }
 
     /**
      * Returns the first connected watch node, or null if no watch is paired/reachable.
@@ -66,16 +92,13 @@ class PhoneDataLayerSender @Inject constructor(
         while (currentCoroutineContext().isActive) {
             val hasNetwork = hasNetworkConnectivity()
             val node = if (hasNetwork) getConnectedWatch() else null
-            val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby) }
-            AppLog.i(TAG, "Poll: hasNetwork=$hasNetwork, node=${info?.displayName}, nearby=${info?.isNearby}")
+            val watchAppInstalled = if (node != null) isWatchAppInstalled() else false
+            val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby, watchAppInstalled) }
+            AppLog.i(TAG, "Poll: hasNetwork=$hasNetwork, node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
             emit(info)
             delay(intervalMs)
         }
         AppLog.i(TAG, "watchConnectionState flow ended")
-    }
-
-    companion object {
-        private const val TAG = "PhoneDataLayer"
     }
 
     /**
@@ -142,5 +165,6 @@ class NoNetworkException : Exception("No network connection")
  */
 data class WatchConnectionInfo(
     val displayName: String,
-    val isNearby: Boolean
+    val isNearby: Boolean,
+    val watchAppInstalled: Boolean
 )
