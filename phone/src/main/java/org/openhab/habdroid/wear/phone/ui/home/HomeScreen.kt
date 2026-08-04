@@ -75,20 +75,11 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Logo
+            // Logo wordmark
             Image(
-                painter = painterResource(id = R.drawable.ic_openhab_logo),
+                painter = painterResource(id = R.drawable.ic_openhab_wordmark),
                 contentDescription = "openHAB",
-                modifier = Modifier.size(64.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "openHAB",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
+                modifier = Modifier.height(64.dp)
             )
 
             Text(

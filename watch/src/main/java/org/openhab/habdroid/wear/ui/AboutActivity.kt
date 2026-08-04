@@ -5,8 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -46,12 +46,12 @@ fun AboutScreen(
     androidx.compose.foundation.layout.Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Icon pinned to top center
+        // Wordmark pinned to top center
         Image(
-            painter = painterResource(R.drawable.ic_openhab_logo),
+            painter = painterResource(R.drawable.ic_openhab_wordmark),
             contentDescription = "openHAB",
             modifier = Modifier
-                .size(48.dp)
+                .height(64.dp)
                 .align(Alignment.TopCenter)
                 .padding(top = 16.dp)
         )
@@ -61,11 +61,6 @@ fun AboutScreen(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center
-            )
             Text(
                 text = "${stringResource(R.string.version_label)} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                 style = MaterialTheme.typography.bodyMedium,

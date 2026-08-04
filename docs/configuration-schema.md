@@ -6,7 +6,7 @@ Tile and complication configuration is stored server-side in openHAB's JsonDB as
 
 - **REST endpoint:** `GET /rest/ui/components/{namespace}`
 - **Default namespace:** `wear:tile`
-- **User-scoped namespace:** `wear:tile:{userKey}` (e.g. `wear:tile:gabor`)
+- **User-scoped namespace:** `wear:tile:{userKey}` (e.g. `wear:tile:joe`)
 - **JsonDB location:** `{userdata}/jsondb/uicomponents_wear%3Atile.json` (default) or `uicomponents_wear_tile_{userKey}.json` (user-scoped)
 - **Managed by:** Phone companion app (creates/updates/deletes via REST PUT/DELETE)
 - **Read by:** Watch app (read-only, fetches on cold load)
@@ -19,8 +19,8 @@ Multiple users can share the same openHAB instance with separate tile/complicati
 
 ### How it works
 
-- Each user sets a unique key (e.g. `gabor`, `anna`) on their phone
-- The key determines the REST namespace: `wear:tile:gabor`, `wear:tile:anna`
+- Each user sets a unique key (e.g. `joe`, `anna`) on their phone
+- The key determines the REST namespace: `wear:tile:joe`, `wear:tile:anna`
 - Each user's tile pages and complications are stored independently on the server
 - The key is synced to the paired watch via Data Layer, so the watch reads from the correct namespace
 - If no key is set, the default shared namespace `wear:tile` is used (backward compatible)
@@ -38,7 +38,7 @@ Two family members sharing one openHAB server:
 
 | User | User Key | Namespace | JsonDB file |
 |------|----------|-----------|-------------|
-| Gabor | `gabor` | `wear:tile:gabor` | `uicomponents_wear_tile_gabor.json` |
+| Joe | `joe` | `wear:tile:joe` | `uicomponents_wear_tile_joe.json` |
 | Anna | `anna` | `wear:tile:anna` | `uicomponents_wear_tile_anna.json` |
 | (shared) | _(empty)_ | `wear:tile` | `uicomponents_wear%3Atile.json` |
 

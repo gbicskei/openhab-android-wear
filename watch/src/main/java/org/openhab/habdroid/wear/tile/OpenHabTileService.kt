@@ -244,6 +244,7 @@ class OpenHabTileService : TileService() {
 
             // Load openHAB logo for title area
             loadLogoResource(resources)
+            loadPlainLogoResource(resources)
 
             AppLog.d("TileNav", "=== onTileResourcesRequest done: ${System.currentTimeMillis()-resStart}ms ===")
 
@@ -361,30 +362,10 @@ class OpenHabTileService : TileService() {
                             .build()
                     )
                     .addContent(
-                        LayoutElementBuilders.Box.Builder()
-                            .setWidth(dp(120f))
+                        LayoutElementBuilders.Image.Builder()
+                            .setResourceId(RESOURCE_ID_LOGO)
+                            .setWidth(dp(36f))
                             .setHeight(dp(36f))
-                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                            .addContent(
-                                LayoutElementBuilders.Image.Builder()
-                                    .setResourceId(RESOURCE_ID_LOGO)
-                                    .setWidth(dp(36f))
-                                    .setHeight(dp(36f))
-                                    .build()
-                            )
-                            .addContent(
-                                LayoutElementBuilders.Text.Builder()
-                                    .setText("openHAB")
-                                    .setFontStyle(
-                                        LayoutElementBuilders.FontStyle.Builder()
-                                            .setSize(sp(12f))
-                                            .setColor(argb(0xFFFFFFFF.toInt()))
-                                            .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
-                                            .build()
-                                    )
-                                    .build()
-                            )
                             .build()
                     )
                     .addContent(
@@ -498,23 +479,41 @@ class OpenHabTileService : TileService() {
                         .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                         .addContent(
-                            LayoutElementBuilders.Image.Builder()
-                                .setResourceId(RESOURCE_ID_LOGO)
-                                .setWidth(dp(36f))
-                                .setHeight(dp(36f))
-                                .build()
-                        )
-                        .addContent(
-                            LayoutElementBuilders.Text.Builder()
-                                .setText(title)
-                                .setFontStyle(
-                                    LayoutElementBuilders.FontStyle.Builder()
-                                        .setSize(sp(12f))
-                                        .setColor(argb(if (isLive) 0xFFFFFFFF.toInt() else 0xFF666666.toInt()))
-                                        .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
-                                        .build()
-                                )
-                                .build()
+                            if (currentPage == TileItem.PAGE_MAIN) {
+                                // Wordmark replaces logo+text on main page
+                                LayoutElementBuilders.Image.Builder()
+                                    .setResourceId(RESOURCE_ID_LOGO)
+                                    .setWidth(dp(36f * 37.945313f / 31.791088f))
+                                    .setHeight(dp(36f))
+                                    .build()
+                            } else {
+                                // Sub-pages: plain logo behind the page title text
+                                LayoutElementBuilders.Box.Builder()
+                                    .setWidth(dp(titleBoxW))
+                                    .setHeight(dp(titleBoxH))
+                                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                                    .addContent(
+                                        LayoutElementBuilders.Image.Builder()
+                                            .setResourceId(RESOURCE_ID_PLAIN_LOGO)
+                                            .setWidth(dp(titleBoxH))
+                                            .setHeight(dp(titleBoxH))
+                                            .build()
+                                    )
+                                    .addContent(
+                                        LayoutElementBuilders.Text.Builder()
+                                            .setText(title)
+                                            .setFontStyle(
+                                                LayoutElementBuilders.FontStyle.Builder()
+                                                    .setSize(sp(12f))
+                                                    .setColor(argb(if (isLive) 0xFFFFFFFF.toInt() else 0xFF666666.toInt()))
+                                                    .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+                                                    .build()
+                                            )
+                                            .build()
+                                    )
+                                    .build()
+                            }
                         )
                         .build()
                 )
@@ -1120,6 +1119,41 @@ class OpenHabTileService : TileService() {
      */
     private fun loadLogoResource(resources: ResourceBuilders.Resources.Builder) {
         try {
+            val svgBytes = applicationContext.assets.open("ic_openhab_logo_v5.svg").use { it.readBytes() }
+            val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
+            // Wordmark aspect ratio ~37.95:31.79 → use height=LOGO_ICON_SIZE, width proportional
+            val height = LOGO_ICON_SIZE
+            val width = (height * 37.945313f / 31.791088f).toInt()
+            val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            svg.documentWidth = width.toFloat()
+            svg.documentHeight = height.toFloat()
+            svg.renderToCanvas(canvas)
+
+            val stream = java.io.ByteArrayOutputStream()
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, stream)
+            bitmap.recycle()
+
+            resources.addIdToImageMapping(
+                RESOURCE_ID_LOGO,
+                ResourceBuilders.ImageResource.Builder()
+                    .setInlineResource(
+                        ResourceBuilders.InlineImageResource.Builder()
+                            .setData(stream.toByteArray())
+                            .setWidthPx(width)
+                            .setHeightPx(height)
+                            .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
+                            .build()
+                    )
+                    .build()
+            )
+        } catch (e: Exception) {
+            AppLog.w("TileNav", "Failed to load logo icon: ${e.message}")
+        }
+    }
+
+    private fun loadPlainLogoResource(resources: ResourceBuilders.Resources.Builder) {
+        try {
             val size = LOGO_ICON_SIZE
             val svgBytes = applicationContext.assets.open("ic_openhab_logo.svg").use { it.readBytes() }
             val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
@@ -1134,7 +1168,7 @@ class OpenHabTileService : TileService() {
             bitmap.recycle()
 
             resources.addIdToImageMapping(
-                RESOURCE_ID_LOGO,
+                RESOURCE_ID_PLAIN_LOGO,
                 ResourceBuilders.ImageResource.Builder()
                     .setInlineResource(
                         ResourceBuilders.InlineImageResource.Builder()
@@ -1147,7 +1181,7 @@ class OpenHabTileService : TileService() {
                     .build()
             )
         } catch (e: Exception) {
-            AppLog.w("TileNav", "Failed to load logo icon: ${e.message}")
+            AppLog.w("TileNav", "Failed to load plain logo icon: ${e.message}")
         }
     }
 
@@ -1155,6 +1189,7 @@ class OpenHabTileService : TileService() {
         private const val RESOURCE_ID_MIC = "ic_mic"
         private const val MIC_ICON_SIZE = 16
         private const val RESOURCE_ID_LOGO = "ic_logo"
+        private const val RESOURCE_ID_PLAIN_LOGO = "ic_plain_logo"
         private const val LOGO_ICON_SIZE = 108
     }
 }
