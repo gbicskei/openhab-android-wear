@@ -73,7 +73,7 @@ class TileApiService @Inject constructor(
     ): Result<WearTilePageDto> = runCatching {
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
         val body = json.encodeToString(WearTilePageDto.serializer(), page)
-        val response = executePost(url, body, localConfig.username, localConfig.password)
+        val response = executePost(url, body, resolveAuth(localConfig))
         json.decodeFromString<WearTilePageDto>(response)
     }
 
@@ -88,7 +88,7 @@ class TileApiService @Inject constructor(
     ): Result<WearTilePageDto> = runCatching {
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${page.uid}"
         val body = json.encodeToString(WearTilePageDto.serializer(), page)
-        val response = executePut(url, body, localConfig.username, localConfig.password)
+        val response = executePut(url, body, resolveAuth(localConfig))
         json.decodeFromString<WearTilePageDto>(response)
     }
 
@@ -102,7 +102,7 @@ class TileApiService @Inject constructor(
         namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<Unit> = runCatching {
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/$uid"
-        executeDelete(url, localConfig.username, localConfig.password)
+        executeDelete(url, resolveAuth(localConfig))
     }
 
     // ─── Items (for picker) ───
@@ -153,7 +153,7 @@ class TileApiService @Inject constructor(
     ): Result<ComplicationListDto> = runCatching {
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
         val body = json.encodeToString(ComplicationListDto.serializer(), dto)
-        val response = executePost(url, body, localConfig.username, localConfig.password)
+        val response = executePost(url, body, resolveAuth(localConfig))
         json.decodeFromString<ComplicationListDto>(response)
     }
 
@@ -167,7 +167,7 @@ class TileApiService @Inject constructor(
     ): Result<ComplicationListDto> = runCatching {
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${dto.uid}"
         val body = json.encodeToString(ComplicationListDto.serializer(), dto)
-        val response = executePut(url, body, localConfig.username, localConfig.password)
+        val response = executePut(url, body, resolveAuth(localConfig))
         json.decodeFromString<ComplicationListDto>(response)
     }
 
@@ -186,6 +186,18 @@ class TileApiService @Inject constructor(
     }
 
     // ─── HTTP Methods ───
+
+    /**
+     * Resolves the Authorization header value from a LocalServerConfig.
+     * Prefers API token (as password in basic auth) over plain password.
+     */
+    private fun resolveAuth(config: LocalServerConfig): String? {
+        return when {
+            config.hasApiToken -> "Bearer ${config.apiToken}"
+            config.hasAuth -> Credentials.basic(config.username, config.password)
+            else -> null
+        }
+    }
 
     private suspend fun executeGet(url: String, username: String, password: String): String =
         withContext(Dispatchers.IO) {
@@ -206,11 +218,17 @@ class TileApiService @Inject constructor(
         body: String,
         username: String,
         password: String
+    ): String = executePost(url, body, Credentials.basic(username, password))
+
+    private suspend fun executePost(
+        url: String,
+        body: String,
+        authHeader: String?
     ): String = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(url)
             .post(body.toRequestBody(jsonMediaType))
-            .addHeader("Authorization", Credentials.basic(username, password))
+            .apply { authHeader?.let { addHeader("Authorization", it) } }
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
             .build()
@@ -226,11 +244,17 @@ class TileApiService @Inject constructor(
         body: String,
         username: String,
         password: String
+    ): String = executePut(url, body, Credentials.basic(username, password))
+
+    private suspend fun executePut(
+        url: String,
+        body: String,
+        authHeader: String?
     ): String = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(url)
             .put(body.toRequestBody(jsonMediaType))
-            .addHeader("Authorization", Credentials.basic(username, password))
+            .apply { authHeader?.let { addHeader("Authorization", it) } }
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
             .build()
@@ -242,11 +266,14 @@ class TileApiService @Inject constructor(
     }
 
     private suspend fun executeDelete(url: String, username: String, password: String): Unit =
+        executeDelete(url, Credentials.basic(username, password))
+
+    private suspend fun executeDelete(url: String, authHeader: String?): Unit =
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
                 .delete()
-                .addHeader("Authorization", Credentials.basic(username, password))
+                .apply { authHeader?.let { addHeader("Authorization", it) } }
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {

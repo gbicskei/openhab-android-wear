@@ -256,6 +256,7 @@ class SetupViewModel @Inject constructor(
                 serverUrl = state.configServerUrl.trim(),
                 username = state.configUsername.trim(),
                 password = effectivePassword,
+                apiToken = state.configApiToken.trim(),
                 namespace = credentialStore.tileNamespace
             ).onSuccess {
                 _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success) }

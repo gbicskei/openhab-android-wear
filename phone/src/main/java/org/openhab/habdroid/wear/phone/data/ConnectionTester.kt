@@ -51,12 +51,16 @@ class ConnectionTester @Inject constructor(
         serverUrl: String,
         username: String,
         password: String,
+        apiToken: String = "",
         namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             val baseUrl = serverUrl.trimEnd('/')
-            val auth = if (username.isNotBlank() && password.isNotBlank())
-                Credentials.basic(username, password) else null
+            val auth = when {
+                apiToken.isNotBlank() -> "Bearer $apiToken"
+                username.isNotBlank() && password.isNotBlank() -> Credentials.basic(username, password)
+                else -> null
+            }
 
             // Step 1: Test read access
             val readRequest = Request.Builder()
