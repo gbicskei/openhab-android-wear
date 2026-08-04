@@ -53,6 +53,10 @@ class OpenHabRepository @Inject constructor(
     var lastConfigVersion: Int = 0
         private set
 
+    /** Page uid → display label map (populated during cold load) */
+    var pageLabels: Map<String, String> = emptyMap()
+        private set
+
     /**
      * Get all tile items. Returns from cache if available, otherwise performs cold load.
      */
@@ -158,6 +162,9 @@ class OpenHabRepository @Inject constructor(
         // Capture the config version from the main page
         val mainPage = tilePages.find { it.uid == "main" }
         lastConfigVersion = mainPage?.config?.configVersionInt ?: 0
+
+        // Capture page labels for tile title rendering
+        pageLabels = tilePages.associate { it.uid to it.config.label }
 
         if (tilePages.isEmpty()) return emptyList()
 
