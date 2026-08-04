@@ -142,9 +142,26 @@ class TileDesignViewModel @Inject constructor(
 
             val pages = if (tilePageDtos.isEmpty()) {
                 // No config yet — create default main page
-                listOf(TilePageState(uid = "main", label = "Main", layout = 6))
+                val defaultMain = TilePageState(uid = "main", label = "Main", layout = 6)
+                // Persist the default main page to the server so the watch can find it
+                if (local != null && local.isConfigured && (local.hasAuth || local.hasApiToken)) {
+                    val ns = credentialStore.tileNamespace
+                    apiService.createTilePage(local, defaultMain.toDto(), ns)
+                }
+                listOf(defaultMain)
             } else {
-                tilePageDtos.map { TilePageState.fromDto(it) }
+                val parsed = tilePageDtos.map { TilePageState.fromDto(it) }
+                // Ensure a main page exists even if only sub-pages were created
+                if (parsed.none { it.uid == "main" }) {
+                    val defaultMain = TilePageState(uid = "main", label = "Main", layout = 6)
+                    if (local != null && local.isConfigured && (local.hasAuth || local.hasApiToken)) {
+                        val ns = credentialStore.tileNamespace
+                        apiService.createTilePage(local, defaultMain.toDto(), ns)
+                    }
+                    parsed + defaultMain
+                } else {
+                    parsed
+                }
             }
 
             // Ensure main is first
