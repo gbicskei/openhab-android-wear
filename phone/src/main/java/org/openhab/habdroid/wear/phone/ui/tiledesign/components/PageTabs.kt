@@ -43,7 +43,7 @@ fun PageTabs(
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+    var showDeleteDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to label
     var showRenameDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to current label
 
     ScrollableTabRow(
@@ -70,7 +70,7 @@ fun PageTabs(
                         )
                         if (pageName != "main" && index == selectedIndex) {
                             IconButton(
-                                onClick = { showDeleteDialog = pageName },
+                                onClick = { showDeleteDialog = pageName to label },
                                 modifier = Modifier.size(20.dp).padding(start = 4.dp)
                             ) {
                                 Icon(
@@ -106,14 +106,14 @@ fun PageTabs(
         )
     }
 
-    showDeleteDialog?.let { pageName ->
+    showDeleteDialog?.let { (uid, pageLabel) ->
         AlertDialog(
             onDismissRequest = { showDeleteDialog = null },
             title = { Text("Delete Page") },
-            text = { Text("Delete page \"$pageName\"? All items on this page will be removed.") },
+            text = { Text("Delete page \"$pageLabel\"? All items on this page will be removed.") },
             confirmButton = {
                 TextButton(onClick = {
-                    onDeletePage(pageName)
+                    onDeletePage(uid)
                     showDeleteDialog = null
                 }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
