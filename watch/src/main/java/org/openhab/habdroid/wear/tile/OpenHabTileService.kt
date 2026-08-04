@@ -416,7 +416,8 @@ class OpenHabTileService : TileService() {
      */
     private fun buildPageLayout(items: List<TileItem>, currentPage: String, screenW: Float, screenH: Float, isLive: Boolean): LayoutElementBuilders.LayoutElement {
         val title = if (currentPage == TileItem.PAGE_MAIN) "openHAB"
-            else currentPage.replaceFirstChar { it.uppercase() }
+            else repository.pageLabels[currentPage]?.takeIf { it.isNotBlank() }
+                ?: currentPage.replaceFirstChar { it.uppercase() }
 
         val count = items.size.coerceIn(0, 7)
 
