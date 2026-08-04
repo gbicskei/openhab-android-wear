@@ -107,18 +107,26 @@ class TileActionReceiver : ComponentActivity() {
                 AppLog.d(TAG, "Sending fixed command: $command")
                 repository.sendCommand(itemName, command)
             } else {
-                // Toggle: fetch current state and send opposite
-                repository.getItem(itemName)
-                    .onSuccess { item ->
-                        val toggleCommand = if (item.isOn) "OFF" else "ON"
-                        AppLog.d(TAG, "Current state: ${item.state}, sending: $toggleCommand")
-                        repository.sendCommand(itemName, toggleCommand)
-                    }
-                    .onFailure { error ->
-                        val fallbackCommand = "ON"
-                        AppLog.w(TAG, "Failed to fetch state, using fallback: $fallbackCommand", error)
-                        repository.sendCommand(itemName, fallbackCommand)
-                    }
+                // Toggle: check local cache first (fast), fall back to API
+                val cachedState = repository.getCachedItemState(itemName)
+                if (cachedState != null) {
+                    val toggleCommand = if (cachedState == "ON" || cachedState.toDoubleOrNull()?.let { it > 0 } == true) "OFF" else "ON"
+                    AppLog.d(TAG, "Cached state: $cachedState, sending: $toggleCommand")
+                    repository.sendCommand(itemName, toggleCommand)
+                } else {
+                    // No cache — fetch from server
+                    repository.getItem(itemName)
+                        .onSuccess { item ->
+                            val toggleCommand = if (item.isOn) "OFF" else "ON"
+                            AppLog.d(TAG, "Fetched state: ${item.state}, sending: $toggleCommand")
+                            repository.sendCommand(itemName, toggleCommand)
+                        }
+                        .onFailure { error ->
+                            val fallbackCommand = "ON"
+                            AppLog.w(TAG, "Failed to fetch state, using fallback: $fallbackCommand", error)
+                            repository.sendCommand(itemName, fallbackCommand)
+                        }
+                }
             }
 
             // Request tile refresh

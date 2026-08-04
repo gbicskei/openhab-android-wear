@@ -359,6 +359,16 @@ class OpenHabRepository @Inject constructor(
     }
 
     /**
+     * Get the cached state for an item without making an API call.
+     * Returns the state string or null if not in cache.
+     */
+    fun getCachedItemState(itemName: String): String? {
+        val items = itemCache.get() ?: return null
+        val item = items.find { it.displayItemName == itemName || it.commandTargetName == itemName }
+        return item?.displayItem?.state
+    }
+
+    /**
      * Send a command to an item.
      */
     suspend fun sendCommand(itemName: String, command: String): Result<Unit> = runCatching {
