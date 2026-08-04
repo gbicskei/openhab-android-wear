@@ -57,10 +57,12 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
         }
 
         // 3. Fetch item state from server
-        val item = repository.getItem(itemName).getOrNull()
+        val itemResult = repository.getItem(itemName)
+        val item = itemResult.getOrNull()
         if (item == null) {
-            AppLog.w(TAG, "Failed to fetch item $itemName")
-            return null
+            val error = itemResult.exceptionOrNull()
+            AppLog.w(TAG, "Failed to fetch item '$itemName': ${error?.message}", error)
+            return buildErrorData(request.complicationType, itemName, error?.message ?: "Connection failed")
         }
 
         // 4. Get per-type config from wear:complication-list document
@@ -278,6 +280,57 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             type.contains("Power") -> "W"
             type.contains("Energy") -> "kWh"
             type.contains("Dimensionless") -> "%"
+            else -> null
+        }
+    }
+
+    /**
+     * Build error complication data showing what went wrong instead of silently returning null.
+     * This prevents the system from showing "SETUP" when the item is configured but unreachable.
+     */
+    private fun buildErrorData(type: ComplicationType, itemName: String, errorMessage: String): ComplicationData? {
+        val shortError = when {
+            errorMessage.contains("401") || errorMessage.contains("Unauthorized") -> "Auth err"
+            errorMessage.contains("404") -> "Not found"
+            errorMessage.contains("timeout", ignoreCase = true) -> "Timeout"
+            errorMessage.contains("Unable to resolve host", ignoreCase = true) -> "No conn"
+            errorMessage.contains("connect", ignoreCase = true) -> "No conn"
+            else -> "Error"
+        }
+
+        return when (type) {
+            ComplicationType.SHORT_TEXT ->
+                ShortTextComplicationData.Builder(
+                    text = PlainComplicationText.Builder(shortError).build(),
+                    contentDescription = PlainComplicationText.Builder("$itemName: $errorMessage").build()
+                )
+                    .setTitle(PlainComplicationText.Builder("⚠").build())
+                    .build()
+
+            ComplicationType.LONG_TEXT ->
+                LongTextComplicationData.Builder(
+                    text = PlainComplicationText.Builder("$itemName: $shortError").build(),
+                    contentDescription = PlainComplicationText.Builder(errorMessage).build()
+                )
+                    .setTitle(PlainComplicationText.Builder("openHAB Error").build())
+                    .build()
+
+            ComplicationType.RANGED_VALUE ->
+                RangedValueComplicationData.Builder(
+                    value = 0f,
+                    min = 0f,
+                    max = 100f,
+                    contentDescription = PlainComplicationText.Builder("$itemName: $errorMessage").build()
+                )
+                    .setText(PlainComplicationText.Builder(shortError).build())
+                    .build()
+
+            ComplicationType.MONOCHROMATIC_IMAGE ->
+                MonochromaticImageComplicationData.Builder(
+                    monochromaticImage = MonochromaticImage.Builder(createPlaceholderIcon()).build(),
+                    contentDescription = PlainComplicationText.Builder("$itemName: $errorMessage").build()
+                ).build()
+
             else -> null
         }
     }
