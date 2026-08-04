@@ -301,12 +301,17 @@ Two server connections:
 - **Main Server** — the openHAB server URL used by the watch (cloud relay or direct)
 - **Config Server** — local network URL for REST API access to edit tile configuration
 
+Authentication modes for Config Server:
+- **Basic Auth** — username/password (requires `allowBasicAuth=true` in openHAB API Security settings)
+- **API Token** — Bearer token generated in openHAB Settings > API Security (recommended for openHAB 5+)
+
 Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences.
 
 ### Tile Design Editor
 
 Visual editor for the watch tile layout:
 - **Page tabs** at the top for switching between tile pages
+- **Page rename** — long-press a tab to rename the page (label only, uid stays stable)
 - **Layout selector** to set the button count (1-7)
 - **Circular watch preview** rendering the actual tile layout
 - **Slot configuration** — tap any slot to open the config sheet:

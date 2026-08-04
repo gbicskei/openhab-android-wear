@@ -41,6 +41,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 1. Install the phone app: `./gradlew :phone:assembleDebug`
 2. Set a **User Key** if multiple people share the same openHAB server (optional, e.g. `gabor`)
 3. Configure Main Server (e.g. myopenhab.org or your own URL) + Config Server (local openHAB URL)
+   - Config Server supports Basic Auth or API Token (Bearer) authentication
 4. Use Tile Design to visually configure your watch layout
 5. Tap "Sync to Watch" to push credentials + trigger reload
 6. Long-press tile on watch → pencil to change theme (or set via phone)
