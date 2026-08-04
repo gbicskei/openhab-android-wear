@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.openhab.habdroid.wear.phone.data.LocalServerConfig
 import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
+import org.openhab.habdroid.wear.phone.ui.tiledesign.data.ApiException
 import org.openhab.habdroid.wear.phone.ui.tiledesign.data.TileApiService
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.SlotAction
@@ -522,7 +523,7 @@ class TileDesignViewModel @Inject constructor(
             apiService.updateTilePage(config, pageToSave.toDto(), namespace)
                 .onFailure { e ->
                     // If 404, the page doesn't exist yet — create it
-                    if (e.message?.contains("404") == true) {
+                    if (e is ApiException && e.code == 404) {
                         apiService.createTilePage(config, pageToSave.toDto(), namespace)
                             .onFailure { _snackbarMessage.value = "Save failed: ${it.message}" }
                     } else {

@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -61,13 +62,42 @@ fun SetupScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showDiscardDialog by remember { mutableStateOf(false) }
+
+    // Intercept back when there are unsaved changes
+    val handleBack = {
+        if (uiState.hasUnsavedChanges) {
+            showDiscardDialog = true
+        } else {
+            onBack()
+        }
+    }
+
+    if (showDiscardDialog) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showDiscardDialog = false },
+            title = { Text("Discard changes?") },
+            text = { Text("You have unsaved connection settings.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showDiscardDialog = false
+                    onBack()
+                }) { Text("Discard") }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    showDiscardDialog = false
+                }) { Text("Keep editing") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Connection") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = { handleBack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -85,32 +115,6 @@ fun SetupScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // ─── Main Server (Remote) ───
-            Text(
-                text = "Main Server",
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = "Used by the watch for reading items and sending commands",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            MainServerFields(
-                serverUrl = uiState.serverUrl,
-                username = uiState.username,
-                password = uiState.password,
-                passwordPlaceholder = uiState.passwordPlaceholder,
-                passwordModified = uiState.passwordModifiedThisSession,
-                connectionStatus = uiState.connectionStatus,
-                errorMessage = uiState.errorMessage,
-                canTest = uiState.canTest,
-                onServerUrlChanged = viewModel::onServerUrlChanged,
-                onUsernameChanged = viewModel::onUsernameChanged,
-                onPasswordChanged = viewModel::onPasswordChanged,
-                onTest = viewModel::testConnection
-            )
-
             // ─── User Key (Multi-user) ───
             OutlinedTextField(
                 value = uiState.userKey,
@@ -128,15 +132,33 @@ fun SetupScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // ─── Config Server ───
-            Text(
-                text = "Config Server",
-                style = MaterialTheme.typography.titleMedium
+            // ─── Main Server (Remote) ───
+            SectionHeader(
+                title = "Main Server",
+                helpText = "The server your watch connects to at runtime for item states, commands, and real-time updates. Can be myopenhab.org (cloud) or your local server if it's accessible from the internet."
             )
-            Text(
-                text = "Direct server access for tile editor (write operations)",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+
+            MainServerFields(
+                serverUrl = uiState.serverUrl,
+                username = uiState.username,
+                password = uiState.password,
+                passwordPlaceholder = uiState.passwordPlaceholder,
+                passwordModified = uiState.passwordModifiedThisSession,
+                connectionStatus = uiState.connectionStatus,
+                errorMessage = uiState.errorMessage,
+                canTest = uiState.canTest,
+                onServerUrlChanged = viewModel::onServerUrlChanged,
+                onUsernameChanged = viewModel::onUsernameChanged,
+                onPasswordChanged = viewModel::onPasswordChanged,
+                onTest = viewModel::testConnection
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // ─── Config Server ───
+            SectionHeader(
+                title = "Config Server",
+                helpText = "Your local openHAB server, used by this app to save tile and complication configurations. Required because myopenhab.org doesn't support REST write operations. Only needed during setup — the watch doesn't use it."
             )
 
             ConfigServerFields(
@@ -157,6 +179,17 @@ fun SetupScreen(
                 onAuthModeChanged = viewModel::onConfigAuthModeChanged,
                 onTest = viewModel::testConfigConnection
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ─── Save Button ───
+            androidx.compose.material3.Button(
+                onClick = viewModel::saveAll,
+                enabled = uiState.canSave,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Save")
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -360,6 +393,44 @@ private fun TestButton(
             text = errorMessage ?: "",
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    title: String,
+    helpText: String
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium
+        )
+        IconButton(
+            onClick = { expanded = !expanded },
+            modifier = Modifier.size(24.dp)
+        ) {
+            Icon(
+                Icons.Outlined.HelpOutline,
+                contentDescription = "Help",
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+
+    AnimatedVisibility(visible = expanded) {
+        Text(
+            text = helpText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp)
         )
     }
 }

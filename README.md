@@ -19,6 +19,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 ### Phone Companion App
 - **Tile Design Editor** — Visual editor with layout selector, watch preview, icon picker (MDI/Material/openHAB), position swap
 - **Complication Editor** — Per-type configuration with pattern validation and metadata import
+- **Multi-User Support** — User key namespaces separate configs per person on the same server
 - **Theme Sync** — Select theme on phone, push to watch
 - **Config Sync Detection** — Warns when watch is out of sync with server config
 - **Connection Setup** — Main server (cloud) + Config server (local) with encrypted storage
@@ -38,10 +39,11 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 
 ### Phone Companion (recommended)
 1. Install the phone app: `./gradlew :phone:assembleDebug`
-2. Configure Main Server (e.g. myopenhab.org or your own URL) + Config Server (local openHAB URL)
-3. Use Tile Design to visually configure your watch layout
-4. Tap "Sync to Watch" to push credentials + trigger reload
-5. Long-press tile on watch → pencil to change theme (or set via phone)
+2. Set a **User Key** if multiple people share the same openHAB server (optional, e.g. `gabor`)
+3. Configure Main Server (e.g. myopenhab.org or your own URL) + Config Server (local openHAB URL)
+4. Use Tile Design to visually configure your watch layout
+5. Tap "Sync to Watch" to push credentials + trigger reload
+6. Long-press tile on watch → pencil to change theme (or set via phone)
 
 ### Legacy: Manual item metadata
 Items with `wearTile` metadata are supported as a fallback for complication discovery only. Tile configuration is done via the phone companion editor.
