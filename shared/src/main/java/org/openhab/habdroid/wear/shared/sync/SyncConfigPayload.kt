@@ -18,5 +18,13 @@ import kotlinx.serialization.Serializable
 data class SyncConfigPayload(
     val serverUrl: String,
     val username: String = "",
-    val password: String = ""
-)
+    val password: String = "",
+    val userKey: String = ""
+) {
+    /**
+     * The UI components namespace derived from the user key.
+     * Empty userKey = shared "wear:tile", otherwise "wear:tile:{userKey}".
+     */
+    val tileNamespace: String
+        get() = if (userKey.isBlank()) "wear:tile" else "wear:tile:$userKey"
+}

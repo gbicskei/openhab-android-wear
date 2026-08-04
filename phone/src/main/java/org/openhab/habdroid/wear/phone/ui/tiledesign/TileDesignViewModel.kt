@@ -122,7 +122,8 @@ class TileDesignViewModel @Inject constructor(
             }
 
             // Load tile pages
-            val tilesResult = apiService.getAllTilePages(serverUrl, username, password)
+            val namespace = credentialStore.tileNamespace
+            val tilesResult = apiService.getAllTilePages(serverUrl, username, password, namespace)
             if (tilesResult.isFailure) {
                 _uiState.value = TileDesignUiState.Error(
                     tilesResult.exceptionOrNull()?.message ?: "Failed to load tile config"
@@ -310,7 +311,8 @@ class TileDesignViewModel @Inject constructor(
         // Create on server
         viewModelScope.launch {
             val config = localConfig ?: return@launch
-            apiService.createTilePage(config, newPage.toDto())
+            val namespace = credentialStore.tileNamespace
+            apiService.createTilePage(config, newPage.toDto(), namespace)
                 .onFailure { _snackbarMessage.value = "Failed to create page: ${it.message}" }
                 .onSuccess { _snackbarMessage.value = "Page created" }
         }
@@ -329,7 +331,8 @@ class TileDesignViewModel @Inject constructor(
 
         viewModelScope.launch {
             val config = localConfig ?: return@launch
-            apiService.deleteTilePage(config, pageUid)
+            val namespace = credentialStore.tileNamespace
+            apiService.deleteTilePage(config, pageUid, namespace)
                 .onFailure { _snackbarMessage.value = "Failed to delete page: ${it.message}" }
                 .onSuccess { _snackbarMessage.value = "Page deleted" }
         }
@@ -402,6 +405,7 @@ class TileDesignViewModel @Inject constructor(
 
             // Create tile pages on server
             var created = 0
+            val namespace = credentialStore.tileNamespace
             for ((pageName, slots) in slotsByPage) {
                 // Deduplicate: if multiple items share a position, reassign incrementally
                 val deduped = mutableListOf<TileSlotState>()
@@ -426,10 +430,10 @@ class TileDesignViewModel @Inject constructor(
                     layout = layout,
                     slots = deduped
                 )
-                val result = apiService.createTilePage(config, page.toDto())
+                val result = apiService.createTilePage(config, page.toDto(), namespace)
                 if (result.isFailure) {
                     // Try update if it already exists
-                    apiService.updateTilePage(config, page.toDto())
+                    apiService.updateTilePage(config, page.toDto(), namespace)
                 }
                 created++
             }
@@ -513,12 +517,13 @@ class TileDesignViewModel @Inject constructor(
                 updatePageInState(pageToSave)
             }
 
+            val namespace = credentialStore.tileNamespace
             _isSaving.value = true
-            apiService.updateTilePage(config, pageToSave.toDto())
+            apiService.updateTilePage(config, pageToSave.toDto(), namespace)
                 .onFailure { e ->
                     // If 404, the page doesn't exist yet — create it
                     if (e.message?.contains("404") == true) {
-                        apiService.createTilePage(config, pageToSave.toDto())
+                        apiService.createTilePage(config, pageToSave.toDto(), namespace)
                             .onFailure { _snackbarMessage.value = "Save failed: ${it.message}" }
                     } else {
                         _snackbarMessage.value = "Save failed: ${e.message}"

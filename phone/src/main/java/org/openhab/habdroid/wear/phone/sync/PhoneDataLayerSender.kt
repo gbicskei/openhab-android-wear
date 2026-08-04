@@ -95,7 +95,8 @@ class PhoneDataLayerSender @Inject constructor(
             SyncConfigPayload(
                 serverUrl = credentials.serverUrl,
                 username = credentials.username,
-                password = credentials.password
+                password = credentials.password,
+                userKey = credentials.userKey
             )
         )
 

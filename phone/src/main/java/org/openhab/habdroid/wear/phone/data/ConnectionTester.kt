@@ -7,6 +7,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -43,13 +44,14 @@ class ConnectionTester @Inject constructor(
     }
 
     /**
-     * Tests whether the config server supports write operations.
-     * Reads from /rest/ui/components/wear:tile, then creates and deletes a test entry.
+     * Tests whether the config server supports write operations on the given namespace.
+     * Reads from /rest/ui/components/{namespace}, then creates and deletes a test entry.
      */
     suspend fun testConfigConnection(
         serverUrl: String,
         username: String,
-        password: String
+        password: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<Unit> = runCatching {
         withContext(Dispatchers.IO) {
             val baseUrl = serverUrl.trimEnd('/')
@@ -58,7 +60,7 @@ class ConnectionTester @Inject constructor(
 
             // Step 1: Test read access
             val readRequest = Request.Builder()
-                .url("$baseUrl/rest/ui/components/wear:tile")
+                .url("$baseUrl/rest/ui/components/$namespace")
                 .apply { auth?.let { header("Authorization", it) } }
                 .header("Accept", "application/json")
                 .build()
@@ -75,7 +77,7 @@ class ConnectionTester @Inject constructor(
             val testBody = """{"uid":"$testUid","tags":[],"props":{},"component":"wear:test","config":{}}"""
 
             val writeRequest = Request.Builder()
-                .url("$baseUrl/rest/ui/components/wear:tile")
+                .url("$baseUrl/rest/ui/components/$namespace")
                 .post(testBody.toRequestBody("application/json".toMediaType()))
                 .apply { auth?.let { header("Authorization", it) } }
                 .header("Content-Type", "application/json")
@@ -89,7 +91,7 @@ class ConnectionTester @Inject constructor(
 
             // Cleanup: delete the test entry
             val deleteRequest = Request.Builder()
-                .url("$baseUrl/rest/ui/components/wear:tile/$testUid")
+                .url("$baseUrl/rest/ui/components/$namespace/$testUid")
                 .delete()
                 .apply { auth?.let { header("Authorization", it) } }
                 .build()
@@ -104,10 +106,11 @@ class ConnectionTester @Inject constructor(
     suspend fun fetchConfigVersion(
         serverUrl: String,
         username: String,
-        password: String
+        password: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Int? = withContext(Dispatchers.IO) {
         try {
-            val url = "${serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/main"
+            val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace/main"
             val auth = if (username.isNotBlank() && password.isNotBlank())
                 Credentials.basic(username, password) else null
 

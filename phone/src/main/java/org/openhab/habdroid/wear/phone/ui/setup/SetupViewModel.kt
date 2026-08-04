@@ -70,6 +70,9 @@ class SetupViewModel @Inject constructor(
                     )
                 }
             }
+            // Load user key
+            val userKey = credentialStore.currentUserKey
+            _uiState.update { it.copy(userKey = userKey) }
         }
     }
 
@@ -125,7 +128,9 @@ class SetupViewModel @Inject constructor(
                 val username = local?.username?.takeIf { it.isNotBlank() } ?: creds.username
                 val password = local?.password?.takeIf { it.isNotBlank() } ?: creds.password
 
-                val serverVersion = connectionTester.fetchConfigVersion(serverUrl, username, password)
+                val serverVersion = connectionTester.fetchConfigVersion(
+                    serverUrl, username, password, credentialStore.tileNamespace
+                )
                 AppLog.d("SetupVM", "Sync check: serverVersion=$serverVersion")
 
                 if (serverVersion == null) {
@@ -201,6 +206,17 @@ class SetupViewModel @Inject constructor(
         }
     }
 
+    // ─── User Key (Multi-user namespace) ───
+
+    fun onUserKeyChanged(key: String) {
+        // Validate: only allow [a-z0-9_-]
+        val sanitized = key.lowercase().filter { it.isLetterOrDigit() || it == '_' || it == '-' }
+        _uiState.update { it.copy(userKey = sanitized) }
+        viewModelScope.launch {
+            credentialStore.saveUserKey(sanitized)
+        }
+    }
+
     // ─── Config (Local) Connection ───
 
     fun onConfigServerUrlChanged(url: String) {
@@ -236,7 +252,8 @@ class SetupViewModel @Inject constructor(
             connectionTester.testConfigConnection(
                 serverUrl = state.configServerUrl.trim(),
                 username = state.configUsername.trim(),
-                password = effectivePassword
+                password = effectivePassword,
+                namespace = credentialStore.tileNamespace
             ).onSuccess {
                 _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success, configHasStoredPassword = true) }
                 credentialStore.saveLocalConfig(
@@ -269,7 +286,8 @@ class SetupViewModel @Inject constructor(
             val credentials = ServerCredentials(
                 serverUrl = state.serverUrl.trim(),
                 username = state.username.trim(),
-                password = effectivePassword
+                password = effectivePassword,
+                userKey = credentialStore.currentUserKey
             )
 
             dataLayerSender.sendCredentials(credentials)
@@ -325,6 +343,8 @@ data class SetupUiState(
     val passwordModifiedThisSession: Boolean = false,
     val connectionStatus: ConnectionStatus = ConnectionStatus.Idle,
     val errorMessage: String? = null,
+    // User key (namespace for multi-user config)
+    val userKey: String = "",
     // Config (Local) connection
     val configServerUrl: String = "",
     val configUsername: String = "",

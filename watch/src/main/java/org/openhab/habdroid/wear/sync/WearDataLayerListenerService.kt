@@ -71,10 +71,11 @@ class WearDataLayerListenerService : WearableListenerService() {
                 val credentials = ServerCredentials(
                     serverUrl = configData.serverUrl,
                     username = configData.username,
-                    password = configData.password
+                    password = configData.password,
+                    userKey = configData.userKey
                 )
                 credentialStore.saveCredentials(credentials)
-                AppLog.d(TAG, "Credentials saved from phone sync")
+                AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
                 // Also trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
                     .requestUpdate(OpenHabTileService::class.java)

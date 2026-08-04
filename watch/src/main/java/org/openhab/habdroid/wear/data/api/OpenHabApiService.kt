@@ -55,17 +55,21 @@ interface OpenHabApiService {
     )
 
     /**
-     * Get all wear:tile UI components (tile page configs + complications).
+     * Get all UI components from the given namespace (tile page configs + complications).
      */
-    @GET("rest/ui/components/wear:tile")
-    suspend fun getTileComponents(): List<WearTileComponent>
+    @GET("rest/ui/components/{namespace}")
+    suspend fun getTileComponents(
+        @Path("namespace", encoded = true) namespace: String = "wear:tile"
+    ): List<WearTileComponent>
 
     /**
      * Get the complication-list document as raw JSON for flexible parsing.
      * Returns the document with nested per-type config objects intact.
      */
-    @GET("rest/ui/components/wear:tile/complications")
-    suspend fun getComplicationListRaw(): kotlinx.serialization.json.JsonObject
+    @GET("rest/ui/components/{namespace}/complications")
+    suspend fun getComplicationListRaw(
+        @Path("namespace", encoded = true) namespace: String = "wear:tile"
+    ): kotlinx.serialization.json.JsonObject
 
     /**
      * Get the server's icon for an item category.

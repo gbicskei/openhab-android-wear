@@ -14,12 +14,14 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItemWithMetadata
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.WearTilePageDto
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * REST API service for the tile design editor.
  * Reads/writes wear:tile UI components via the openHAB REST API.
+ * Namespace is user-scoped: "wear:tile" (default) or "wear:tile:{userKey}" (per-user).
  */
 @Singleton
 class TileApiService @Inject constructor(
@@ -31,15 +33,16 @@ class TileApiService @Inject constructor(
     // ─── Tile Config CRUD (uses local server for writes) ───
 
     /**
-     * Get all tile page documents from the wear:tile namespace.
+     * Get all tile page documents from the user's namespace.
      * Can use either remote or local server.
      */
     suspend fun getAllTilePages(
         serverUrl: String,
         username: String,
-        password: String
+        password: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<List<WearTilePageDto>> = runCatching {
-        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/wear:tile"
+        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
         val response = executeGet(url, username, password)
         json.decodeFromString<List<WearTilePageDto>>(response)
     }
@@ -51,9 +54,10 @@ class TileApiService @Inject constructor(
         serverUrl: String,
         username: String,
         password: String,
-        uid: String
+        uid: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<WearTilePageDto> = runCatching {
-        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/$uid"
+        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace/$uid"
         val response = executeGet(url, username, password)
         json.decodeFromString<WearTilePageDto>(response)
     }
@@ -64,9 +68,10 @@ class TileApiService @Inject constructor(
      */
     suspend fun createTilePage(
         localConfig: LocalServerConfig,
-        page: WearTilePageDto
+        page: WearTilePageDto,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<WearTilePageDto> = runCatching {
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/wear:tile"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
         val body = json.encodeToString(WearTilePageDto.serializer(), page)
         val response = executePost(url, body, localConfig.username, localConfig.password)
         json.decodeFromString<WearTilePageDto>(response)
@@ -78,9 +83,10 @@ class TileApiService @Inject constructor(
      */
     suspend fun updateTilePage(
         localConfig: LocalServerConfig,
-        page: WearTilePageDto
+        page: WearTilePageDto,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<WearTilePageDto> = runCatching {
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/${page.uid}"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${page.uid}"
         val body = json.encodeToString(WearTilePageDto.serializer(), page)
         val response = executePut(url, body, localConfig.username, localConfig.password)
         json.decodeFromString<WearTilePageDto>(response)
@@ -92,9 +98,10 @@ class TileApiService @Inject constructor(
      */
     suspend fun deleteTilePage(
         localConfig: LocalServerConfig,
-        uid: String
+        uid: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<Unit> = runCatching {
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/$uid"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/$uid"
         executeDelete(url, localConfig.username, localConfig.password)
     }
 
@@ -118,15 +125,16 @@ class TileApiService @Inject constructor(
     // ─── Complications CRUD ───
 
     /**
-     * Get the complication-list document from the wear:tile namespace.
+     * Get the complication-list document from the user's namespace.
      * Returns null if the document doesn't exist yet.
      */
     suspend fun getComplicationList(
         serverUrl: String,
         username: String,
-        password: String
+        password: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<ComplicationListDto?> = runCatching {
-        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/${ComplicationListDto.UID}"
+        val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${ComplicationListDto.UID}"
         try {
             val response = executeGet(url, username, password)
             json.decodeFromString<ComplicationListDto>(response)
@@ -140,9 +148,10 @@ class TileApiService @Inject constructor(
      */
     suspend fun createComplicationList(
         localConfig: LocalServerConfig,
-        dto: ComplicationListDto
+        dto: ComplicationListDto,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<ComplicationListDto> = runCatching {
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/wear:tile"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
         val body = json.encodeToString(ComplicationListDto.serializer(), dto)
         val response = executePost(url, body, localConfig.username, localConfig.password)
         json.decodeFromString<ComplicationListDto>(response)
@@ -153,9 +162,10 @@ class TileApiService @Inject constructor(
      */
     suspend fun updateComplicationList(
         localConfig: LocalServerConfig,
-        dto: ComplicationListDto
+        dto: ComplicationListDto,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<ComplicationListDto> = runCatching {
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/wear:tile/${dto.uid}"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${dto.uid}"
         val body = json.encodeToString(ComplicationListDto.serializer(), dto)
         val response = executePut(url, body, localConfig.username, localConfig.password)
         json.decodeFromString<ComplicationListDto>(response)
