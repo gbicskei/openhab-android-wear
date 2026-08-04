@@ -199,7 +199,11 @@ class OpenHabTileService : TileService() {
                         org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     }
                 } else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
-                val resourceId = "icon_${tileItem.item.name}"
+                val resourceId = if (tileItem.isPageNavigation) {
+                    "icon_nav_${tileItem.targetPage ?: tileItem.slot}"
+                } else {
+                    "icon_${tileItem.item.name}"
+                }
                 val label = tileItem.effectiveLabel
 
                 // Determine state text based on valueDisplay and item type
@@ -774,7 +778,10 @@ class OpenHabTileService : TileService() {
             )
             .addContent(
                 LayoutElementBuilders.Image.Builder()
-                    .setResourceId("icon_${item.name}")
+                    .setResourceId(
+                        if (tileItem.isPageNavigation) "icon_nav_${tileItem.targetPage ?: tileItem.slot}"
+                        else "icon_${item.name}"
+                    )
                     .setWidth(dp(iconSize))
                     .setHeight(dp(iconSize))
                     .build()
