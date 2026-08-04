@@ -951,14 +951,13 @@ class OpenHabTileService : TileService() {
             }
             else -> {
                 // Switch/command item → toggle or send fixed command
-                val command = when {
-                    tileItem.isCommand && tileItem.commandValue != null -> tileItem.commandValue
-                    tileItem.displayItem.isActive -> "OFF"
-                    else -> "ON"
-                }
-
                 if (tileItem.needsConfirmation) {
-                    // Needs confirmation → launch TileActionReceiver with confirmation flag
+                    // Needs confirmation → bake in the command since the dialog shows before executing
+                    val command = when {
+                        tileItem.isCommand && tileItem.commandValue != null -> tileItem.commandValue
+                        tileItem.displayItem.isActive -> "OFF"
+                        else -> "ON"
+                    }
                     ModifiersBuilders.Clickable.Builder()
                         .setId("confirm_${item.name}")
                         .setOnClick(
@@ -996,9 +995,10 @@ class OpenHabTileService : TileService() {
                                 .build()
                         )
                         .build()
-                } else {
+                } else if (tileItem.isCommand && tileItem.commandValue != null) {
+                    // Fixed command → always send the same command regardless of state
                     ModifiersBuilders.Clickable.Builder()
-                        .setId("toggle_${item.name}")
+                        .setId("cmd_${item.name}")
                         .setOnClick(
                             ActionBuilders.LaunchAction.Builder()
                                 .setAndroidActivity(
@@ -1014,7 +1014,29 @@ class OpenHabTileService : TileService() {
                                         .addKeyToExtraMapping(
                                             "command",
                                             ActionBuilders.AndroidStringExtra.Builder()
-                                                .setValue(command)
+                                                .setValue(tileItem.commandValue)
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                } else {
+                    // Toggle item → don't bake in command; let TileActionReceiver
+                    // fetch fresh state at tap time to avoid stale toggle direction
+                    ModifiersBuilders.Clickable.Builder()
+                        .setId("toggle_${item.name}")
+                        .setOnClick(
+                            ActionBuilders.LaunchAction.Builder()
+                                .setAndroidActivity(
+                                    ActionBuilders.AndroidActivity.Builder()
+                                        .setClassName("org.openhab.habdroid.wear.tile.TileActionReceiver")
+                                        .setPackageName("org.openhab.habdroid.wear")
+                                        .addKeyToExtraMapping(
+                                            "item_name",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(tileItem.commandTargetName)
                                                 .build()
                                         )
                                         .build()
