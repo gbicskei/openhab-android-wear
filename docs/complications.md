@@ -15,7 +15,19 @@ Supported complication types:
 
 ## Configuring Items for Complications
 
-Items are made available for complications via the `wearTile` metadata in openHAB.
+Items are configured for complications via the **Phone Companion App** (recommended) or `wearTile` metadata (legacy fallback).
+
+### Phone Companion App (recommended)
+
+1. Open the phone companion → **Complications**
+2. Tap "+" to add an item
+3. Configure per-type display options (title, text pattern, range, icon)
+4. Save — the config is written to a `wear:complication-list` document on the server
+5. The watch reads this document to populate the complication picker
+
+### Legacy: openHAB item metadata
+
+Items with `wearTile` metadata are still supported as a fallback for the complication picker.
 
 ### Complication-only item
 
