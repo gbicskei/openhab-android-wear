@@ -148,6 +148,7 @@ fun TileDesignScreen(
                         onPageSelected = { viewModel.selectPage(it) },
                         onAddPage = { viewModel.addPage(it) },
                         onDeletePage = { viewModel.deletePage(it) },
+                        onRenamePage = { uid, newLabel -> viewModel.renamePage(uid, newLabel) },
                         modifier = Modifier.fillMaxWidth()
                     )
 

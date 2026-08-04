@@ -339,6 +339,16 @@ class TileDesignViewModel @Inject constructor(
         }
     }
 
+    /** Rename a page's display label. The uid remains unchanged. */
+    fun renamePage(pageUid: String, newLabel: String) {
+        val state = (_uiState.value as? TileDesignUiState.Success) ?: return
+        val page = state.editor.pages.find { it.uid == pageUid } ?: return
+
+        val updatedPage = page.copy(label = newLabel)
+        updatePageInState(updatedPage)
+        savePage(updatedPage)
+    }
+
     /**
      * Import tile config from existing wearTile item metadata (migration helper).
      * Reads items with wearTile metadata, converts to wear:tile-page documents, saves to server.

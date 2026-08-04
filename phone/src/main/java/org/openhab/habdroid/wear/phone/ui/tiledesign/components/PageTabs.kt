@@ -1,5 +1,7 @@
 package org.openhab.habdroid.wear.phone.ui.tiledesign.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,7 +28,9 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Scrollable tab row for tile page management.
+ * Long-press a tab to rename the page.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PageTabs(
     pageNames: List<String>,
@@ -35,10 +39,12 @@ fun PageTabs(
     onPageSelected: (Int) -> Unit,
     onAddPage: (String) -> Unit,
     onDeletePage: (String) -> Unit,
+    onRenamePage: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<String?>(null) }
+    var showRenameDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to current label
 
     ScrollableTabRow(
         selectedTabIndex = selectedIndex,
@@ -51,7 +57,13 @@ fun PageTabs(
                 selected = index == selectedIndex,
                 onClick = { onPageSelected(index) },
                 text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.combinedClickable(
+                            onClick = { onPageSelected(index) },
+                            onLongClick = { showRenameDialog = pageName to label }
+                        )
+                    ) {
                         Text(
                             text = label,
                             style = MaterialTheme.typography.labelLarge
@@ -112,6 +124,46 @@ fun PageTabs(
             }
         )
     }
+
+    showRenameDialog?.let { (uid, currentLabel) ->
+        RenamePageDialog(
+            currentLabel = currentLabel,
+            onConfirm = { newLabel ->
+                onRenamePage(uid, newLabel)
+                showRenameDialog = null
+            },
+            onDismiss = { showRenameDialog = null }
+        )
+    }
+}
+
+@Composable
+private fun RenamePageDialog(
+    currentLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var newLabel by remember { mutableStateOf(currentLabel) }
+    val isValid = newLabel.trim().isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Page") },
+        text = {
+            OutlinedTextField(
+                value = newLabel,
+                onValueChange = { newLabel = it },
+                label = { Text("Page Name") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(newLabel.trim()) }, enabled = isValid) { Text("Rename") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
