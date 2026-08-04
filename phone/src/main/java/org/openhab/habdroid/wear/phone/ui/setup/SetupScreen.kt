@@ -289,7 +289,8 @@ private fun ConfigServerFields(
     }
 
     if (useApiToken) {
-        // API Token input
+        // API Token input (masked like a password)
+        var tokenVisible by remember { mutableStateOf(false) }
         OutlinedTextField(
             value = apiToken,
             onValueChange = onApiTokenChanged,
@@ -297,7 +298,18 @@ private fun ConfigServerFields(
             placeholder = { Text("oh.tokenname.xxxxx") },
             supportingText = { Text("Generate in openHAB Settings > API Security") },
             singleLine = true,
+            visualTransformation = if (tokenVisible) VisualTransformation.None else PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+            trailingIcon = {
+                if (apiToken.isNotEmpty()) {
+                    IconButton(onClick = { tokenVisible = !tokenVisible }) {
+                        Icon(
+                            imageVector = if (tokenVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            contentDescription = if (tokenVisible) "Hide" else "Show"
+                        )
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         )
     } else {

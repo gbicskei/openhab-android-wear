@@ -152,7 +152,7 @@ class TileDesignViewModel @Inject constructor(
                 compareBy { if (it.uid == "main") 0 else 1 }
             )
 
-            val isReadOnly = local == null || !local.isConfigured || !local.hasAuth
+            val isReadOnly = local == null || !local.isConfigured || (!local.hasAuth && !local.hasApiToken)
 
             _uiState.value = TileDesignUiState.Success(
                 editor = TileEditorState(
