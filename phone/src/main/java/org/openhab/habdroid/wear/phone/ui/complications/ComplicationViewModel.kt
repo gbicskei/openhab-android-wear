@@ -87,7 +87,8 @@ class ComplicationViewModel @Inject constructor(
             }
 
             // Fetch complication list
-            val complicationResult = apiService.getComplicationList(serverUrl, username, password)
+            val namespace = credentialStore.tileNamespace
+            val complicationResult = apiService.getComplicationList(serverUrl, username, password, namespace)
             val dto = complicationResult.getOrElse { e ->
                 _uiState.value = ComplicationUiState.Error("Failed to load: ${e.message}")
                 return@launch
@@ -270,11 +271,12 @@ class ComplicationViewModel @Inject constructor(
         viewModelScope.launch {
             _isSaving.value = true
             val dto = editor.toDto()
+            val namespace = credentialStore.tileNamespace
 
             val result = if (existsOnServer) {
-                apiService.updateComplicationList(config, dto)
+                apiService.updateComplicationList(config, dto, namespace)
             } else {
-                apiService.createComplicationList(config, dto).also {
+                apiService.createComplicationList(config, dto, namespace).also {
                     if (it.isSuccess) existsOnServer = true
                 }
             }

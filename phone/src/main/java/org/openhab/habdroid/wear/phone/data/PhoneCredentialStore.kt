@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,6 +39,7 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_LOCAL_PASSWORD = "local_password"
         const val KEY_LOCAL_API_TOKEN = "local_api_token"
         const val KEY_HOME_WIFI_SSID = "home_wifi_ssid"
+        const val KEY_USER_KEY = "user_key"
         const val KEY_SELECTED_THEME = "selected_theme"
         const val DEFAULT_THEME = "AMBER"
     }
@@ -74,6 +76,7 @@ class PhoneCredentialStore @Inject constructor(
 
     private val _credentials = MutableStateFlow<ServerCredentials?>(null)
     private val _localCredentials = MutableStateFlow<LocalServerConfig?>(null)
+    private val _userKey = MutableStateFlow("")
 
     /** Flow of remote (watch) credentials. Emits null if not configured. */
     val credentials: Flow<ServerCredentials?> = _credentials.asStateFlow()
@@ -81,10 +84,26 @@ class PhoneCredentialStore @Inject constructor(
     /** Flow of local server config. Emits null if not configured. */
     val localConfig: Flow<LocalServerConfig?> = _localCredentials.asStateFlow()
 
+    /** Flow of the user key (namespace identifier). Empty string = default/shared namespace. */
+    val userKey: Flow<String> = _userKey.asStateFlow()
+
+    /** Current user key value (non-suspend accessor). */
+    val currentUserKey: String get() = _userKey.value
+
+    /**
+     * The tile namespace derived from the current user key.
+     * Empty key = "wear:tile", otherwise "wear:tile:{key}".
+     */
+    val tileNamespace: String
+        get() = SyncConstants.tileNamespace(_userKey.value)
+
     init {
         // Load initial state from encrypted storage
         _credentials.value = try { readCredentials() } catch (_: Exception) { null }
         _localCredentials.value = try { readLocalConfig() } catch (_: Exception) { null }
+        _userKey.value = try {
+            encryptedPrefs.getString(KEY_USER_KEY, "") ?: ""
+        } catch (_: Exception) { "" }
     }
 
     private fun readCredentials(): ServerCredentials? {
@@ -133,6 +152,16 @@ class PhoneCredentialStore @Inject constructor(
         _localCredentials.value = config
     }
 
+    /** Save the user key (namespace identifier) for multi-user config. */
+    suspend fun saveUserKey(key: String) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putString(KEY_USER_KEY, key)
+                .apply()
+        }
+        _userKey.value = key
+    }
+
     /** Clear all stored credentials. */
     suspend fun clear() {
         withContext(Dispatchers.IO) {
@@ -140,6 +169,7 @@ class PhoneCredentialStore @Inject constructor(
         }
         _credentials.value = null
         _localCredentials.value = null
+        _userKey.value = ""
     }
 
     /** Get the currently selected tile theme name. */

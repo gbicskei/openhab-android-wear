@@ -11,6 +11,7 @@ import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.model.TileItem
 import org.openhab.habdroid.wear.data.model.ValueDisplay
 import org.openhab.habdroid.wear.data.model.WearComplicationConfig
+import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -146,9 +147,11 @@ class OpenHabRepository @Inject constructor(
      * This is the full configuration load — items include metadata, descriptions, etc.
      */
     private suspend fun coldLoad(): List<TileItem> {
-        // 1. Fetch tile config from wear:tile UI components
-        AppLog.d(TAG, "coldLoad: fetching tile components")
-        val components = apiService.getTileComponents()
+        // 1. Fetch tile config from user's namespace
+        val namespace = credentialStore.credentials.first()?.tileNamespace
+            ?: SyncConstants.DEFAULT_TILE_NAMESPACE
+        AppLog.d(TAG, "coldLoad: fetching tile components (namespace=$namespace)")
+        val components = apiService.getTileComponents(namespace)
         AppLog.d(TAG, "coldLoad: got ${components.size} components")
         val tilePages = components.filter { it.isTilePage }
 
@@ -282,7 +285,9 @@ class OpenHabRepository @Inject constructor(
      */
     suspend fun getComplicationItems(): Result<List<Item>> = runCatching {
         // Try new approach: read from wear:complication-list document
-        val components = apiService.getTileComponents()
+        val namespace = credentialStore.credentials.first()?.tileNamespace
+            ?: SyncConstants.DEFAULT_TILE_NAMESPACE
+        val components = apiService.getTileComponents(namespace)
         val complicationList = components.find { it.isComplicationList }
 
         if (complicationList != null) {
@@ -316,8 +321,10 @@ class OpenHabRepository @Inject constructor(
      * Returns empty list if the document doesn't exist.
      */
     suspend fun getComplicationConfigs(): Result<List<WearComplicationConfig>> = runCatching {
+        val namespace = credentialStore.credentials.first()?.tileNamespace
+            ?: SyncConstants.DEFAULT_TILE_NAMESPACE
         val rawDoc = try {
-            apiService.getComplicationListRaw()
+            apiService.getComplicationListRaw(namespace)
         } catch (e: retrofit2.HttpException) {
             if (e.code() == 404) return@runCatching emptyList()
             throw e

@@ -111,6 +111,21 @@ fun SetupScreen(
                 onTest = viewModel::testConnection
             )
 
+            // ─── User Key (Multi-user) ───
+            OutlinedTextField(
+                value = uiState.userKey,
+                onValueChange = viewModel::onUserKeyChanged,
+                label = { Text("User Key") },
+                placeholder = { Text("e.g. gabor, anna") },
+                supportingText = { Text("Optional. Separates tile config per user on the same server.") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Ascii,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // ─── Config Server ───

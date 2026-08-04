@@ -21,6 +21,7 @@ class CredentialStore @Inject constructor(
         val KEY_SERVER_URL = stringPreferencesKey("server_url")
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
+        val KEY_USER_KEY = stringPreferencesKey("user_key")
     }
 
     /** Flow of current credentials, null if not configured */
@@ -29,7 +30,8 @@ class CredentialStore @Inject constructor(
         ServerCredentials(
             serverUrl = url,
             username = prefs[KEY_USERNAME] ?: "",
-            password = prefs[KEY_PASSWORD] ?: ""
+            password = prefs[KEY_PASSWORD] ?: "",
+            userKey = prefs[KEY_USER_KEY] ?: ""
         )
     }
 
@@ -44,6 +46,7 @@ class CredentialStore @Inject constructor(
             prefs[KEY_SERVER_URL] = credentials.serverUrl
             prefs[KEY_USERNAME] = credentials.username
             prefs[KEY_PASSWORD] = credentials.password
+            prefs[KEY_USER_KEY] = credentials.userKey
         }
     }
 
