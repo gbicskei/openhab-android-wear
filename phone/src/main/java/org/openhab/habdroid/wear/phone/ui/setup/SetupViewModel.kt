@@ -82,6 +82,7 @@ class SetupViewModel @Inject constructor(
                 _uiState.update { state ->
                     val newStatus = when {
                         info == null -> WatchStatus.NotFound
+                        !info.watchAppInstalled -> WatchStatus.AppNotInstalled
                         state.watchStatus == WatchStatus.Synced -> WatchStatus.Synced
                         else -> WatchStatus.Connected
                     }
@@ -98,9 +99,21 @@ class SetupViewModel @Inject constructor(
     /**
      * Check if the watch's config is out of sync with the phone/server.
      * Compares both configVersion (tile layout) and theme.
+     * Skips the check if the watch app is not installed or if we just synced successfully.
      */
     fun checkConfigSync() {
         viewModelScope.launch {
+            // Don't check sync if the watch app isn't installed — there's nothing to sync with
+            if (_uiState.value.watchStatus == WatchStatus.AppNotInstalled) {
+                _uiState.update { it.copy(configOutOfSync = false) }
+                return@launch
+            }
+
+            // Don't override a recent sync success — the watch may still be writing its DataItem
+            if (_uiState.value.watchStatus == WatchStatus.Synced && !_uiState.value.configOutOfSync) {
+                return@launch
+            }
+
             try {
                 val watchStatus = watchStatusReader.readStatus()
                 val watchVersion = watchStatus?.configTimestamp?.toIntOrNull()
@@ -335,8 +348,8 @@ class SetupViewModel @Inject constructor(
                         dataLayerSender.sendTheme(theme)
                     } catch (_: Exception) {}
                     _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
-                    // Re-check sync status after a short delay (watch needs time to reload + write DataItem)
-                    kotlinx.coroutines.delay(3000)
+                    // Re-check sync status after giving the watch time to reload config + write DataItem
+                    kotlinx.coroutines.delay(10_000)
                     checkConfigSync()
                 }
                 .onFailure { error ->
@@ -402,10 +415,11 @@ data class SetupUiState(
     val canSave: Boolean get() = serverUrl.isNotBlank() && hasUnsavedChanges
     val canSendToWatch: Boolean get() = (connectionStatus == ConnectionStatus.Success || hasStoredPassword) &&
         watchStatus != WatchStatus.NotFound &&
+        watchStatus != WatchStatus.AppNotInstalled &&
         watchStatus != WatchStatus.Unknown &&
         syncResult != SyncResult.Sending
     val connectionTypeLabel: String? get() = when {
-        watchStatus == WatchStatus.NotFound || watchStatus == WatchStatus.Unknown -> null
+        watchStatus == WatchStatus.NotFound || watchStatus == WatchStatus.Unknown || watchStatus == WatchStatus.AppNotInstalled -> null
         watchNearby -> "Bluetooth"
         else -> "Cloud"
     }
@@ -414,7 +428,7 @@ data class SetupUiState(
 }
 
 enum class ConnectionStatus { Idle, Testing, Success, Failed }
-enum class WatchStatus { Unknown, NotFound, Connected, Synced }
+enum class WatchStatus { Unknown, NotFound, AppNotInstalled, Connected, Synced }
 
 sealed interface SyncResult {
     data object Sending : SyncResult

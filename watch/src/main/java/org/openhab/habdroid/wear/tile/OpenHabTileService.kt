@@ -361,13 +361,28 @@ class OpenHabTileService : TileService() {
                             .build()
                     )
                     .addContent(
-                        LayoutElementBuilders.Text.Builder()
-                            .setText("openHAB")
-                            .setFontStyle(
-                                LayoutElementBuilders.FontStyle.Builder()
-                                    .setSize(sp(12f))
-                                    .setColor(argb(0xFFFFFFFF.toInt()))
-                                    .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+                        LayoutElementBuilders.Box.Builder()
+                            .setWidth(dp(120f))
+                            .setHeight(dp(36f))
+                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                            .addContent(
+                                LayoutElementBuilders.Image.Builder()
+                                    .setResourceId(RESOURCE_ID_LOGO)
+                                    .setWidth(dp(36f))
+                                    .setHeight(dp(36f))
+                                    .build()
+                            )
+                            .addContent(
+                                LayoutElementBuilders.Text.Builder()
+                                    .setText("openHAB")
+                                    .setFontStyle(
+                                        LayoutElementBuilders.FontStyle.Builder()
+                                            .setSize(sp(12f))
+                                            .setColor(argb(0xFFFFFFFF.toInt()))
+                                            .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
+                                            .build()
+                                    )
                                     .build()
                             )
                             .build()
@@ -379,7 +394,7 @@ class OpenHabTileService : TileService() {
                     )
                     .addContent(
                         LayoutElementBuilders.Text.Builder()
-                            .setText("No items configured.\nAdd wearTile metadata\nin openHAB.")
+                            .setText("No items configured.\nUse the phone companion app\nto set up your tile.")
                             .setFontStyle(
                                 LayoutElementBuilders.FontStyle.Builder()
                                     .setSize(sp(14f))

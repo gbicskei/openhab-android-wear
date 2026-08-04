@@ -155,7 +155,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Sync to Watch button
-            if (uiState.configOutOfSync && configReady) {
+            if (uiState.configOutOfSync && configReady && uiState.watchStatus != WatchStatus.AppNotInstalled) {
                 Text(
                     text = "Watch config out of sync",
                     style = MaterialTheme.typography.bodySmall,
@@ -192,6 +192,11 @@ private fun WatchStatusChip(
             "Watch not connected",
             MaterialTheme.colorScheme.errorContainer
         )
+        WatchStatus.AppNotInstalled -> Triple(
+            Icons.Default.Watch,
+            "Watch app not installed",
+            MaterialTheme.colorScheme.errorContainer
+        )
         WatchStatus.Connected -> Triple(
             if (connectionType == "Bluetooth") Icons.Outlined.Bluetooth else Icons.Default.Cloud,
             "${watchName ?: "Watch"} · $connectionType",
@@ -218,20 +223,29 @@ private fun WatchStatusChip(
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = when (watchStatus) {
-                    WatchStatus.NotFound -> MaterialTheme.colorScheme.onErrorContainer
+                    WatchStatus.NotFound, WatchStatus.AppNotInstalled -> MaterialTheme.colorScheme.onErrorContainer
                     else -> MaterialTheme.colorScheme.onPrimaryContainer
                 }
             )
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium,
-                color = when (watchStatus) {
-                    WatchStatus.NotFound -> MaterialTheme.colorScheme.onErrorContainer
-                    else -> MaterialTheme.colorScheme.onPrimaryContainer
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = when (watchStatus) {
+                        WatchStatus.NotFound, WatchStatus.AppNotInstalled -> MaterialTheme.colorScheme.onErrorContainer
+                        else -> MaterialTheme.colorScheme.onPrimaryContainer
+                    }
+                )
+                if (watchStatus == WatchStatus.AppNotInstalled) {
+                    Text(
+                        text = "Install the openHAB Wear app on your watch",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                    )
                 }
-            )
+            }
         }
     }
 }
