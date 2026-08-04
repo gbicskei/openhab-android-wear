@@ -120,7 +120,7 @@ fun SetupScreen(
                 value = uiState.userKey,
                 onValueChange = viewModel::onUserKeyChanged,
                 label = { Text("User Key") },
-                placeholder = { Text("e.g. gabor, anna") },
+                placeholder = { Text("e.g. joe, jane") },
                 supportingText = { Text("Optional. Separates tile config per user on the same server.") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(

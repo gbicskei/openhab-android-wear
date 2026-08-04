@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -84,18 +85,14 @@ fun MainScreen(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Fixed header: title overlaid on logo, bottoms aligned
-        androidx.compose.foundation.layout.Box(
-            contentAlignment = Alignment.BottomCenter,
-            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.ic_openhab_logo),
-                contentDescription = null,
-                modifier = Modifier.size(48.dp)
-            )
-            Text(text = "openHAB")
-        }
+        // Fixed header: wordmark logo
+        Image(
+            painter = painterResource(id = R.drawable.ic_openhab_wordmark),
+            contentDescription = "openHAB",
+            modifier = Modifier
+                .padding(top = 8.dp, bottom = 4.dp)
+                .height(40.dp)
+        )
 
         // Scrollable buttons underneath
         ScalingLazyColumn(

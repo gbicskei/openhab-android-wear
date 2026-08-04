@@ -46,7 +46,7 @@ class PhoneDataLayerSender @Inject constructor(
             try {
                 val capabilityInfo = capabilityClient.getCapability(
                     WATCH_APP_CAPABILITY,
-                    CapabilityClient.FILTER_REACHABLE
+                    CapabilityClient.FILTER_ALL
                 ).await()
                 capabilityInfo.nodes.isNotEmpty()
             } catch (e: Exception) {
@@ -90,11 +90,12 @@ class PhoneDataLayerSender @Inject constructor(
     fun watchConnectionState(intervalMs: Long = 5_000L): Flow<WatchConnectionInfo?> = flow {
         AppLog.i(TAG, "watchConnectionState flow started")
         while (currentCoroutineContext().isActive) {
-            val hasNetwork = hasNetworkConnectivity()
-            val node = if (hasNetwork) getConnectedWatch() else null
-            val watchAppInstalled = if (node != null) isWatchAppInstalled() else false
-            val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby, watchAppInstalled) }
-            AppLog.i(TAG, "Poll: hasNetwork=$hasNetwork, node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
+            // Data Layer works over Bluetooth directly — no internet needed.
+            val node = getConnectedWatch()
+            // connectedNodes only returns nodes with matching applicationId,
+            // so node presence already implies the watch app is installed.
+            val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby, watchAppInstalled = true) }
+            AppLog.i(TAG, "Poll: node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
             emit(info)
             delay(intervalMs)
         }
