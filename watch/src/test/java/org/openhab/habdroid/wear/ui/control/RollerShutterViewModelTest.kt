@@ -37,7 +37,8 @@ class RollerShutterViewModelTest {
 
     private fun createViewModel(itemName: String = "Shutter"): RollerShutterViewModel {
         val savedState = SavedStateHandle(mapOf("item_name" to itemName))
-        return RollerShutterViewModel(repository, savedState)
+        val themeStore = mockk<org.openhab.habdroid.wear.data.repository.ThemeStore>(relaxed = true)
+        return RollerShutterViewModel(repository, themeStore, savedState)
     }
 
     // --- State Loading ---
@@ -120,9 +121,9 @@ class RollerShutterViewModelTest {
         )
 
         val vm = createViewModel()
-        vm.onRotatePosition(60f) // 60/30 = 2 added
+        vm.onRotatePosition(60f) // (60/1800)*100 = 3.33 added → 53.33
 
-        assertEquals(52f, vm.state.value.position, 0.5f)
+        assertEquals(53.3f, vm.state.value.position, 1f)
     }
 
     @Test
