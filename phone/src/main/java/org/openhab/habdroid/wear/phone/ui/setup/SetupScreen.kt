@@ -332,13 +332,12 @@ private fun PasswordField(
     onPasswordChanged: (String) -> Unit
 ) {
     var passwordVisible by remember { mutableStateOf(false) }
+    // Show masked dots as the value when a password is stored but not yet modified this session
+    val displayValue = if (!passwordModified && passwordPlaceholder.isNotEmpty()) passwordPlaceholder else password
     OutlinedTextField(
-        value = password,
+        value = displayValue,
         onValueChange = onPasswordChanged,
         label = { Text(stringResource(R.string.password_label)) },
-        placeholder = {
-            if (passwordPlaceholder.isNotEmpty()) Text(passwordPlaceholder)
-        },
         singleLine = true,
         visualTransformation = if (passwordVisible && passwordModified)
             VisualTransformation.None else PasswordVisualTransformation(),
