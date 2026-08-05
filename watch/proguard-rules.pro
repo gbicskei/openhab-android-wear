@@ -23,3 +23,8 @@
 
 # Coil
 -keep class coil.** { *; }
+
+# ProtoLayout — R8 incorrectly marks Fingerprint fields as final, causing
+# IllegalAccessError at runtime when the builder pattern mutates them.
+-keep class androidx.wear.protolayout.expression.Fingerprint { *; }
+-keep class androidx.wear.protolayout.** { *; }
