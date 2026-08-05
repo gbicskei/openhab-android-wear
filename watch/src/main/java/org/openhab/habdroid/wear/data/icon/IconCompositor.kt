@@ -230,7 +230,18 @@ class IconCompositor @Inject constructor() {
      */
     private fun renderSvg(bytes: ByteArray, hasLabel: Boolean = false, hasState: Boolean = false): Bitmap? {
         return try {
-            val svgString = String(bytes, Charsets.UTF_8)
+            var svgString = String(bytes, Charsets.UTF_8)
+            // Normalize namespace-prefixed SVGs for androidsvg compatibility:
+            // 1. Replace prefixed element tags (<ns0:svg> → <svg>, </ns0:path> → </path>)
+            svgString = svgString.replace(Regex("<(/?)\\w+:"), "<$1")
+            // 2. Replace prefixed attributes (ns1:label="x" → label="x") but keep xmlns and xlink
+            svgString = svgString.replace(Regex("\\b(?!xmlns|xlink)[a-zA-Z][a-zA-Z0-9]*:(?=[a-zA-Z])"), "")
+            // 3. Remove namespace declarations that are no longer used, except xmlns and xlink
+            svgString = svgString.replace(Regex("\\s+xmlns:\\w+=\"http://(?!www\\.w3\\.org/1999/xlink)[^\"]*\""), "")
+            // 4. Ensure xlink namespace is declared if xlink: attributes are present
+            if (svgString.contains("xlink:") && !svgString.contains("xmlns:xlink")) {
+                svgString = svgString.replaceFirst("<svg", "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\"")
+            }
             val svg = SVG.getFromString(svgString)
             val verticalReduction = (if (hasLabel) LABEL_HEIGHT else 0f) + (if (hasState) STATE_HEIGHT else 0f)
             val iconSize = (SIZE - (RING_STROKE_WIDTH + ICON_PADDING) * 2 - verticalReduction).toInt().coerceAtLeast(8)
