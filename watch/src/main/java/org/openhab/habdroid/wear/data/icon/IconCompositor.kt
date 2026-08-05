@@ -12,6 +12,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
 import com.caverock.androidsvg.SVG
+import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -68,6 +69,9 @@ class IconCompositor @Inject constructor() {
 
         /** State text size in pixels */
         private const val STATE_TEXT_SIZE = 14f
+
+        /** Fallback "?" text size in pixels */
+        private const val FALLBACK_TEXT_SIZE = 32f
 
         /** Max cached composited icons (each ~3-5KB compressed, so ~500KB total max) */
         private const val CACHE_MAX_ENTRIES = 128
@@ -226,7 +230,18 @@ class IconCompositor @Inject constructor() {
      */
     private fun renderSvg(bytes: ByteArray, hasLabel: Boolean = false, hasState: Boolean = false): Bitmap? {
         return try {
-            val svgString = String(bytes, Charsets.UTF_8)
+            var svgString = String(bytes, Charsets.UTF_8)
+            // Normalize namespace-prefixed SVGs for androidsvg compatibility:
+            // 1. Replace prefixed element tags (<ns0:svg> → <svg>, </ns0:path> → </path>)
+            svgString = svgString.replace(Regex("<(/?)\\w+:"), "<$1")
+            // 2. Replace prefixed attributes (ns1:label="x" → label="x") but keep xmlns and xlink
+            svgString = svgString.replace(Regex("\\b(?!xmlns|xlink)[a-zA-Z][a-zA-Z0-9]*:(?=[a-zA-Z])"), "")
+            // 3. Remove namespace declarations that are no longer used, except xmlns and xlink
+            svgString = svgString.replace(Regex("\\s+xmlns:\\w+=\"http://(?!www\\.w3\\.org/1999/xlink)[^\"]*\""), "")
+            // 4. Ensure xlink namespace is declared if xlink: attributes are present
+            if (svgString.contains("xlink:") && !svgString.contains("xmlns:xlink")) {
+                svgString = svgString.replaceFirst("<svg", "<svg xmlns:xlink=\"http://www.w3.org/1999/xlink\"")
+            }
             val svg = SVG.getFromString(svgString)
             val verticalReduction = (if (hasLabel) LABEL_HEIGHT else 0f) + (if (hasState) STATE_HEIGHT else 0f)
             val iconSize = (SIZE - (RING_STROKE_WIDTH + ICON_PADDING) * 2 - verticalReduction).toInt().coerceAtLeast(8)
@@ -237,6 +252,7 @@ class IconCompositor @Inject constructor() {
             svg.renderToCanvas(canvas)
             bitmap
         } catch (e: Exception) {
+            AppLog.w("IconCompositor", "SVG render failed: ${e.message}", e)
             null
         }
     }
@@ -253,6 +269,7 @@ class IconCompositor @Inject constructor() {
             if (scaled !== original) original.recycle()
             scaled
         } catch (e: Exception) {
+            AppLog.w("IconCompositor", "PNG render failed: ${e.message}", e)
             null
         }
     }
@@ -304,5 +321,78 @@ class IconCompositor @Inject constructor() {
         }
         val displayText = if (text.length > 8) text.take(7) + "\u2026" else text
         canvas.drawText(displayText, SIZE / 2f, SIZE - RING_STROKE_WIDTH - ICON_PADDING + 1f, paint)
+    }
+
+    /**
+     * Generates a fallback icon when the real icon cannot be fetched or parsed.
+     * Renders ring + label + "?" placeholder + optional state text, keeping the
+     * button visible and tappable until the real icon loads on retry.
+     *
+     * @param state Icon display state (ACTIVE, NEUTRAL, or INACTIVE)
+     * @param themeColor The user's chosen accent color
+     * @param label Optional label text to render at the top inside the ring
+     * @param stateText Optional state text to render below the placeholder
+     * @return Compressed pixel bytes for ProtoLayout, or null on failure
+     */
+    fun fallback(state: IconState, themeColor: Int, label: String? = null, stateText: String? = null): ByteArray? {
+        val key = CompositeKey(
+            iconContentHash = "fallback".hashCode(),
+            format = IconFormat.UNKNOWN,
+            state = state,
+            themeColor = themeColor,
+            label = label,
+            stateText = stateText
+        )
+
+        cache.get(key)?.let { return it }
+
+        val bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        // 1. Draw glow (ACTIVE state only)
+        if (state == IconState.ACTIVE) {
+            drawGlow(canvas, themeColor)
+        }
+
+        // 2. Draw ring
+        drawRing(canvas, state, themeColor)
+
+        // 3. Draw label at top
+        val hasLabel = !label.isNullOrBlank()
+        val hasState = !stateText.isNullOrBlank()
+        if (hasLabel) {
+            drawLabel(canvas, label!!)
+        }
+
+        // 4. Draw "?" placeholder where the icon would be
+        val labelShift = if (hasLabel) LABEL_HEIGHT / 2f else 0f
+        val stateShift = if (hasState) -(STATE_HEIGHT / 2f) else 0f
+        val placeholderY = SIZE / 2f + labelShift + stateShift + FALLBACK_TEXT_SIZE / 3f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = themeColor
+            alpha = when (state) {
+                IconState.ACTIVE -> ALPHA_ON
+                IconState.NEUTRAL -> ICON_ALPHA_NEUTRAL
+                IconState.INACTIVE -> ICON_ALPHA_OFF
+            }
+            textSize = FALLBACK_TEXT_SIZE
+            textAlign = Paint.Align.CENTER
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+        }
+        canvas.drawText("?", SIZE / 2f, placeholderY, paint)
+
+        // 5. Draw state text below
+        if (hasState) {
+            drawStateText(canvas, stateText!!, state, themeColor)
+        }
+
+        // 6. Compress
+        val stream = java.io.ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, 100, stream)
+        bitmap.recycle()
+
+        val result = stream.toByteArray()
+        cache.put(key, result)
+        return result
     }
 }
