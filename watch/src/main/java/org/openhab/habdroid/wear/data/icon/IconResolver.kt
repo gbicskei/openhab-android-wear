@@ -48,13 +48,13 @@ class IconResolver @Inject constructor(
         val cacheKey = if (source is IconSource.OpenHab) "${iconRef}_${state}" else iconRef
 
         // Check cache
-        cache.get(cacheKey)?.let { return it }
+        cache.get(cacheKey)?.let { if (it.isNotEmpty()) return it else cache.remove(cacheKey) }
 
         // Fetch
         val url = buildUrl(source, state) ?: return null
         val bytes = fetchBytes(url)
 
-        if (bytes != null) {
+        if (bytes != null && bytes.isNotEmpty()) {
             cache.put(cacheKey, bytes)
             return bytes
         }
