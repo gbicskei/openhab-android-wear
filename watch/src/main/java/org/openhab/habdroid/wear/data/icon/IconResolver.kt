@@ -84,9 +84,11 @@ class IconResolver @Inject constructor(
         ) {
             return IconFormat.PNG
         }
-        // SVG: starts with '<' (possibly after whitespace/BOM)
+        // SVG: starts with '<svg', '<?xml', or namespace-prefixed like '<ns0:svg'
         val start = String(bytes.take(100).toByteArray(), Charsets.UTF_8).trimStart()
-        if (start.startsWith("<svg") || start.startsWith("<?xml")) {
+        if (start.startsWith("<svg") || start.startsWith("<?xml") ||
+            start.matches(Regex("^<[a-zA-Z][a-zA-Z0-9]*:svg[\\s>].*", RegexOption.DOT_MATCHES_ALL))
+        ) {
             return IconFormat.SVG
         }
         return IconFormat.UNKNOWN

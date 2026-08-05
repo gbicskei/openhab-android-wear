@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,6 +56,7 @@ fun DebugLogScreen(
     viewModel: DebugLogViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     DisposableEffect(Unit) {
         viewModel.startListening()
@@ -71,6 +73,12 @@ fun DebugLogScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { exportDebugLog(context, entries) },
+                        enabled = entries.isNotEmpty()
+                    ) {
+                        Icon(Icons.Filled.Share, contentDescription = "Export")
+                    }
                     IconButton(onClick = { viewModel.clear() }) {
                         Icon(Icons.Filled.Delete, contentDescription = "Clear")
                     }
@@ -188,4 +196,28 @@ private fun DebugLogEntryCard(entry: DebugLogEntry) {
             )
         }
     }
+}
+
+private fun exportDebugLog(context: android.content.Context, entries: List<DebugLogEntry>) {
+    val sb = StringBuilder()
+    sb.appendLine("=== openHAB Wear Debug Log ===")
+    sb.appendLine("Exported: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
+    sb.appendLine("Entries: ${entries.size}")
+    sb.appendLine()
+
+    for (entry in entries) {
+        val level = entry.level.name.first()
+        val source = entry.source.name.take(5).padEnd(5)
+        sb.appendLine("[$level] ${entry.formattedTime} $source ${entry.tag}: ${entry.message}")
+        entry.stackTrace?.let { trace ->
+            trace.lines().forEach { line -> sb.appendLine("    $line") }
+        }
+    }
+
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(android.content.Intent.EXTRA_SUBJECT, "openHAB Wear Debug Log")
+        putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+    }
+    context.startActivity(android.content.Intent.createChooser(intent, "Export Debug Log"))
 }
