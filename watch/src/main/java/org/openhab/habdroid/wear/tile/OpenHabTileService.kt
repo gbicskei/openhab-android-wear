@@ -242,6 +242,9 @@ class OpenHabTileService : TileService() {
 
                 if (rawBytes == null || composited == null) {
                     hasFailedIcons = true
+                    AppLog.w("TileNav", "Icon failed for '${tileItem.item.name}': iconRef='$iconRef' " +
+                        "resolve=${if (rawBytes != null) "OK (${rawBytes.size}B)" else "FAILED"}, " +
+                        "composite=${if (composited != null) "OK" else "FAILED"}")
                 }
             }
 

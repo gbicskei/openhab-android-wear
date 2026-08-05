@@ -12,6 +12,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
 import com.caverock.androidsvg.SVG
+import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -240,6 +241,7 @@ class IconCompositor @Inject constructor() {
             svg.renderToCanvas(canvas)
             bitmap
         } catch (e: Exception) {
+            AppLog.w("IconCompositor", "SVG render failed: ${e.message}", e)
             null
         }
     }
@@ -256,6 +258,7 @@ class IconCompositor @Inject constructor() {
             if (scaled !== original) original.recycle()
             scaled
         } catch (e: Exception) {
+            AppLog.w("IconCompositor", "PNG render failed: ${e.message}", e)
             null
         }
     }
