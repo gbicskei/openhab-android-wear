@@ -12,6 +12,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import org.openhab.habdroid.wear.phone.ui.complications.ComplicationEditorScreen
+import org.openhab.habdroid.wear.phone.ui.debug.DebugLogScreen
 import org.openhab.habdroid.wear.phone.ui.home.HomeScreen
 import org.openhab.habdroid.wear.phone.ui.setup.SetupScreen
 import org.openhab.habdroid.wear.phone.ui.setup.SetupViewModel
@@ -36,7 +37,8 @@ fun AppNavHost(
             HomeScreen(
                 onNavigateToConnection = { navController.navigate(NavRoutes.CONNECTION) },
                 onNavigateToTileDesign = { navController.navigate(NavRoutes.TILE_DESIGN) },
-                onNavigateToComplications = { navController.navigate(NavRoutes.COMPLICATIONS) }
+                onNavigateToComplications = { navController.navigate(NavRoutes.COMPLICATIONS) },
+                onNavigateToDebugLog = { navController.navigate(NavRoutes.DEBUG_LOG) }
             )
         }
 
@@ -58,6 +60,12 @@ fun AppNavHost(
 
         composable(NavRoutes.COMPLICATIONS) {
             ComplicationEditorScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.DEBUG_LOG) {
+            DebugLogScreen(
                 onBack = { navController.popBackStack() }
             )
         }

@@ -8,4 +8,5 @@ object NavRoutes {
     const val CONNECTION = "connection"
     const val TILE_DESIGN = "tile_design"
     const val COMPLICATIONS = "complications"
+    const val DEBUG_LOG = "debug_log"
 }

@@ -50,6 +50,7 @@ fun HomeScreen(
     onNavigateToConnection: () -> Unit,
     onNavigateToTileDesign: () -> Unit,
     onNavigateToComplications: () -> Unit,
+    onNavigateToDebugLog: () -> Unit = {},
     viewModel: SetupViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -141,6 +142,17 @@ fun HomeScreen(
                 icon = Icons.Default.Watch,
                 onClick = onNavigateToComplications,
                 enabled = configReady
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Debug Log
+            NavigationCard(
+                title = "Debug Log",
+                subtitle = "View errors from watch and phone",
+                icon = Icons.Outlined.Settings,
+                onClick = onNavigateToDebugLog,
+                enabled = true
             )
 
             Spacer(modifier = Modifier.height(24.dp))
