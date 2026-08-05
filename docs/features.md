@@ -11,7 +11,7 @@ The primary interface — a system-level tile accessible by swiping from the wat
 Displays 1-7 openHAB items as tappable buttons in a concentric layout. Each button shows:
 - Item icon (from openHAB icon set, configurable via metadata)
 - Item label (truncated to 8 characters)
-- Current state — rendered as text or color highlight (configurable via `valueDisplay`)
+- Current state — rendered as text or color highlight (configurable via `stateDisplay`)
 - Themed ring with radial glow (amber/blue/green/purple/red)
 
 ### Interaction Model
@@ -167,14 +167,9 @@ Theme picker uses bezel/crown rotation with live preview.
 
 ### Configuration
 
-Items can be configured in two ways:
+Tile configuration is managed via the **Phone Companion App**, which provides a visual tile editor. The editor writes `wear:tile-page` UI components to the server via REST API at `/rest/ui/components/wear:tile` (or a user-scoped namespace). No item metadata knowledge required.
 
-1. **Phone Companion App** (recommended) — Visual tile editor writes `wear:tile-page` UI components to the server via REST API. No item metadata knowledge required.
-2. **openHAB item metadata** (legacy) — Set `wearTile` metadata namespace on items directly in the openHAB Main UI. The watch reads this configuration — it never modifies server-side metadata.
-
-The phone companion approach stores config as UI components at `/rest/ui/components/wear:tile`, supporting per-slot configuration including stateDisplay, action, actionItem, stateItem, and more.
-
-See [openHAB Configuration](openhab-configuration.md) for metadata setup instructions.
+Each page document supports per-slot configuration including stateDisplay, action, actionItem, stateItem, and more. See [configuration-schema.md](configuration-schema.md) for the full schema and [tile-pages.md](tile-pages.md) for the page/navigation model.
 
 ### State Display Modes
 
@@ -247,16 +242,17 @@ Available interpreters:
 
 Opening the app from the watch launcher shows:
 
-1. **Server Settings** — configure server URL, username, password (RemoteInput)
+1. **Setup on Phone** — sends a message to open the phone companion app for connection setup
 2. **Reload Items** — clears item cache, fetches fresh config from server, shows toast with result
+3. **About** — app version info
 
 ### Setup
 
-- First launch auto-redirects to setup if not configured
-- Server URL pre-filled with `https://myopenhab.org`
-- Text input via Wear OS RemoteInput (keyboard/voice/handwriting)
-- Verifies connectivity after save ("Save & Connect")
-- Existing credentials loaded when re-opening settings
+- First launch shows "Setup on Phone" button — tapping it opens the phone companion for configuration
+- No manual credential entry on the watch (phone companion is required for initial setup)
+- "Reload Items" clears cache and re-fetches tile config from the server
+
+See [Connection](connection.md) for the full setup flow including phone-to-watch sync.
 
 ---
 
@@ -306,6 +302,8 @@ Authentication modes for Config Server:
 - **API Token** — Bearer token generated in openHAB Settings > API Security (recommended for openHAB 5+)
 
 Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences.
+
+See [Connection](connection.md) for the full credential model, sync protocol, and security details.
 
 ### Tile Design Editor
 

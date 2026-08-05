@@ -34,7 +34,7 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 
 ### Watch (standalone)
 1. Build and deploy: `./gradlew :watch:assembleRelease`
-2. Open the app on the watch → configure server connection
+2. Install the phone companion and sync credentials (see [Connection](docs/connection.md))
 3. Swipe to your new tile
 
 ### Phone Companion (recommended)
@@ -55,10 +55,11 @@ Items with `wearTile` metadata are supported as a fallback for complication disc
 |----------|-------------|
 | [Architecture](docs/architecture.md) | System design, connectivity model, tech stack decisions |
 | [Features](docs/features.md) | Detailed feature descriptions and UX flows |
+| [Connection](docs/connection.md) | Server setup, credential sync, auth model, multi-user namespaces |
 | [Configuration Schema](docs/configuration-schema.md) | Server-side config format: wear:tile namespace, JSON schema, sync |
+| [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
 | [Complications](docs/complications.md) | Watch face complications setup and usage |
 | [Icons](docs/icons/ICONS.md) | Custom icon system — design spec, theming, creating new icons |
-| [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
 | [Development](docs/development.md) | Build, deploy, debug, project structure |
 | [Distribution](docs/distribution.md) | Signing, Play Store, testing tracks |
 

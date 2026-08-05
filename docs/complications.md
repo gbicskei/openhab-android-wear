@@ -15,9 +15,9 @@ Supported complication types:
 
 ## Configuring Items for Complications
 
-Items are configured for complications via the **Phone Companion App** (recommended) or `wearTile` metadata (legacy fallback).
+Items are configured for complications via the **Phone Companion App**, which writes a `wear:complication-list` document to the server.
 
-### Phone Companion App (recommended)
+### Phone Companion App
 
 1. Open the phone companion → **Complications**
 2. Tap "+" to add an item
@@ -25,29 +25,18 @@ Items are configured for complications via the **Phone Companion App** (recommen
 4. Save — the config is written to a `wear:complication-list` document on the server
 5. The watch reads this document to populate the complication picker
 
-### Legacy: openHAB item metadata
+### Legacy fallback
 
-Items with `wearTile` metadata are still supported as a fallback for the complication picker.
+If no `wear:complication-list` document exists, the watch falls back to discovering items with `wearTile` metadata where `value = "complication"` or `config.complication = "true"`. This is a migration path only — new setups should use the phone companion app exclusively.
 
-### Complication-only item
+### Legacy detection logic (complication fallback only)
 
-```
-Number:Temperature  BDR_Daikin_IndoorTemp  "Bedroom Temp [%.1f %unit%]"  {channel="...", wearTile="complication"}
-```
+If no `wear:complication-list` exists, items are discovered via `wearTile` metadata:
 
-### Item on both tile and complication
-
-```
-Number:Power  Solar_Power  "Solar [%d W]"  {channel="...", wearTile="tile" [position="main:3", complication="true", icon="solarplant"]}
-```
-
-### Detection logic
-
-| Scenario | Metadata | Result |
-|----------|----------|--------|
-| Tile only | `wearTile="tile" [position="main:1"]` | Shows on tile, not in complication picker |
-| Complication only | `wearTile="complication"` | Shows in complication picker, not on tile |
-| Both | `wearTile="tile" [position="main:3", complication="true"]` | Shows on both |
+| Metadata value | Result |
+|----------------|--------|
+| `wearTile` value = `"complication"` | Shows in complication picker |
+| `wearTile` config contains `complication = "true"` | Shows in complication picker |
 
 ## Adding a Complication to Your Watch Face
 

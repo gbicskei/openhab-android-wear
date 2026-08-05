@@ -43,13 +43,13 @@ The openHAB tile supports multiple pages — a main page with up to 7 item slots
 
 ### Naming Convention
 
-Navigation Groups use the `WT_` prefix (Wear Tile):
+Navigation slots use the `WT_` prefix (Wear Tile) when they reference a backing Group item for aggregate state:
 - `WT_Security` — navigates to security page
 - `WT_Light` — navigates to light page
 - `WT_Scenes` — navigates to scenes page
 - `WT_Control` — navigates to control page
 
-These are purpose-built Group items with no channel bindings — they exist solely to carry `wearTile` metadata for navigation.
+These are optional Group items with no channel bindings — they exist solely so aggregate state can be computed from their members. Navigation slots without aggregate state don't need a backing item.
 
 ### State Flow
 
@@ -105,79 +105,109 @@ Grid positions (row,col) per layout:
 - 6: 0,0 / 0,2 / 1,0 / 1,2 / 2,0 / 2,2
 - 7: 0,0 / 0,2 / 1,0 / 1,1 / 1,2 / 2,0 / 2,2
 
-## Metadata Configuration
+## Configuration
 
-### Regular Item (on main page)
+Tile pages are stored as UI components in openHAB's JsonDB under the `wear:tile` namespace (or user-scoped `wear:tile:{userKey}`). Configuration is managed exclusively through the phone companion app's tile editor, which reads and writes via the REST API at `/rest/ui/components/{namespace}`.
+
+See [configuration-schema.md](configuration-schema.md) for the full schema reference.
+
+### Regular Item Slot
 
 ```json
-{"value": "tile", "config": {"position": "main:1", "icon": "light", "label": "Bedroom", "valueDisplay": "color"}}
+{
+  "component": "wear:tile-slot",
+  "config": {
+    "position": 1.0,
+    "item": "BDR_Light",
+    "icon": "light",
+    "label": "Bedroom",
+    "stateDisplay": "color",
+    "action": "toggle"
+  }
+}
 ```
 
 ### Navigation Button (links to sub-page)
 
-A navigation button is defined as a special metadata entry. It does NOT correspond to a real openHAB item — it's purely a UI navigation element. However, to keep it within the openHAB metadata system, it's attached to a Group item (or a virtual String item created for this purpose).
+A navigation button occupies a slot on the source page and navigates to a named sub-page on tap. It does not require a backing openHAB item.
 
 ```json
-{"value": "tile", "config": {"position": "main:6", "icon": "iconify:mdi:shield-home", "label": "Security", "action": "page:security"}}
+{
+  "component": "wear:tile-slot",
+  "config": {
+    "position": 6.0,
+    "icon": "iconify:mdi:shield-home",
+    "label": "Security",
+    "action": "page:security",
+    "stateDisplay": "none"
+  }
+}
 ```
 
 To make the nav button light up when any item on the target page is active, add `aggregateState`:
 
 ```json
-{"value": "tile", "config": {"position": "main:6", "icon": "iconify:mdi:shield-home", "label": "Security", "action": "page:security", "aggregateState": "true"}}
+{
+  "component": "wear:tile-slot",
+  "config": {
+    "position": 6.0,
+    "icon": "iconify:mdi:shield-home",
+    "label": "Security",
+    "action": "page:security",
+    "aggregateState": true
+  }
+}
 ```
 
 The `action: "page:{pageName}"` field distinguishes navigation buttons from regular items.
 
-### Item on Sub-Page
+### Item on Sub-Page (with confirmation)
 
 ```json
-{"value": "tile", "config": {"position": "security:1", "icon": "material:lock", "label": "Door Lock", "needsConfirmation": "true", "valueDisplay": "color"}}
+{
+  "component": "wear:tile-slot",
+  "config": {
+    "position": 1.0,
+    "item": "FrontGate_Control",
+    "icon": "iconify:mdi:gate",
+    "label": "Gate",
+    "stateItem": "FrontGate_State",
+    "action": "command",
+    "actionCommand": "ON",
+    "invertState": true,
+    "actionConfirmation": true,
+    "stateDisplay": "color"
+  }
+}
 ```
 
-### Protected Sub-Page (with confirmation)
+### State Display Modes
 
-If the navigation button has `needsConfirmation: "true"`, the confirmation dialog appears before navigating:
-
-```json
-{"value": "tile", "config": {"position": "main:5", "icon": "iconify:mdi:shield-lock", "label": "Security", "action": "page:security", "needsConfirmation": "true"}}
-```
+| Value | Behavior |
+|-------|----------|
+| `"value"` | Show state text below the icon (default) |
+| `"color"` | Color-highlighted circle (accent = active, grey = inactive) |
+| `"none"` | No state indicator — icon only, useful for command-only buttons |
 
 ## Examples
-
-### .items file
-
-```
-// Navigation item for security page (attached to a Group)
-Group    WT_Security    "Security Page"    { wearTile="tile" [position="main:6", icon="iconify:mdi:shield-home", label="Security", action="page:security", needsConfirmation="true"] }
-
-// Items on the security page — gate uses valueItem for sensor state
-Switch   FrontGate_Control   "Front Gate"   <gate>    { wearTile="tile" [position="security:1", icon="iconify:mdi:gate", label="Gate", valueItem="FrontGate_State", action="command", commandValue="ON", invertValue="true", needsConfirmation="true", valueDisplay="color"] }
-Switch   SmartLock           "Lock"                   { wearTile="tile" [position="security:2", icon="material:lock", label="Lock", needsConfirmation="true", valueDisplay="color"] }
-Switch   Garage_Control      "Garage"       <garage>  { wearTile="tile" [position="security:3", icon="iconify:mdi:garage", label="Garage", valueItem="Garage_State", action="command", commandValue="ON", invertValue="true", needsConfirmation="true", valueDisplay="color"] }
-```
 
 ### Full tile configuration (example)
 
 ```
-Main page:
-  1: Kitchen_Light          (toggle, light icon, "Kitchen")
-  2: Living_Light           (toggle, light icon, "Living Room")
-  3: AC_Power               (toggle, mdi:air-conditioner icon, "AC")
-  4: Heating_Power          (toggle, heating icon, "Heating")
-  5: AC_Setpoint            (range, material:thermostat icon, "Temp")
-  6: WT_Security             (nav button → page:security, mdi:shield-home icon, "Security")
+Main page (layout: 6):
+  1: Kitchen_Light          (toggle, stateDisplay=color, light icon, "Kitchen")
+  2: Living_Light           (toggle, stateDisplay=color, light icon, "Living Room")
+  3: AC_Power               (toggle, stateDisplay=color, mdi:air-conditioner icon, "AC")
+  4: Heating_Power          (toggle, stateDisplay=color, heating icon, "Heating")
+  5: AC_Setpoint            (range, stateDisplay=value, material:thermostat icon, "Temp")
+  6: WT_Security            (nav → page:security, stateDisplay=none, mdi:shield-home icon, "Security")
 
-Security page:
-  1: FrontGate_Control      (command+confirm, valueItem=FrontGate_State, mdi:gate icon, "Gate")
+Security page (layout: 3):
+  1: FrontGate_Control      (command ON+confirm, stateItem=FrontGate_State, invertState, mdi:gate icon, "Gate")
   2: SmartLock              (toggle+confirm, material:lock icon, "Lock")
-  3: Garage_Control         (command+confirm, valueItem=Garage_State, mdi:garage icon, "Garage")
+  3: Garage_Control         (command ON+confirm, stateItem=Garage_State, invertState, mdi:garage icon, "Garage")
   [back button auto-rendered at bottom]
 ```
-
-**Note:** Navigation buttons require an item to carry the metadata. This is a known limitation
-of the metadata-based approach — the planned page-based UI configuration approach will eliminate
-this constraint.
 
 ## Implementation Notes
 

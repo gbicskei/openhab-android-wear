@@ -11,7 +11,7 @@ Tile and complication configuration is stored server-side in openHAB's JsonDB as
 - **Managed by:** Phone companion app (creates/updates/deletes via REST PUT/DELETE)
 - **Read by:** Watch app (read-only, fetches on cold load)
 
-The phone companion requires access to a server that exposes the REST API directly (the "Config Server" in connection settings). The watch can read from any server (including cloud relay).
+The phone companion requires access to a server that exposes the REST API directly (the "Config Server" in [connection settings](connection.md)). The watch can read from any server (including cloud relay).
 
 ## Multi-User Configuration
 

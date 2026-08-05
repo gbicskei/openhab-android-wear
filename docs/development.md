@@ -60,7 +60,7 @@ adb -s <watch-serial> shell am start \
   --es pass "your-password"
 ```
 
-Writes credentials directly to DataStore. Available in debug builds.
+Writes credentials directly to DataStore. Available in debug builds. See [Connection](connection.md) for the full credential model.
 
 ### Launch Activities via ADB
 
@@ -122,8 +122,11 @@ adb -s <watch-serial> logcat -s "TileNav" "TilePos" "TileActionReceiver" "VoiceC
 ### Test API connectivity
 
 ```bash
-# Same API call the watch makes
-curl -s -u "user:pass" "https://your-server/rest/items?metadata=wearTile&fields=name,label,state,metadata"
+# Fetch tile page config (same API call the watch makes)
+curl -s -u "user:pass" "https://your-server/rest/ui/components/wear:tile"
+
+# Fetch items with state (for tile rendering)
+curl -s -u "user:pass" "https://your-server/rest/items?fields=name,label,type,state,category"
 
 # Voice command
 curl -s -u "user:pass" \
