@@ -216,26 +216,35 @@ class OpenHabTileService : TileService() {
                 }
 
                 val rawBytes = iconResolver.resolve(iconRef, state)
-                if (rawBytes != null) {
+                val composited = if (rawBytes != null) {
                     val format = iconResolver.detectFormat(rawBytes)
-                    val composited = iconCompositor.composite(rawBytes, format, iconState, themeColor, label, stateText)
-                    if (composited != null) {
-                        resources.addIdToImageMapping(
-                            resourceId,
-                            ResourceBuilders.ImageResource.Builder()
-                                .setInlineResource(
-                                    ResourceBuilders.InlineImageResource.Builder()
-                                        .setData(composited)
-                                        .setWidthPx(IconCompositor.SIZE)
-                                        .setHeightPx(IconCompositor.SIZE)
-                                        .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
-                                        .build()
-                                )
-                                .build()
-                        )
-                    }
-                } else {
+                    iconCompositor.composite(rawBytes, format, iconState, themeColor, label, stateText)
+                } else null
+
+                val imageBytes = composited
+                    ?: iconCompositor.fallback(iconState, themeColor, label, stateText)
+
+                if (imageBytes != null) {
+                    resources.addIdToImageMapping(
+                        resourceId,
+                        ResourceBuilders.ImageResource.Builder()
+                            .setInlineResource(
+                                ResourceBuilders.InlineImageResource.Builder()
+                                    .setData(imageBytes)
+                                    .setWidthPx(IconCompositor.SIZE)
+                                    .setHeightPx(IconCompositor.SIZE)
+                                    .setFormat(ResourceBuilders.IMAGE_FORMAT_UNDEFINED)
+                                    .build()
+                            )
+                            .build()
+                    )
+                }
+
+                if (rawBytes == null || composited == null) {
                     hasFailedIcons = true
+                    AppLog.w("TileNav", "Icon failed for '${tileItem.item.name}': iconRef='$iconRef' " +
+                        "resolve=${if (rawBytes != null) "OK (${rawBytes.size}B)" else "FAILED"}, " +
+                        "composite=${if (composited != null) "OK" else "FAILED"}")
                 }
             }
 
