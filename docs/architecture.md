@@ -77,8 +77,6 @@ Connection options:
 - Data Layer API is the standard phone↔watch communication channel
 - After sync, no ongoing phone dependency
 
-**Fallback:** Manual entry on the watch is available for users without the phone app.
-
 **Limitation discovered during development:** The Data Layer API requires an active Bluetooth companion connection between phone and watch. During development, Bluetooth is often disabled to stabilize WiFi debugging, which breaks the sync. A `DebugSetupActivity` exists to inject credentials via ADB as a workaround.
 
 **Additional constraint:** The Data Layer API also requires both apps to be signed with the same key (or linked via Play Console) and the phone must be paired via the Galaxy Wearable app. For sideloaded debug builds, the applicationId mismatch between phone (`org.openhab.habdroid.wear.phone`) and watch (`org.openhab.habdroid.wear`) may prevent node discovery. This needs verification once Bluetooth is re-enabled.
@@ -115,12 +113,13 @@ Connection options:
 ```
 TileService.onTileRequest()
   → OpenHabRepository.getTileItems()
-    → OpenHabApiService.getItems(metadata="wearTile")
+    → OpenHabApiService.getTileComponents(namespace)
       → OkHttp → AuthInterceptor (adds base URL + auth header)
-        → {serverUrl}/rest/items?metadata=wearTile
-  → Filter items with wearTile metadata
+        → {serverUrl}/rest/ui/components/{namespace}
+  → Parse wear:tile-page documents
+  → Resolve items for each slot (fetch state)
   → Sort by position
-  → Render 1-7 item buttons in grid layout
+  → Render 1-7 item buttons in grid layout per page
 ```
 
 ### Tile Action (tap to toggle)
@@ -153,8 +152,11 @@ VoiceCommandActivity
 
 ## Security Considerations
 
-- Credentials stored in DataStore (encrypted at rest by Android keystore on Wear OS 5+)
-- All communication over HTTPS
+- Credentials stored in DataStore Preferences on the watch (app-sandboxed, wiped on uninstall)
+- Credentials stored in EncryptedSharedPreferences on the phone (AES-256-GCM, hardware-backed keystore)
+- All communication over HTTPS (TLS)
 - Basic Auth credentials sent only to the configured server URL
-- No credentials stored on the openHAB server (metadata is config only, not secrets)
-- Data Layer sync is encrypted by the Wear OS platform
+- No credentials stored on the openHAB server (config is layout only, not secrets)
+- Data Layer sync encrypted by the Wear OS platform (Bluetooth link encryption)
+
+See [Connection](connection.md) for full credential storage and sync details.
