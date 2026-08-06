@@ -201,17 +201,34 @@ class OpenHabTileService : TileService() {
                         AppLog.d("TileNav", "NAV ${tileItem.item.name}: state=${displayItem.state} valueItem=${tileItem.valueItemName} aggregate=${tileItem.aggregateState} isActive=$isActive")
                         if (isActive) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
                         else org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
-                    } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR) {
-                        val result = tileItem.isDisplayActive
-                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: displayState=${displayItem.state} invertValue=${tileItem.invertValue} isActive=$result")
-                        if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
-                        else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
-                    } else if (tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE) {
-                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (stateDisplay=none)")
-                        org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
                     } else {
-                        AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (valueDisplay=${tileItem.valueDisplay})")
-                        org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
+                        // Determine which item provides the COLOR state (ring/glow)
+                        val colorSource = when {
+                            tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR -> "primary"
+                            tileItem.doubleTapStateDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR -> "doubleTap"
+                            else -> null
+                        }
+                        when (colorSource) {
+                            "primary" -> {
+                                val result = tileItem.isDisplayActive
+                                AppLog.d("TileNav", "ITEM ${tileItem.item.name}: color from primary, isActive=$result")
+                                if (result) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
+                                else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
+                            }
+                            "doubleTap" -> {
+                                // Get doubleTap item state from cache
+                                val dblState = itemCache.getExtraItemState(tileItem.doubleTapItem!!)
+                                    ?: itemCache.get()?.find { it.item.name == tileItem.doubleTapItem }?.displayItem?.state
+                                val dblActive = dblState != null && (dblState == "ON" || dblState == "OPEN" || (dblState.toDoubleOrNull() ?: 0.0) > 0)
+                                AppLog.d("TileNav", "ITEM ${tileItem.item.name}: color from doubleTap(${tileItem.doubleTapItem}), state=$dblState, isActive=$dblActive")
+                                if (dblActive) org.openhab.habdroid.wear.data.icon.IconState.ACTIVE
+                                else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
+                            }
+                            else -> {
+                                AppLog.d("TileNav", "ITEM ${tileItem.item.name}: NEUTRAL (no color source)")
+                                org.openhab.habdroid.wear.data.icon.IconState.NEUTRAL
+                            }
+                        }
                     }
                 } else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
                 val resourceId = if (tileItem.isPageNavigation) {
@@ -221,13 +238,23 @@ class OpenHabTileService : TileService() {
                 }
                 val label = tileItem.effectiveLabel
 
-                // Determine state text based on valueDisplay and item type
+                // Determine state text: from whichever source has VALUE display
                 val stateText = when {
                     tileItem.isPageNavigation -> null
-                    tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.COLOR -> null
-                    tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.NONE -> null
-                    tileItem.isRangeControl -> formatRangeState(displayItem)
-                    else -> formatState(state)
+                    tileItem.valueDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.VALUE -> {
+                        if (tileItem.isRangeControl) formatRangeState(displayItem)
+                        else formatState(state)
+                    }
+                    tileItem.doubleTapStateDisplay == org.openhab.habdroid.wear.data.model.ValueDisplay.VALUE && tileItem.doubleTapItem != null -> {
+                        // Get doubleTap item state for value display
+                        val dblState = itemCache.getExtraItemState(tileItem.doubleTapItem)
+                            ?: itemCache.get()?.find { it.item.name == tileItem.doubleTapItem }?.displayItem?.state
+                            ?: "NULL"
+                        val dblItem = itemCache.get()?.find { it.item.name == tileItem.doubleTapItem }
+                        if (dblItem != null && dblItem.item.isRange) formatRangeState(dblItem.item)
+                        else formatState(dblState)
+                    }
+                    else -> null
                 }
 
                 val rawBytes = iconResolver.resolve(iconRef, state)
@@ -332,6 +359,7 @@ class OpenHabTileService : TileService() {
         for (item in items) {
             names.add(item.displayItemName)
             item.commandItemName?.let { names.add(it) }
+            item.doubleTapItem?.let { names.add(it) }
             // Include Group members so SSE picks up their state changes
             item.item.members?.forEach { member -> names.add(member.name) }
             item.valueItem?.members?.forEach { member -> names.add(member.name) }
@@ -897,6 +925,86 @@ class OpenHabTileService : TileService() {
                 // Contact item — display only, no action
                 ModifiersBuilders.Clickable.Builder()
                     .setId("contact_${item.name}")
+                    .build()
+            }
+            tileItem.hasDoubleTap -> {
+                // Item with double-tap action → route through QuickActionActivity
+                ModifiersBuilders.Clickable.Builder()
+                    .setId("quick_${item.name}")
+                    .setOnClick(
+                        ActionBuilders.LaunchAction.Builder()
+                            .setAndroidActivity(
+                                ActionBuilders.AndroidActivity.Builder()
+                                    .setClassName("org.openhab.habdroid.wear.tile.QuickActionActivity")
+                                    .setPackageName("org.openhab.habdroid.wear")
+                                    .addKeyToExtraMapping(
+                                        QuickActionActivity.EXTRA_ITEM_NAME,
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.commandTargetName)
+                                            .build()
+                                    )
+                                    .addKeyToExtraMapping(
+                                        QuickActionActivity.EXTRA_DOUBLE_PRESS_ACTION,
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.doubleTapAction ?: "auto")
+                                            .build()
+                                    )
+                                    .addKeyToExtraMapping(
+                                        QuickActionActivity.EXTRA_DOUBLE_PRESS_ITEM,
+                                        ActionBuilders.AndroidStringExtra.Builder()
+                                            .setValue(tileItem.doubleTapItem!!)
+                                            .build()
+                                    )
+                                    .apply {
+                                        if (tileItem.doubleTapCommand != null) {
+                                            addKeyToExtraMapping(
+                                                QuickActionActivity.EXTRA_DOUBLE_PRESS_COMMAND,
+                                                ActionBuilders.AndroidStringExtra.Builder()
+                                                    .setValue(tileItem.doubleTapCommand)
+                                                    .build()
+                                            )
+                                        }
+                                        addKeyToExtraMapping(
+                                            QuickActionActivity.EXTRA_DOUBLE_PRESS_CONFIRMATION,
+                                            ActionBuilders.AndroidBooleanExtra.Builder()
+                                                .setValue(tileItem.doubleTapConfirmation)
+                                                .build()
+                                        )
+                                        val primaryAction = tileItem.actionConfig
+                                        if (primaryAction != null) {
+                                            addKeyToExtraMapping(
+                                                QuickActionActivity.EXTRA_PRIMARY_ACTION,
+                                                ActionBuilders.AndroidStringExtra.Builder()
+                                                    .setValue(primaryAction)
+                                                    .build()
+                                            )
+                                        }
+                                        val cmdValue = tileItem.commandValue
+                                        if (cmdValue != null) {
+                                            addKeyToExtraMapping(
+                                                QuickActionActivity.EXTRA_SHORT_COMMAND,
+                                                ActionBuilders.AndroidStringExtra.Builder()
+                                                    .setValue(cmdValue)
+                                                    .build()
+                                            )
+                                        }
+                                        addKeyToExtraMapping(
+                                            "needs_confirmation",
+                                            ActionBuilders.AndroidBooleanExtra.Builder()
+                                                .setValue(tileItem.needsConfirmation)
+                                                .build()
+                                        )
+                                        addKeyToExtraMapping(
+                                            "label",
+                                            ActionBuilders.AndroidStringExtra.Builder()
+                                                .setValue(tileItem.effectiveLabel)
+                                                .build()
+                                        )
+                                    }
+                                    .build()
+                            )
+                            .build()
+                    )
                     .build()
             }
             tileItem.isRangeControl -> {

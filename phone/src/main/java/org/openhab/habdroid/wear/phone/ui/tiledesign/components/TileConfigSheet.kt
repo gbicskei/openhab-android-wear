@@ -64,7 +64,8 @@ fun TileConfigSheet(
     onSave: (TileSlotState) -> Unit,
     onPositionSwap: (Int) -> Unit,
     onDelete: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    allItems: List<org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem> = emptyList()
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -78,6 +79,11 @@ fun TileConfigSheet(
     var invertState by remember(slot) { mutableStateOf(slot.invertState) }
     var actionConfirmation by remember(slot) { mutableStateOf(slot.actionConfirmation) }
     var aggregateState by remember(slot) { mutableStateOf(slot.aggregateState) }
+    var doubleTapItem by remember(slot) { mutableStateOf(slot.doubleTapItem ?: "") }
+    var doubleTapAction by remember(slot) { mutableStateOf(slot.doubleTapAction) }
+    var doubleTapCommand by remember(slot) { mutableStateOf(slot.doubleTapCommand ?: "") }
+    var doubleTapConfirmation by remember(slot) { mutableStateOf(slot.doubleTapConfirmation) }
+    var doubleTapStateDisplay by remember(slot) { mutableStateOf(slot.doubleTapStateDisplay) }
     var targetPage by remember(slot) {
         mutableStateOf(
             (slot.action as? SlotAction.Navigate)?.targetPage ?: pageNames.firstOrNull() ?: "main"
@@ -190,8 +196,11 @@ fun TileConfigSheet(
 
             // Action
             Text("Action", style = MaterialTheme.typography.labelMedium)
+            val primaryItemType = allItems.find { it.name == slot.item }?.type ?: ""
+            val primaryIsToggleable = primaryItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
             ActionDropdown(
                 action = action,
+                showToggle = primaryIsToggleable,
                 onActionChange = { action = it }
             )
 
@@ -268,6 +277,99 @@ fun TileConfigSheet(
                 )
             }
 
+            // Double-tap section (not for navigation buttons)
+            if (action !is SlotAction.Navigate) {
+                HorizontalDivider()
+                Text("Double Tap", style = MaterialTheme.typography.labelMedium)
+
+                // Double-tap item picker
+                var showDoubleTapItemPicker by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxWidth().clickable { showDoubleTapItemPicker = true }) {
+                    OutlinedTextField(
+                        value = doubleTapItem.ifBlank { "None (disabled)" },
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("Double Tap Item") },
+                        supportingText = { Text("Tap to pick item, or clear to disable") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (doubleTapItem.isNotBlank()) {
+                                IconButton(onClick = { doubleTapItem = "" }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear")
+                                }
+                            } else {
+                                IconButton(onClick = { showDoubleTapItemPicker = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                }
+                            }
+                        }
+                    )
+                }
+
+                if (showDoubleTapItemPicker) {
+                    ItemPickerDialog(
+                        items = allItems,
+                        pageNames = emptyList(),
+                        onItemSelected = { selected ->
+                            doubleTapItem = selected.name
+                            showDoubleTapItemPicker = false
+                        },
+                        onNavigateSelected = { _, _, _ -> },
+                        onDismiss = { showDoubleTapItemPicker = false }
+                    )
+                }
+
+                if (doubleTapItem.isNotBlank()) {
+                    // Determine if double-tap item is toggleable
+                    val dblTapItemType = allItems.find { it.name == doubleTapItem }?.type ?: ""
+                    val dblTapIsToggleable = dblTapItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
+
+                    DoubleTapActionDropdown(
+                        action = doubleTapAction,
+                        showToggle = dblTapIsToggleable,
+                        onActionChange = { doubleTapAction = it }
+                    )
+
+                    if (doubleTapAction is SlotAction.Command) {
+                        OutlinedTextField(
+                            value = doubleTapCommand,
+                            onValueChange = { doubleTapCommand = it },
+                            label = { Text("Double Tap Command") },
+                            placeholder = { Text("ON") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    SwitchRow(
+                        label = "Double Tap Confirmation",
+                        description = "Show confirm dialog on double-tap",
+                        checked = doubleTapConfirmation,
+                        onCheckedChange = { doubleTapConfirmation = it }
+                    )
+
+                    // Double-tap state display (mutually exclusive with primary)
+                    Text("Double Tap State Display", style = MaterialTheme.typography.labelMedium)
+                    // Filter out options that conflict with primary stateDisplay
+                    val availableDblOptions = buildList {
+                        add(StateDisplay.NONE) // always available
+                        if (stateDisplay != StateDisplay.COLOR) add(StateDisplay.COLOR)
+                        if (stateDisplay != StateDisplay.VALUE) add(StateDisplay.VALUE)
+                    }
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        availableDblOptions.forEachIndexed { index, option ->
+                            SegmentedButton(
+                                selected = doubleTapStateDisplay == option,
+                                onClick = { doubleTapStateDisplay = option },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = availableDblOptions.size)
+                            ) { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             // Buttons
@@ -304,7 +406,12 @@ fun TileConfigSheet(
                                 stateItem = stateItem.ifBlank { null },
                                 invertState = invertState,
                                 actionConfirmation = actionConfirmation,
-                                aggregateState = aggregateState
+                                aggregateState = aggregateState,
+                                doubleTapItem = doubleTapItem.ifBlank { null },
+                                doubleTapAction = if (doubleTapItem.isBlank()) null else doubleTapAction,
+                                doubleTapCommand = doubleTapCommand.ifBlank { null },
+                                doubleTapConfirmation = if (doubleTapItem.isBlank()) false else doubleTapConfirmation,
+                                doubleTapStateDisplay = if (doubleTapItem.isBlank()) StateDisplay.NONE else doubleTapStateDisplay
                             )
                         )
                     }
@@ -334,11 +441,13 @@ fun TileConfigSheet(
 @Composable
 private fun ActionDropdown(
     action: SlotAction,
+    showToggle: Boolean = true,
     onActionChange: (SlotAction) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     val actionLabel = when (action) {
-        is SlotAction.Toggle -> "Toggle (auto)"
+        is SlotAction.Auto -> "Auto (detect from item)"
+        is SlotAction.Toggle -> "Toggle"
         is SlotAction.Command -> "Fixed Command"
         is SlotAction.Navigate -> "Navigate to Page"
     }
@@ -355,9 +464,15 @@ private fun ActionDropdown(
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
-                text = { Text("Toggle (auto)") },
-                onClick = { onActionChange(SlotAction.Toggle); expanded = false }
+                text = { Text("Auto (detect from item)") },
+                onClick = { onActionChange(SlotAction.Auto); expanded = false }
             )
+            if (showToggle) {
+                DropdownMenuItem(
+                    text = { Text("Toggle") },
+                    onClick = { onActionChange(SlotAction.Toggle); expanded = false }
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Fixed Command") },
                 onClick = { onActionChange(SlotAction.Command); expanded = false }
@@ -397,6 +512,51 @@ private fun PageTargetDropdown(
                     onClick = { onPageChange(page); expanded = false }
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DoubleTapActionDropdown(
+    action: SlotAction?,
+    showToggle: Boolean,
+    onActionChange: (SlotAction?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val actionLabel = when (action) {
+        null -> "Auto (detect from item)"
+        is SlotAction.Toggle -> "Toggle"
+        is SlotAction.Command -> "Fixed Command"
+        else -> "Auto"
+    }
+
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = actionLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Double Tap Action") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Auto (detect from item)") },
+                onClick = { onActionChange(null); expanded = false }
+            )
+            if (showToggle) {
+                DropdownMenuItem(
+                    text = { Text("Toggle") },
+                    onClick = { onActionChange(SlotAction.Toggle); expanded = false }
+                )
+            }
+            DropdownMenuItem(
+                text = { Text("Fixed Command") },
+                onClick = { onActionChange(SlotAction.Command); expanded = false }
+            )
         }
     }
 }

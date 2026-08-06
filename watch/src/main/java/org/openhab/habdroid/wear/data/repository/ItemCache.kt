@@ -32,6 +32,12 @@ class ItemCache @Inject constructor(
     @Volatile
     var statesLoaded: Boolean = false
 
+    /** Extra item states for items referenced by doubleTapItem but not primary tile items */
+    private val extraItemStates = mutableMapOf<String, String>()
+
+    /** Full Item objects for doubleTap items (for type detection in QuickActionActivity) */
+    private val extraItems = mutableMapOf<String, org.openhab.habdroid.wear.data.model.Item>()
+
     /**
      * Returns cached items from memory. If memory is empty, attempts to load from disk.
      * Returns null only if both memory and disk are empty (needs network cold load).
@@ -79,6 +85,9 @@ class ItemCache @Inject constructor(
      * Checks primary item names, valueItem names, and Group members for matches.
      */
     fun updateItemState(itemName: String, newState: String) {
+        // Always store in extra states map (for doubleTapItem lookups)
+        extraItemStates[itemName] = newState
+
         val items = cachedItems ?: return
         cachedItems = items.map { tileItem ->
             when (itemName) {
@@ -104,5 +113,21 @@ class ItemCache @Inject constructor(
     /** Mark states as stale (tile was left and re-entered). */
     fun invalidateStates() {
         statesLoaded = false
+    }
+
+    /** Get stored state for an item by name (checks extra states map). */
+    fun getExtraItemState(itemName: String): String? = extraItemStates[itemName]
+
+    /** Get a full Item object for a doubleTap item. */
+    fun getExtraItem(itemName: String): org.openhab.habdroid.wear.data.model.Item? = extraItems[itemName]
+
+    /** Store extra item states from batch fetch (for doubleTapItems). */
+    fun putExtraItemStates(states: Map<String, String>) {
+        extraItemStates.putAll(states)
+    }
+
+    /** Store full Item objects for doubleTap items. */
+    fun putExtraItems(items: Map<String, org.openhab.habdroid.wear.data.model.Item>) {
+        extraItems.putAll(items)
     }
 }
