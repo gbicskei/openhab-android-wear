@@ -112,6 +112,10 @@ if [ "$BUMP" = true ]; then
 
     echo "Tagging: $TAG"
     git tag -a "$TAG" -m "Release ${VERSION_NAME} (watch=${NEW_WATCH_CODE}, phone=${NEW_PHONE_CODE})"
+
+    echo "Pushing to origin..."
+    git push origin master
+    git push origin "$TAG"
 fi
 
 echo ""
@@ -128,4 +132,3 @@ echo ""
 echo "Next steps:"
 echo "  1. Upload Watch AAB to Play Console → Wear OS track"
 echo "  2. Upload Phone AAB to Play Console → Phone track"
-echo "  3. Push: git push && git push --tags"
