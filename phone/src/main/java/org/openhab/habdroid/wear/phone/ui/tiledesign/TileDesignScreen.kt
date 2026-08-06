@@ -56,6 +56,7 @@ fun TileDesignScreen(
     val isSaving by viewModel.isSaving.collectAsState()
     val snackbarMessage by viewModel.snackbarMessage.collectAsState()
     val selectedTheme by viewModel.selectedTheme.collectAsState()
+    val itemStates by viewModel.itemStates.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -179,6 +180,12 @@ fun TileDesignScreen(
                         iconBaseUrl = state.iconBaseUrl,
                         iconAuthHeader = state.iconAuthHeader,
                         themeColor = TileThemeColor.fromName(selectedTheme).color,
+                        watchScreenWidthDp = state.watchScreenWidthDp?.toFloat() ?: 226f,
+                        itemStates = itemStates,
+                        allPages = editor.pages,
+                        allItems = editor.allItems,
+                        pageName = currentPage.uid,
+                        pageLabel = currentPage.label.ifBlank { currentPage.uid.replaceFirstChar { c -> c.uppercase() } },
                         modifier = Modifier.padding(16.dp)
                     )
 
