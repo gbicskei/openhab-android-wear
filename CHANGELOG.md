@@ -1,13 +1,68 @@
 # Changelog
 
-## [Unreleased] — Since v0.9.0-6
+## [1.1.0] — 2026-08-06
 
 ### Summary
 
-Major release introducing the **Phone Companion App**, server-side tile configuration,
-a complete complication editor, and dedicated control activities for Color, Rollershutter,
-and multi-value items. The project has been restructured from a single `app/` module into
-a multi-module architecture: `watch/`, `phone/`, and `shared/`.
+Feature release introducing **double-tap actions**, **live tile preview**, **voice settings sync**, and a major **performance overhaul** that eliminates the 748-item bulk fetch. The watch now fetches only referenced items in parallel with configVersion-gated disk caching.
+
+---
+
+### New: Double-Tap Actions on Tile Buttons
+
+- Configure a secondary action on any tile button via `doubleTapItem`
+- Single tap (350ms window): executes primary action (toggle, command, navigate)
+- Double tap: executes secondary action on a different item (auto-detected: rotary, color picker, etc.)
+- `doubleTapStateDisplay: "value"` shows the secondary item's state on the button face
+- Haptic feedback confirms double-tap detection
+- Supports `doubleTapAction` override: `"toggle"`, `"command"`, or auto-detect
+- `doubleTapConfirmation` for confirmation dialog before executing
+
+### New: Live Tile Preview (Phone Editor)
+
+- Phone tile design editor shows a WYSIWYG circular watch preview
+- Real-time state updates via SSE connection to the local server
+- Icons render with correct theme coloring, active/inactive state, and labels
+- Preview updates immediately on slot configuration changes
+
+### New: Voice Settings Sync
+
+- Configure TTS engine, volume, speech rate, pitch, and WaveNet voice on the phone
+- Settings sync to watch via Data Layer on "Sync to Watch"
+- Google Cloud TTS (WaveNet) support with server-side synthesis
+- Test voice button for previewing on the phone speaker
+- Mic button visibility controlled by voice enabled/disabled setting
+
+### Improved: Performance
+
+- **Parallel item fetch**: watch fetches only ~14 referenced items (was: all 748 from server)
+- **Semaphore throttle**: max 3 concurrent requests to avoid cloud relay overload
+- **configVersion-gated disk cache**: skips network entirely when tile config hasn't changed
+- **Parallel state refresh**: ~12 items fetched in parallel on tile enter (~0.8s vs 1.5–2.1s)
+- Cold load (cached): 3.7s → ~0ms (disk hit)
+- Cold load (fresh): 3.7s → ~1.7s
+- State refresh: 1.5–2.1s → ~0.8–1s
+
+### Improved: Icon Rendering
+
+- SVG namespace prefix handling (fixes icons like `door` that use `ns0:` prefixes)
+- Fallback "?" placeholder when icon fetch or SVG parse fails (button stays visible)
+- Empty response protection (prevents caching broken 0-byte icons)
+- LRU composited bitmap cache (128 entries, 0ms cache hits)
+
+### Improved: Tile Configuration
+
+- Page rename via long-press on tab in phone editor
+- Auto-create main page when opening tile editor for the first time
+- Watch respects server-defined layout count for button positioning
+- `doubleTap*` fields added to disk cache (fixes missing setpoint values after restart)
+- API token (Bearer) authentication for phone editor writes
+
+### Fixed
+
+- Tile toggle state/icon one-click lag
+- Sync indicator always re-checks on phone resume
+- Unique resource IDs for navigation buttons (prevents tile render conflicts)
 
 ---
 

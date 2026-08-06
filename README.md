@@ -6,23 +6,25 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 
 ### Watch App
 - **Concentric Tile Layout** — 1-7 items arranged in a responsive honeycomb pattern
+- **Double-Tap Actions** — configure a secondary action per button (e.g., tap to toggle, double-tap to open setpoint control)
 - **Dedicated Control Screens** — Color picker (HSB + bezel brightness), roller shutter (UP/STOP/DOWN + bezel position), choice picker (commandOptions list), rotary control (range/dimmer)
 - **Watch Face Complications** — Display item values on the watch face (4 types: SHORT_TEXT, LONG_TEXT, RANGED_VALUE, MONOCHROMATIC_IMAGE)
 - **Themes** — 5 color themes (amber, blue, green, purple, red) with radial glow
-- **Voice Commands** — Natural language commands processed by openHAB's interpreter
+- **Voice Commands** — Natural language commands processed by openHAB's interpreter, with optional TTS read-aloud (built-in or Google WaveNet)
 - **Standalone Operation** — Connects directly to any openHAB server over WiFi/LTE (cloud relay, local, or VPN)
 - **Real-time Updates** — SSE with automatic reconnection + polling fallback
 - **Multi-page Navigation** — Sub-pages for organizing items (Security, Climate, etc.)
-- **Disk Caching** — Warm start from cached config on process restart
+- **Smart Caching** — configVersion-gated disk cache, parallel item fetch (only referenced items, never bulk), warm start from disk
 - **stateDisplay Modes** — Color (active/inactive), Value (text), None (icon only)
 
 ### Phone Companion App
-- **Tile Design Editor** — Visual editor with layout selector, watch preview, icon picker (MDI/Material/openHAB), position swap
+- **Tile Design Editor** — Visual editor with layout selector, watch preview, icon picker (MDI/Material/openHAB), position swap, live state updates via SSE
 - **Complication Editor** — Per-type configuration with pattern validation and metadata import
+- **Voice Settings** — Configure TTS engine, volume, speech rate, WaveNet voice; sync to watch
 - **Multi-User Support** — User key namespaces separate configs per person on the same server
 - **Theme Sync** — Select theme on phone, push to watch
 - **Config Sync Detection** — Warns when watch is out of sync with server config
-- **Connection Setup** — Main server (cloud) + Config server (local) with encrypted storage
+- **Connection Setup** — Main server (cloud) + Config server (local) with encrypted storage, API token support
 
 ## Target Platform
 

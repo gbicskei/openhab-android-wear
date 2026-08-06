@@ -110,6 +110,11 @@ Each page is a document at `/rest/ui/components/{namespace}/{uid}`:
 | `invertState` | Boolean | false | Invert active/inactive display interpretation. |
 | `actionConfirmation` | Boolean | false | Show confirmation dialog before executing tap action. |
 | `aggregateState` | Boolean | false | Navigation buttons only: show as active if any item on the target page is active. |
+| `doubleTapItem` | String? | null | Item name for the double-tap secondary action. If set, enables double-tap detection on this button. |
+| `doubleTapAction` | String? | null | Double-tap action: `"toggle"` (force toggle), `"command"` (fixed command), `"auto"` or null (auto-detect from item type). |
+| `doubleTapCommand` | String? | null | Command to send on double-tap when `doubleTapAction = "command"`. |
+| `doubleTapConfirmation` | Boolean | false | Show confirmation dialog before executing double-tap action. |
+| `doubleTapStateDisplay` | String? | null | State display mode for the double-tap item value shown on the button: `"value"`, `"color"`, or `"none"`. |
 
 ### Tap action routing (watch-side)
 
@@ -125,6 +130,37 @@ Based on slot config + item type, the watch determines the tap behavior:
 | item has commandDescription.commandOptions | Open ChoicePickerActivity |
 | action = `"command"` | Send actionCommand to target item |
 | default | Toggle ON/OFF |
+
+### Double-tap action routing
+
+When `doubleTapItem` is configured, the button uses a `QuickActionActivity` to detect single vs double tap (350ms window):
+
+| Tap | Action |
+|-----|--------|
+| Single tap | Executes primary action (same as above table) |
+| Double tap | Executes secondary action on `doubleTapItem` using auto-detection (same routing logic as primary: range → rotary, color → picker, etc.) |
+
+If `doubleTapAction` is set to `"toggle"` or `"command"`, the routing is overridden accordingly.
+
+### Double-tap example
+
+A button that toggles the AC power on single tap and opens the temperature setpoint control on double-tap, with the current setpoint value displayed on the button:
+
+```json
+{
+  "component": "wear:tile-slot",
+  "config": {
+    "position": 1.0,
+    "item": "GA_BDR_DaikinPower",
+    "icon": "iconify:mdi:air-conditioner",
+    "label": "BDR",
+    "action": "toggle",
+    "stateDisplay": "color",
+    "doubleTapItem": "AC_BDR_Daikin_Setpoint",
+    "doubleTapStateDisplay": "value"
+  }
+}
+```
 
 ## Complication List Schema
 
