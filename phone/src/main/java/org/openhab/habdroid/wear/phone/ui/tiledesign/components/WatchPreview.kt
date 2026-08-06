@@ -84,6 +84,15 @@ fun WatchPreview(
             .background(backgroundColor),
         contentAlignment = Alignment.Center
     ) {
+        // Watch bezel ring
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(
+                color = Color(0xFF444444),
+                radius = size.minDimension / 2f,
+                style = Stroke(width = 3.dp.toPx())
+            )
+        }
+
         // Compute positions matching the watch tile service
         val (positions, btnDp) = computeWatchPositions(layout, watchScreenWidthDp)
         // Watch renders composited bitmap at iconSize = btnDp - 4dp (2dp padding each side).

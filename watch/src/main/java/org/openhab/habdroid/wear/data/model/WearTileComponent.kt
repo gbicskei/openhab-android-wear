@@ -58,7 +58,12 @@ data class TileSlotConfig(
     val stateItem: String? = null,
     val invertState: Boolean = false,
     val actionConfirmation: Boolean = false,
-    val aggregateState: Boolean = false
+    val aggregateState: Boolean = false,
+    val doubleTapItem: String? = null,
+    val doubleTapAction: String? = null,
+    val doubleTapCommand: String? = null,
+    val doubleTapConfirmation: Boolean = false,
+    val doubleTapStateDisplay: String? = null
 ) {
     val positionInt: Int get() = position.toInt().coerceIn(1, 7)
 }

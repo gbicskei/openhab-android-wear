@@ -37,7 +37,17 @@ data class TileItem(
     /** Fixed command string to send on tap (used with action="command") */
     val commandValue: String? = null,
     /** If true, the nav button shows active when any item on the target page is active */
-    val aggregateState: Boolean = false
+    val aggregateState: Boolean = false,
+    /** Item name for double-tap action. If set, enables double-tap detection. */
+    val doubleTapItem: String? = null,
+    /** Double-tap action: null = auto-detect, "toggle" = force toggle, "command" = fixed command */
+    val doubleTapAction: String? = null,
+    /** Command to send on double-tap when doubleTapAction = "command" */
+    val doubleTapCommand: String? = null,
+    /** Show confirmation dialog before executing double-tap action */
+    val doubleTapConfirmation: Boolean = false,
+    /** State display mode for double-tap item: "color", "value", or "none" */
+    val doubleTapStateDisplay: ValueDisplay = ValueDisplay.NONE
 ) : Comparable<TileItem> {
     override fun compareTo(other: TileItem): Int = slot.compareTo(other.slot)
 
@@ -67,13 +77,26 @@ data class TileItem(
     val displayItemName: String get() = valueItemName ?: item.name
 
     /** Whether this tile item should show a toggle action (switch-like) */
-    val isToggle: Boolean get() = action == null && item.isToggleable && !item.isRange
+    val isToggle: Boolean get() = when {
+        action == "toggle" -> item.isToggleable // forced toggle (even for range items)
+        action == null -> item.isToggleable && !item.isRange // auto: only if not range
+        else -> false
+    }
 
     /** Whether this is a fixed command button (sends commandValue, no toggle) */
     val isCommand: Boolean get() = action == "command"
 
-    /** Whether this tile item should open a rotary control screen */
+    /** Whether this tile item should open a rotary control screen (only when auto-detect, not forced toggle) */
     val isRangeControl: Boolean get() = action == null && item.isRange
+
+    /** Whether action is explicitly set to toggle (overrides auto-detect for range items) */
+    val isForcedToggle: Boolean get() = action == "toggle"
+
+    /** Whether this tile item has a double-tap secondary action configured */
+    val hasDoubleTap: Boolean get() = doubleTapItem != null
+
+    /** Raw action config string for passing to QuickActionActivity */
+    val actionConfig: String? get() = action
 
     /** Whether this is a navigation button to another page */
     val isPageNavigation: Boolean get() = action?.startsWith("page:") == true

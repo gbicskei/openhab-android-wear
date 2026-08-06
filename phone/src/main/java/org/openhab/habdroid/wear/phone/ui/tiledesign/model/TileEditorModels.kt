@@ -65,7 +65,12 @@ data class SlotConfig(
     val stateItem: String? = null,
     val invertState: Boolean = false,
     val actionConfirmation: Boolean = false,
-    val aggregateState: Boolean = false
+    val aggregateState: Boolean = false,
+    val doubleTapItem: String? = null,
+    val doubleTapAction: String? = null,
+    val doubleTapCommand: String? = null,
+    val doubleTapConfirmation: Boolean = false,
+    val doubleTapStateDisplay: String? = null
 ) {
     val positionInt: Int get() = position.toInt().coerceIn(1, 7)
 }
@@ -87,11 +92,17 @@ data class TileSlotState(
     val stateItem: String? = null,
     val invertState: Boolean = false,
     val actionConfirmation: Boolean = false,
-    val aggregateState: Boolean = false
+    val aggregateState: Boolean = false,
+    val doubleTapItem: String? = null,
+    val doubleTapAction: SlotAction? = null,
+    val doubleTapCommand: String? = null,
+    val doubleTapConfirmation: Boolean = false,
+    val doubleTapStateDisplay: StateDisplay = StateDisplay.NONE
 ) {
     val isEmpty: Boolean get() = item == null && action !is SlotAction.Navigate
     val effectiveLabel: String get() = label ?: item ?: ""
     val effectiveIcon: String get() = icon ?: "none"
+    val hasDoubleTap: Boolean get() = doubleTapItem != null
 
     fun toSlotDto(): SlotDto = SlotDto(
         component = "wear:tile-slot",
@@ -102,6 +113,7 @@ data class TileSlotState(
             label = label,
             stateDisplay = stateDisplay.apiValue,
             action = when (action) {
+                is SlotAction.Auto -> null
                 is SlotAction.Toggle -> "toggle"
                 is SlotAction.Command -> "command"
                 is SlotAction.Navigate -> "page:${action.targetPage}"
@@ -111,7 +123,17 @@ data class TileSlotState(
             stateItem = stateItem,
             invertState = invertState,
             actionConfirmation = actionConfirmation,
-            aggregateState = aggregateState
+            aggregateState = aggregateState,
+            doubleTapItem = doubleTapItem,
+            doubleTapAction = when (doubleTapAction) {
+                is SlotAction.Auto -> null
+                is SlotAction.Toggle -> "toggle"
+                is SlotAction.Command -> "command"
+                else -> null
+            },
+            doubleTapCommand = doubleTapCommand,
+            doubleTapConfirmation = doubleTapConfirmation,
+            doubleTapStateDisplay = if (doubleTapItem != null) doubleTapStateDisplay.apiValue else null
         )
     )
 
@@ -120,11 +142,11 @@ data class TileSlotState(
             val config = dto.config
             val actionStr = config.action
             val action = when {
-                actionStr == null -> SlotAction.Toggle
+                actionStr == null -> SlotAction.Auto
                 actionStr == "toggle" -> SlotAction.Toggle
                 actionStr == "command" -> SlotAction.Command
                 actionStr.startsWith("page:") -> SlotAction.Navigate(actionStr.removePrefix("page:"))
-                else -> SlotAction.Toggle
+                else -> SlotAction.Auto
             }
             return TileSlotState(
                 position = config.positionInt,
@@ -138,7 +160,16 @@ data class TileSlotState(
                 stateItem = config.stateItem,
                 invertState = config.invertState,
                 actionConfirmation = config.actionConfirmation,
-                aggregateState = config.aggregateState
+                aggregateState = config.aggregateState,
+                doubleTapItem = config.doubleTapItem,
+                doubleTapAction = when (config.doubleTapAction) {
+                    "toggle" -> SlotAction.Toggle
+                    "command" -> SlotAction.Command
+                    else -> null
+                },
+                doubleTapCommand = config.doubleTapCommand,
+                doubleTapConfirmation = config.doubleTapConfirmation,
+                doubleTapStateDisplay = StateDisplay.fromApi(config.doubleTapStateDisplay)
             )
         }
     }
@@ -162,6 +193,9 @@ enum class StateDisplay(val apiValue: String) {
 
 /** Action type for a tile slot. */
 sealed interface SlotAction {
+    /** Auto-detect from item type (range → slider, color → picker, switch → toggle) */
+    data object Auto : SlotAction
+    /** Force toggle ON/OFF regardless of item type */
     data object Toggle : SlotAction
     data object Command : SlotAction
     data class Navigate(val targetPage: String) : SlotAction
@@ -324,9 +358,15 @@ fun resolvePreviewIconState(
         return if (isActive) PreviewIconState.ACTIVE else PreviewIconState.NEUTRAL
     }
 
-    // Regular items
-    return when (slot.stateDisplay) {
-        StateDisplay.COLOR -> {
+    // Regular items — determine which source provides the COLOR state
+    val colorSource = when {
+        slot.stateDisplay == StateDisplay.COLOR -> "primary"
+        slot.hasDoubleTap && slot.doubleTapStateDisplay == StateDisplay.COLOR -> "doubleTap"
+        else -> null
+    }
+
+    return when (colorSource) {
+        "primary" -> {
             val displayItem = slot.stateItem ?: slot.item
             if (displayItem != null && isItemActive(displayItem, itemStates, slot.invertState)) {
                 PreviewIconState.ACTIVE
@@ -334,8 +374,15 @@ fun resolvePreviewIconState(
                 PreviewIconState.INACTIVE
             }
         }
-        StateDisplay.NONE -> PreviewIconState.NEUTRAL
-        StateDisplay.VALUE -> PreviewIconState.NEUTRAL
+        "doubleTap" -> {
+            val dblItem = slot.doubleTapItem
+            if (dblItem != null && isItemActive(dblItem, itemStates, false)) {
+                PreviewIconState.ACTIVE
+            } else {
+                PreviewIconState.INACTIVE
+            }
+        }
+        else -> PreviewIconState.NEUTRAL
     }
 }
 
@@ -363,11 +410,20 @@ fun resolvePreviewStateText(
 ): String? {
     if (slot.isEmpty) return null
     if (slot.action is SlotAction.Navigate) return null
-    if (slot.stateDisplay == StateDisplay.COLOR) return null
-    if (slot.stateDisplay == StateDisplay.NONE) return null
 
-    // stateDisplay = VALUE: always show state text (even if NULL → "–")
-    val displayItem = slot.stateItem ?: slot.item ?: return null
+    // Determine which source provides the VALUE display
+    val valueSource = when {
+        slot.stateDisplay == StateDisplay.VALUE -> "primary"
+        slot.hasDoubleTap && slot.doubleTapStateDisplay == StateDisplay.VALUE -> "doubleTap"
+        else -> null
+    }
+
+    val displayItem = when (valueSource) {
+        "primary" -> slot.stateItem ?: slot.item ?: return null
+        "doubleTap" -> slot.doubleTapItem ?: return null
+        else -> return null
+    }
+
     val state = itemStates[displayItem]
 
     // NULL/UNDEF/missing → en-dash (same as watch)

@@ -99,9 +99,9 @@ class OpenHabRepository @Inject constructor(
     suspend fun refreshStates(): Result<Unit> = runCatching {
         val cached = itemCache.get() ?: return@runCatching
 
-        // Collect all item names we need states for (primary + stateItem + members of groups)
+        // Collect all item names we need states for (primary + stateItem + doubleTapItem + members of groups)
         val neededNames = cached.flatMap { tileItem ->
-            listOfNotNull(tileItem.item.name, tileItem.valueItemName, tileItem.commandItemName)
+            listOfNotNull(tileItem.item.name, tileItem.valueItemName, tileItem.commandItemName, tileItem.doubleTapItem)
         }.distinct().toSet()
 
         // Single batch call — fetch all items with state fields only
@@ -144,6 +144,16 @@ class OpenHabRepository @Inject constructor(
         }
 
         itemCache.putStates(updated)
+
+        // Store doubleTapItem states in the extra map for composite rendering
+        val doubleTapStates = cached
+            .mapNotNull { it.doubleTapItem }
+            .distinct()
+            .mapNotNull { name -> freshMap[name]?.let { name to it.state } }
+            .toMap()
+        if (doubleTapStates.isNotEmpty()) {
+            itemCache.putExtraItemStates(doubleTapStates)
+        }
     }
 
     /**
@@ -174,10 +184,10 @@ class OpenHabRepository @Inject constructor(
 
         if (tilePages.isEmpty()) return emptyList()
 
-        // Collect all item names referenced in slots
+        // Collect all item names referenced in slots (including doubleTap items)
         val allItemNames = tilePages.flatMap { page ->
             page.slots.default.flatMap { slot ->
-                listOfNotNull(slot.config.item, slot.config.stateItem, slot.config.actionItem)
+                listOfNotNull(slot.config.item, slot.config.stateItem, slot.config.actionItem, slot.config.doubleTapItem)
             }
         }.distinct().toSet()
 
@@ -205,7 +215,7 @@ class OpenHabRepository @Inject constructor(
                 val valueDisplay = ValueDisplay.fromString(config.stateDisplay)
                 val action = config.action?.let { a ->
                     when {
-                        a == "toggle" -> null // null = auto-toggle in TileItem
+                        a == "toggle" -> "toggle" // explicit toggle (forces toggle even for range items)
                         a == "command" -> "command"
                         a.startsWith("page:") -> a
                         else -> null
@@ -231,10 +241,32 @@ class OpenHabRepository @Inject constructor(
                     invertValue = config.invertState,
                     commandItemName = commandItemName,
                     commandValue = config.actionCommand,
-                    aggregateState = config.aggregateState
+                    aggregateState = config.aggregateState,
+                    doubleTapItem = config.doubleTapItem,
+                    doubleTapAction = config.doubleTapAction,
+                    doubleTapCommand = config.doubleTapCommand,
+                    doubleTapConfirmation = config.doubleTapConfirmation,
+                    doubleTapStateDisplay = org.openhab.habdroid.wear.data.model.ValueDisplay.fromString(config.doubleTapStateDisplay)
                 )
             }
         }.sorted()
+
+        // Store doubleTap item states and full objects in extra cache
+        val doubleTapItemNames = tilePages.flatMap { page ->
+            page.slots.default.mapNotNull { it.config.doubleTapItem }
+        }.distinct()
+        val doubleTapStates = doubleTapItemNames
+            .mapNotNull { name -> itemMap[name]?.let { name to it.state } }
+            .toMap()
+        if (doubleTapStates.isNotEmpty()) {
+            itemCache.putExtraItemStates(doubleTapStates)
+        }
+        val doubleTapItems = doubleTapItemNames
+            .mapNotNull { name -> itemMap[name]?.let { name to it } }
+            .toMap()
+        if (doubleTapItems.isNotEmpty()) {
+            itemCache.putExtraItems(doubleTapItems)
+        }
 
         return tileItems
     }

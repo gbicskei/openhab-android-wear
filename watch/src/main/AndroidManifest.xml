@@ -71,6 +71,14 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 
+        <!-- Quick Action Activity (single tap = toggle, double tap = secondary action) -->
+        <activity
+            android:name=".tile.QuickActionActivity"
+            android:exported="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Page Navigation Activity (handles page switches with optional credential confirmation) -->
         <activity
             android:name=".tile.PageNavigationActivity"
