@@ -1,7 +1,12 @@
 package org.openhab.habdroid.wear.data.repository
 
 import org.openhab.habdroid.wear.util.AppLog
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
@@ -32,6 +37,7 @@ class OpenHabRepository @Inject constructor(
     private val credentialStore: CredentialStore,
     private val tilePreferenceStore: TilePreferenceStore,
     private val itemCache: ItemCache,
+    private val diskCache: TileConfigDiskCache,
     private val watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter,
     private val themeStore: ThemeStore
 ) {
@@ -41,12 +47,8 @@ class OpenHabRepository @Inject constructor(
         /** Metadata namespace used to mark items for the watch tile */
         const val WEAR_TILE_METADATA = "wearTile"
 
-        /** Fields needed for the cold load (full item metadata) */
-        private const val COLD_LOAD_FIELDS =
-            "name,label,type,state,category,tags,groupNames,stateDescription,commandDescription,groupType,function,members"
-
-        /** Fields needed for the hot path (state refresh only) */
-        private const val STATE_REFRESH_FIELDS = "name,state,type,members"
+        /** Max concurrent API requests (cloud relay throttle protection) */
+        private const val MAX_CONCURRENT_REQUESTS = 3
     }
 
     /** Latest config version from server (set during cold load) */
@@ -80,16 +82,22 @@ class OpenHabRepository @Inject constructor(
      * Returns the count of items loaded, or throws on failure.
      */
     suspend fun clearAndReload(): Result<Int> = runCatching {
-        itemCache.clear()
-        val items = coldLoad()
-        itemCache.put(items)
-        itemCache.statesLoaded = true
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ clearAndReload()")
+        try {
+            itemCache.clear()
+            val items = coldLoad()
+            itemCache.put(items)
+            itemCache.statesLoaded = true
 
-        // Write status to DataClient so phone can detect sync state
-        val theme = themeStore.getTheme().name
-        watchStatusWriter.writeStatus(lastConfigVersion.toString(), theme)
+            // Write status to DataClient so phone can detect sync state
+            val theme = themeStore.getTheme().name
+            watchStatusWriter.writeStatus(lastConfigVersion.toString(), theme)
 
-        items.size
+            items.size
+        } finally {
+            AppLog.d(TAG, "← clearAndReload() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 
     /**
@@ -97,22 +105,34 @@ class OpenHabRepository @Inject constructor(
      * Updates the cached items' states without replacing config/metadata.
      */
     suspend fun refreshStates(): Result<Unit> = runCatching {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ refreshStates()")
+        try {
         val cached = itemCache.get() ?: return@runCatching
 
         // Collect all item names we need states for (primary + stateItem + doubleTapItem + members of groups)
         val neededNames = cached.flatMap { tileItem ->
             listOfNotNull(tileItem.item.name, tileItem.valueItemName, tileItem.commandItemName, tileItem.doubleTapItem)
-        }.distinct().toSet()
+        }.filter { it != "unknown" }.distinct().toSet()
 
-        // Single batch call — fetch all items with state fields only
-        AppLog.d(TAG, "refreshStates: batch fetching ${neededNames.size} items")
-        val allItems = apiService.getItems(
-            fields = STATE_REFRESH_FIELDS,
-            recursive = true
-        )
-
-        // Build state map: item name → fresh Item (with state + members)
-        val freshMap = allItems.associateBy { it.name }
+        // Parallel fetch individual items (much faster than fetching all 748 items)
+        AppLog.d(TAG, "refreshStates: parallel fetching ${neededNames.size} items")
+        val semaphore = Semaphore(MAX_CONCURRENT_REQUESTS)
+        val freshMap: Map<String, Item> = coroutineScope {
+            neededNames.map { name ->
+                async {
+                    semaphore.withPermit {
+                        try {
+                            name to apiService.getItem(name)
+                        } catch (e: Exception) {
+                            AppLog.w(TAG, "refreshStates: failed to fetch '$name': ${e.message}")
+                            null
+                        }
+                    }
+                }
+            }.awaitAll().filterNotNull().toMap()
+        }
+        AppLog.d(TAG, "refreshStates: got ${freshMap.size}/${neededNames.size} items")
 
         // Update cached tile items with fresh states
         val updated = cached.map { tileItem ->
@@ -154,6 +174,9 @@ class OpenHabRepository @Inject constructor(
         if (doubleTapStates.isNotEmpty()) {
             itemCache.putExtraItemStates(doubleTapStates)
         }
+        } finally {
+            AppLog.d(TAG, "← refreshStates() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 
     /**
@@ -161,6 +184,9 @@ class OpenHabRepository @Inject constructor(
      * This is the full configuration load — items include metadata, descriptions, etc.
      */
     private suspend fun coldLoad(): List<TileItem> {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ coldLoad()")
+        try {
         // 1. Fetch tile config from user's namespace
         val namespace = credentialStore.credentials.first()?.tileNamespace
             ?: SyncConstants.DEFAULT_TILE_NAMESPACE
@@ -184,6 +210,17 @@ class OpenHabRepository @Inject constructor(
 
         if (tilePages.isEmpty()) return emptyList()
 
+        // Check if disk cache is still valid (configVersion hasn't changed since last fetch).
+        // If valid, use cached items — skip network fetch entirely.
+        val storedVersion = diskCache.getStoredConfigVersion()
+        if (storedVersion == lastConfigVersion && storedVersion >= 0) {
+            val cachedItems = diskCache.load()
+            if (cachedItems != null) {
+                AppLog.d(TAG, "coldLoad: disk cache valid (configVersion=$storedVersion), using ${cachedItems.size} cached items")
+                return cachedItems
+            }
+        }
+
         // Collect all item names referenced in slots (including doubleTap items)
         val allItemNames = tilePages.flatMap { page ->
             page.slots.default.flatMap { slot ->
@@ -191,17 +228,24 @@ class OpenHabRepository @Inject constructor(
             }
         }.distinct().toSet()
 
-        // 2. Batch fetch all items with full metadata (single API call)
-        AppLog.d(TAG, "coldLoad: batch fetching items (need ${allItemNames.size} names)")
-        val allItems = apiService.getItems(
-            fields = COLD_LOAD_FIELDS,
-            recursive = true
-        )
-        AppLog.d(TAG, "coldLoad: got ${allItems.size} items from server")
-
-        // Filter to only items we need
-        val itemMap = allItems.filter { it.name in allItemNames }.associateBy { it.name }
-        AppLog.d(TAG, "coldLoad: matched ${itemMap.size}/${allItemNames.size} referenced items")
+        // Fetch only the referenced items in parallel (much faster than fetching all 748 items)
+        AppLog.d(TAG, "coldLoad: parallel fetching ${allItemNames.size} items (configVersion changed: $storedVersion → $lastConfigVersion)")
+        val semaphore = Semaphore(MAX_CONCURRENT_REQUESTS)
+        val itemMap: Map<String, Item> = coroutineScope {
+            allItemNames.map { name ->
+                async {
+                    semaphore.withPermit {
+                        try {
+                            name to apiService.getItem(name)
+                        } catch (e: Exception) {
+                            AppLog.w(TAG, "coldLoad: failed to fetch '$name': ${e.message}")
+                            null
+                        }
+                    }
+                }
+            }.awaitAll().filterNotNull().toMap()
+        }
+        AppLog.d(TAG, "coldLoad: fetched ${itemMap.size}/${allItemNames.size} referenced items")
 
         // Build TileItems from page slots
         val tileItems = tilePages.flatMap { page ->
@@ -268,7 +312,13 @@ class OpenHabRepository @Inject constructor(
             itemCache.putExtraItems(doubleTapItems)
         }
 
+        // Persist to disk with configVersion — next cold load skips item fetch if version matches
+        diskCache.save(tileItems, lastConfigVersion)
+
         return tileItems
+        } finally {
+            AppLog.d(TAG, "← coldLoad() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 
     /**
@@ -393,7 +443,13 @@ class OpenHabRepository @Inject constructor(
      * Get a single item's current state.
      */
     suspend fun getItem(itemName: String): Result<Item> = runCatching {
-        apiService.getItem(itemName)
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ getItem()")
+        try {
+            apiService.getItem(itemName)
+        } finally {
+            AppLog.d(TAG, "← getItem() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 
     /**
@@ -410,8 +466,14 @@ class OpenHabRepository @Inject constructor(
      * Send a command to an item.
      */
     suspend fun sendCommand(itemName: String, command: String): Result<Unit> = runCatching {
-        val body = command.toRequestBody("text/plain".toMediaType())
-        apiService.sendCommand(itemName, body)
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ sendCommand()")
+        try {
+            val body = command.toRequestBody("text/plain".toMediaType())
+            apiService.sendCommand(itemName, body)
+        } finally {
+            AppLog.d(TAG, "← sendCommand() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 
     /**

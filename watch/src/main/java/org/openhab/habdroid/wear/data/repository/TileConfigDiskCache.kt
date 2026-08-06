@@ -28,9 +28,27 @@ class TileConfigDiskCache @Inject constructor(
     companion object {
         private const val TAG = "TileConfigDiskCache"
         private const val FILE_NAME = "tile_config_cache.json"
+        private const val VERSION_FILE_NAME = "tile_config_version.txt"
     }
 
     private val cacheFile: File get() = File(context.filesDir, FILE_NAME)
+    private val versionFile: File get() = File(context.filesDir, VERSION_FILE_NAME)
+
+    /**
+     * Save tile items to disk with the associated configVersion.
+     * Call after a successful cold load that fetched items from the server.
+     */
+    fun save(items: List<TileItem>, configVersion: Int) {
+        try {
+            val dtos = items.map { it.toDto() }
+            val jsonStr = json.encodeToString(dtos)
+            cacheFile.writeText(jsonStr)
+            versionFile.writeText(configVersion.toString())
+            AppLog.d(TAG, "Saved ${items.size} items to disk (${jsonStr.length} bytes, configVersion=$configVersion)")
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Failed to save tile config to disk", e)
+        }
+    }
 
     /**
      * Save tile items to disk. Call after a successful cold load.
@@ -68,6 +86,19 @@ class TileConfigDiskCache @Inject constructor(
     }
 
     /**
+     * Get the configVersion that was stored with the last cache save.
+     * Returns -1 if no version is stored (cache doesn't exist or version file missing).
+     */
+    fun getStoredConfigVersion(): Int {
+        return try {
+            if (!versionFile.exists()) return -1
+            versionFile.readText().trim().toIntOrNull() ?: -1
+        } catch (e: Exception) {
+            -1
+        }
+    }
+
+    /**
      * Clear the disk cache. Called when user explicitly reloads or config is invalidated.
      */
     fun clear() {
@@ -75,6 +106,9 @@ class TileConfigDiskCache @Inject constructor(
             if (cacheFile.exists()) {
                 cacheFile.delete()
                 AppLog.d(TAG, "Disk cache cleared")
+            }
+            if (versionFile.exists()) {
+                versionFile.delete()
             }
         } catch (e: Exception) {
             AppLog.w(TAG, "Failed to clear disk cache", e)
@@ -101,7 +135,12 @@ private data class CachedTileItem(
     val invertValue: Boolean = false,
     val commandItemName: String? = null,
     val commandValue: String? = null,
-    val aggregateState: Boolean = false
+    val aggregateState: Boolean = false,
+    val doubleTapItem: String? = null,
+    val doubleTapAction: String? = null,
+    val doubleTapCommand: String? = null,
+    val doubleTapConfirmation: Boolean = false,
+    val doubleTapStateDisplay: String = "none"
 )
 
 private fun TileItem.toDto() = CachedTileItem(
@@ -119,7 +158,12 @@ private fun TileItem.toDto() = CachedTileItem(
     invertValue = invertValue,
     commandItemName = commandItemName,
     commandValue = commandValue,
-    aggregateState = aggregateState
+    aggregateState = aggregateState,
+    doubleTapItem = doubleTapItem,
+    doubleTapAction = doubleTapAction,
+    doubleTapCommand = doubleTapCommand,
+    doubleTapConfirmation = doubleTapConfirmation,
+    doubleTapStateDisplay = doubleTapStateDisplay.name.lowercase()
 )
 
 private fun CachedTileItem.toTileItem() = TileItem(
@@ -137,5 +181,10 @@ private fun CachedTileItem.toTileItem() = TileItem(
     invertValue = invertValue,
     commandItemName = commandItemName,
     commandValue = commandValue,
-    aggregateState = aggregateState
+    aggregateState = aggregateState,
+    doubleTapItem = doubleTapItem,
+    doubleTapAction = doubleTapAction,
+    doubleTapCommand = doubleTapCommand,
+    doubleTapConfirmation = doubleTapConfirmation,
+    doubleTapStateDisplay = ValueDisplay.fromString(doubleTapStateDisplay)
 )

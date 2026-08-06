@@ -131,6 +131,9 @@ class TileDesignViewModel @Inject constructor(
 
     fun loadTileConfig() {
         viewModelScope.launch {
+            val _traceStart = System.currentTimeMillis()
+            AppLog.d(TAG, "→ loadTileConfig()")
+            try {
             _uiState.value = TileDesignUiState.Loading
 
             // Determine which server to use — tile designer always uses local (direct) server.
@@ -212,6 +215,9 @@ class TileDesignViewModel @Inject constructor(
             // Fetch initial item states and start SSE for live updates
             fetchItemStates(serverUrl, username, password, sortedPages)
             startSse(serverUrl, username, password)
+            } finally {
+                AppLog.d(TAG, "← loadTileConfig() ${System.currentTimeMillis() - _traceStart}ms")
+            }
         }
     }
 
@@ -560,6 +566,9 @@ class TileDesignViewModel @Inject constructor(
 
     private fun savePage(page: TilePageState) {
         viewModelScope.launch {
+            val _traceStart = System.currentTimeMillis()
+            AppLog.d(TAG, "→ savePage()")
+            try {
             val config = localConfig
             if (config == null || !config.isConfigured) {
                 _snackbarMessage.value = "Local server not configured — cannot save"
@@ -577,7 +586,7 @@ class TileDesignViewModel @Inject constructor(
                 val updatedMain = mainPage.copy(configVersion = mainPage.configVersion + 1)
                 updatePageInState(updatedMain)
                 if (page.uid != "main") {
-                    // Save main page configVersion bump separately
+                    // Save main page configVersion bump separately (items will be embedded on the actual page save)
                     apiService.updateTilePage(config, updatedMain.toDto(), namespace)
                 }
             }
@@ -598,6 +607,9 @@ class TileDesignViewModel @Inject constructor(
                     }
                 }
             _isSaving.value = false
+            } finally {
+                AppLog.d(TAG, "← savePage() ${System.currentTimeMillis() - _traceStart}ms")
+            }
         }
     }
 
@@ -608,6 +620,9 @@ class TileDesignViewModel @Inject constructor(
      */
     private fun fetchItemStates(serverUrl: String, username: String, password: String, pages: List<TilePageState>) {
         viewModelScope.launch {
+            val _traceStart = System.currentTimeMillis()
+            AppLog.d(TAG, "→ fetchItemStates()")
+            try {
             val itemNames = collectReferencedItems(pages)
             if (itemNames.isEmpty()) return@launch
 
@@ -618,6 +633,9 @@ class TileDesignViewModel @Inject constructor(
                     .associate { it.name to it.state }
                 _itemStates.value = stateMap
                 AppLog.d(TAG, "Fetched ${stateMap.size} item states")
+            }
+            } finally {
+                AppLog.d(TAG, "← fetchItemStates() ${System.currentTimeMillis() - _traceStart}ms")
             }
         }
     }
@@ -645,6 +663,7 @@ class TileDesignViewModel @Inject constructor(
     private fun startSse(serverUrl: String, username: String, password: String) {
         sseJob?.cancel()
         sseJob = viewModelScope.launch {
+            AppLog.d(TAG, "→ startSse()")
             val baseUrl = serverUrl.trimEnd('/')
             val url = "$baseUrl/rest/events?topics=openhab/items/*/statechanged"
             AppLog.d(TAG, "Starting SSE: $url")
@@ -755,12 +774,14 @@ class TileDesignViewModel @Inject constructor(
      * Parse SSE statechanged event and update the item states map.
      */
     private fun handleSseEvent(data: String) {
-        // Skip ALIVE heartbeats
-        if (data.contains("\"type\":\"ALIVE\"") || data.contains("\"ALIVE\"")) return
-
-        AppLog.d(TAG, "SSE parsing: ${data.take(150)}")
-
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ handleSseEvent()")
         try {
+            // Skip ALIVE heartbeats
+            if (data.contains("\"type\":\"ALIVE\"") || data.contains("\"ALIVE\"")) return
+
+            AppLog.d(TAG, "SSE parsing: ${data.take(150)}")
+
             // Extract item name from topic: openhab/items/{name}/statechanged
             val topicStart = data.indexOf("\"topic\":\"") + 9
             if (topicStart < 9) return
@@ -785,6 +806,8 @@ class TileDesignViewModel @Inject constructor(
             }
         } catch (e: Exception) {
             AppLog.w(TAG, "SSE parse error: ${e.message}")
+        } finally {
+            AppLog.d(TAG, "← handleSseEvent() ${System.currentTimeMillis() - _traceStart}ms")
         }
     }
 
