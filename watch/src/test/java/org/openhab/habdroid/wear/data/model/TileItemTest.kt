@@ -353,4 +353,80 @@ class TileItemTest {
         val sorted = listOf(a, b, c).sorted()
         assertEquals(listOf(1, 2, 3), sorted.map { it.slot })
     }
+
+    // --- doubleTap properties ---
+
+    @Test
+    fun `hasDoubleTap is true when doubleTapItem is set`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "AC_Setpoint"
+        )
+        assertTrue(ti.hasDoubleTap)
+    }
+
+    @Test
+    fun `hasDoubleTap is false when doubleTapItem is null`() {
+        val ti = tileItem()
+        assertFalse(ti.hasDoubleTap)
+    }
+
+    @Test
+    fun `doubleTapStateDisplay defaults to NONE`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X"
+        )
+        assertEquals(ValueDisplay.NONE, ti.doubleTapStateDisplay)
+    }
+
+    @Test
+    fun `doubleTapStateDisplay can be VALUE`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X",
+            doubleTapStateDisplay = ValueDisplay.VALUE
+        )
+        assertEquals(ValueDisplay.VALUE, ti.doubleTapStateDisplay)
+    }
+
+    @Test
+    fun `doubleTapAction stores toggle`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X",
+            doubleTapAction = "toggle"
+        )
+        assertEquals("toggle", ti.doubleTapAction)
+    }
+
+    @Test
+    fun `doubleTapCommand stores command string`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X",
+            doubleTapAction = "command",
+            doubleTapCommand = "BOOST"
+        )
+        assertEquals("BOOST", ti.doubleTapCommand)
+    }
+
+    @Test
+    fun `doubleTapConfirmation defaults to false`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X"
+        )
+        assertFalse(ti.doubleTapConfirmation)
+    }
+
+    @Test
+    fun `doubleTapConfirmation can be true`() {
+        val ti = TileItem(
+            item = item(), page = "main", slot = 1,
+            doubleTapItem = "X",
+            doubleTapConfirmation = true
+        )
+        assertTrue(ti.doubleTapConfirmation)
+    }
 }
