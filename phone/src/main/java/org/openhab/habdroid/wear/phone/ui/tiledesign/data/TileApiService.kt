@@ -34,7 +34,19 @@ class TileApiService @Inject constructor(
 
     /**
      * Get all tile page documents from the user's namespace.
-     * Can use either remote or local server.
+     * Accepts LocalServerConfig to properly resolve auth (Bearer token or Basic).
+     */
+    suspend fun getAllTilePages(
+        localConfig: LocalServerConfig,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
+    ): Result<List<WearTilePageDto>> = runCatching {
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
+        val response = executeGet(url, resolveAuth(localConfig))
+        json.decodeFromString<List<WearTilePageDto>>(response)
+    }
+
+    /**
+     * Get all tile page documents — fallback for remote (cloud) server with Basic Auth.
      */
     suspend fun getAllTilePages(
         serverUrl: String,
@@ -43,12 +55,25 @@ class TileApiService @Inject constructor(
         namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<List<WearTilePageDto>> = runCatching {
         val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace"
-        val response = executeGet(url, username, password)
+        val response = executeGet(url, Credentials.basic(username, password))
         json.decodeFromString<List<WearTilePageDto>>(response)
     }
 
     /**
      * Get a single tile page by UID.
+     */
+    suspend fun getTilePage(
+        localConfig: LocalServerConfig,
+        uid: String,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
+    ): Result<WearTilePageDto> = runCatching {
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/$uid"
+        val response = executeGet(url, resolveAuth(localConfig))
+        json.decodeFromString<WearTilePageDto>(response)
+    }
+
+    /**
+     * Get a single tile page by UID — fallback for remote server with Basic Auth.
      */
     suspend fun getTilePage(
         serverUrl: String,
@@ -58,7 +83,7 @@ class TileApiService @Inject constructor(
         namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
     ): Result<WearTilePageDto> = runCatching {
         val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace/$uid"
-        val response = executeGet(url, username, password)
+        val response = executeGet(url, Credentials.basic(username, password))
         json.decodeFromString<WearTilePageDto>(response)
     }
 
@@ -109,7 +134,19 @@ class TileApiService @Inject constructor(
 
     /**
      * Get all items from the server (for the item picker).
-     * Can use remote or local server.
+     * Accepts LocalServerConfig to properly resolve auth.
+     */
+    suspend fun getAllItems(
+        localConfig: LocalServerConfig
+    ): Result<List<PhoneItem>> = runCatching {
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items" +
+            "?fields=name,label,type,state,category,tags,groupNames"
+        val response = executeGet(url, resolveAuth(localConfig))
+        json.decodeFromString<List<PhoneItem>>(response)
+    }
+
+    /**
+     * Get all items — fallback for remote (cloud) server with Basic Auth.
      */
     suspend fun getAllItems(
         serverUrl: String,
@@ -118,7 +155,7 @@ class TileApiService @Inject constructor(
     ): Result<List<PhoneItem>> = runCatching {
         val url = "${serverUrl.trimEnd('/')}/rest/items" +
             "?fields=name,label,type,state,category,tags,groupNames"
-        val response = executeGet(url, username, password)
+        val response = executeGet(url, Credentials.basic(username, password))
         json.decodeFromString<List<PhoneItem>>(response)
     }
 
@@ -127,6 +164,23 @@ class TileApiService @Inject constructor(
     /**
      * Get the complication-list document from the user's namespace.
      * Returns null if the document doesn't exist yet.
+     * Accepts LocalServerConfig to properly resolve auth.
+     */
+    suspend fun getComplicationList(
+        localConfig: LocalServerConfig,
+        namespace: String = SyncConstants.DEFAULT_TILE_NAMESPACE
+    ): Result<ComplicationListDto?> = runCatching {
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${ComplicationListDto.UID}"
+        try {
+            val response = executeGet(url, resolveAuth(localConfig))
+            json.decodeFromString<ComplicationListDto>(response)
+        } catch (e: ApiException) {
+            if (e.code == 404) null else throw e
+        }
+    }
+
+    /**
+     * Get complication-list — fallback for remote (cloud) server with Basic Auth.
      */
     suspend fun getComplicationList(
         serverUrl: String,
@@ -136,7 +190,7 @@ class TileApiService @Inject constructor(
     ): Result<ComplicationListDto?> = runCatching {
         val url = "${serverUrl.trimEnd('/')}/rest/ui/components/$namespace/${ComplicationListDto.UID}"
         try {
-            val response = executeGet(url, username, password)
+            val response = executeGet(url, Credentials.basic(username, password))
             json.decodeFromString<ComplicationListDto>(response)
         } catch (e: ApiException) {
             if (e.code == 404) null else throw e
@@ -173,6 +227,19 @@ class TileApiService @Inject constructor(
 
     /**
      * Get items with wearTile metadata (for import/migration).
+     * Accepts LocalServerConfig to properly resolve auth.
+     */
+    suspend fun getItemsWithMetadata(
+        localConfig: LocalServerConfig
+    ): Result<List<PhoneItemWithMetadata>> = runCatching {
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items" +
+            "?metadata=wearTile&fields=name,label,type,state,category,tags,groupNames,metadata"
+        val response = executeGet(url, resolveAuth(localConfig))
+        json.decodeFromString<List<PhoneItemWithMetadata>>(response)
+    }
+
+    /**
+     * Get items with wearTile metadata — fallback for remote server with Basic Auth.
      */
     suspend fun getItemsWithMetadata(
         serverUrl: String,
@@ -181,7 +248,7 @@ class TileApiService @Inject constructor(
     ): Result<List<PhoneItemWithMetadata>> = runCatching {
         val url = "${serverUrl.trimEnd('/')}/rest/items" +
             "?metadata=wearTile&fields=name,label,type,state,category,tags,groupNames,metadata"
-        val response = executeGet(url, username, password)
+        val response = executeGet(url, Credentials.basic(username, password))
         json.decodeFromString<List<PhoneItemWithMetadata>>(response)
     }
 
@@ -189,21 +256,17 @@ class TileApiService @Inject constructor(
 
     /**
      * Resolves the Authorization header value from a LocalServerConfig.
-     * Prefers API token (as password in basic auth) over plain password.
+     * Prefers API token (Bearer) over Basic Auth with username/password.
      */
     private fun resolveAuth(config: LocalServerConfig): String? {
-        return when {
-            config.hasApiToken -> "Bearer ${config.apiToken}"
-            config.hasAuth -> Credentials.basic(config.username, config.password)
-            else -> null
-        }
+        return config.resolveAuthHeader()
     }
 
-    private suspend fun executeGet(url: String, username: String, password: String): String =
+    private suspend fun executeGet(url: String, authHeader: String?): String =
         withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(url)
-                .addHeader("Authorization", Credentials.basic(username, password))
+                .apply { authHeader?.let { addHeader("Authorization", it) } }
                 .addHeader("Accept", "application/json")
                 .build()
             val response = client.newCall(request).execute()

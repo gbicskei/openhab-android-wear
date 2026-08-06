@@ -70,17 +70,14 @@ class ComplicationViewModel @Inject constructor(
             localConfig = local
 
             val serverUrl: String
-            val username: String
-            val password: String
+            val authHeader: String?
 
             if (local != null && local.serverUrl.isNotBlank()) {
                 serverUrl = local.serverUrl
-                username = local.username
-                password = local.password
+                authHeader = local.resolveAuthHeader()
             } else if (remote != null) {
                 serverUrl = remote.serverUrl
-                username = remote.username
-                password = remote.password
+                authHeader = if (remote.hasAuth) okhttp3.Credentials.basic(remote.username, remote.password) else null
             } else {
                 _uiState.value = ComplicationUiState.Error("No server configured")
                 return@launch
@@ -88,7 +85,11 @@ class ComplicationViewModel @Inject constructor(
 
             // Fetch complication list
             val namespace = credentialStore.tileNamespace
-            val complicationResult = apiService.getComplicationList(serverUrl, username, password, namespace)
+            val complicationResult = if (local != null && local.serverUrl.isNotBlank()) {
+                apiService.getComplicationList(local, namespace)
+            } else {
+                apiService.getComplicationList(serverUrl, remote!!.username, remote.password, namespace)
+            }
             val dto = complicationResult.getOrElse { e ->
                 _uiState.value = ComplicationUiState.Error("Failed to load: ${e.message}")
                 return@launch
@@ -97,7 +98,11 @@ class ComplicationViewModel @Inject constructor(
             existsOnServer = dto != null
 
             // Fetch all items for the picker
-            val itemsResult = apiService.getAllItems(serverUrl, username, password)
+            val itemsResult = if (local != null && local.serverUrl.isNotBlank()) {
+                apiService.getAllItems(local)
+            } else {
+                apiService.getAllItems(serverUrl, remote!!.username, remote.password)
+            }
             val items = itemsResult.getOrDefault(emptyList()).map { item ->
                 ComplicationItem(
                     name = item.name,
@@ -119,7 +124,7 @@ class ComplicationViewModel @Inject constructor(
                 editor = editorState,
                 isReadOnly = isReadOnly,
                 iconBaseUrl = serverUrl,
-                iconAuthHeader = okhttp3.Credentials.basic(username, password)
+                iconAuthHeader = authHeader
             )
         }
     }
@@ -205,9 +210,7 @@ class ComplicationViewModel @Inject constructor(
             }
 
             // Fetch items with wearTile metadata
-            val itemsResult = apiService.getItemsWithMetadata(
-                config.serverUrl, config.username, config.password
-            )
+            val itemsResult = apiService.getItemsWithMetadata(config)
             if (itemsResult.isFailure) {
                 _snackbarMessage.value = "Failed to fetch: ${itemsResult.exceptionOrNull()?.message}"
                 _isSaving.value = false
