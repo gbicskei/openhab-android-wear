@@ -75,6 +75,9 @@ class OpenHabTileService : TileService() {
     @Inject
     lateinit var itemCache: org.openhab.habdroid.wear.data.repository.ItemCache
 
+    @Inject
+    lateinit var watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter
+
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
 
     /** Cache all tile items (all pages) for aggregate state calculation */
@@ -145,6 +148,13 @@ class OpenHabTileService : TileService() {
 
             AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
             val voiceEnabled = voicePreferenceStore.voiceCommandsEnabled.first()
+
+            // Sync screen dimensions to phone for accurate tile preview
+            val screenWidthDp = requestParams.deviceConfiguration.screenWidthDp
+            if (screenWidthDp > 0) {
+                watchStatusWriter.writeScreenWidthDp(screenWidthDp)
+            }
+
             val tile = buildTile(pageItems, effectivePage, requestParams, voiceEnabled)
             AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
 

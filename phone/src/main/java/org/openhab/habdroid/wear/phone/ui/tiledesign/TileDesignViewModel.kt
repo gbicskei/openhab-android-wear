@@ -6,12 +6,21 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
 import org.openhab.habdroid.wear.phone.data.LocalServerConfig
 import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
 import org.openhab.habdroid.wear.phone.ui.tiledesign.data.ApiException
@@ -24,6 +33,7 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.model.TilePageState
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.TileSlotState
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.WearTilePageDto
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 sealed interface TileDesignUiState {
@@ -32,7 +42,8 @@ sealed interface TileDesignUiState {
         val editor: TileEditorState,
         val isReadOnly: Boolean = false,
         val iconBaseUrl: String? = null,
-        val iconAuthHeader: String? = null
+        val iconAuthHeader: String? = null,
+        val watchScreenWidthDp: Int? = null
     ) : TileDesignUiState
     data class Error(val message: String) : TileDesignUiState
 }
@@ -46,6 +57,7 @@ class TileDesignViewModel @Inject constructor(
     private val apiService: TileApiService,
     private val credentialStore: PhoneCredentialStore,
     private val watchStatusReader: org.openhab.habdroid.wear.phone.sync.WatchStatusReader,
+    private val okHttpClient: OkHttpClient,
     @ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
 
@@ -74,23 +86,45 @@ class TileDesignViewModel @Inject constructor(
     /** Tracks if user manually changed the theme this session (prevents DataClient override) */
     private var themeModifiedByUser = false
 
+    /** Watch screen width in dp, read from DataClient */
+    private var watchScreenWidthDp: Int? = null
+
     /** Cached local config for write operations. */
     private var localConfig: LocalServerConfig? = null
 
+    /** Live item states: item name → current state string */
+    private val _itemStates = MutableStateFlow<Map<String, String>>(emptyMap())
+    val itemStates: StateFlow<Map<String, String>> = _itemStates.asStateFlow()
+
+    /** SSE connection job for live state updates */
+    private var sseJob: Job? = null
+
     init {
         loadTileConfig()
+        loadWatchStatus()
     }
 
     /**
-     * Read the current watch theme from DataClient and update the selector.
+     * Read the current watch status from DataClient (theme + screen size).
      * Falls back to the locally stored theme if DataClient is unavailable.
      */
-    private fun loadWatchTheme() {
+    private fun loadWatchStatus() {
         viewModelScope.launch {
-            val watchTheme = watchStatusReader.readTheme()
-            if (watchTheme != null && watchTheme.isNotBlank() && !themeModifiedByUser) {
-                _selectedTheme.value = watchTheme
-                credentialStore.saveSelectedTheme(watchTheme)
+            val status = watchStatusReader.readStatus()
+            if (status != null) {
+                val watchTheme = status.theme
+                if (!watchTheme.isNullOrBlank() && !themeModifiedByUser) {
+                    _selectedTheme.value = watchTheme
+                    credentialStore.saveSelectedTheme(watchTheme)
+                }
+                status.screenWidthDp?.let { widthDp ->
+                    watchScreenWidthDp = widthDp
+                    // Update the UI state if already loaded
+                    val current = _uiState.value
+                    if (current is TileDesignUiState.Success) {
+                        _uiState.value = current.copy(watchScreenWidthDp = widthDp)
+                    }
+                }
             }
         }
     }
@@ -99,28 +133,20 @@ class TileDesignViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = TileDesignUiState.Loading
 
-            // Determine which server to use for reads
+            // Determine which server to use — tile designer always uses local (direct) server.
+            // Cloud relay doesn't support SSE and config writes require direct access.
             val remote = credentialStore.credentials.first()
             val local = credentialStore.localConfig.first()
             localConfig = local
 
-            val serverUrl: String
-            val username: String
-            val password: String
-
-            // Prefer local server if configured (has all data + faster)
-            if (local != null && local.isConfigured && local.hasAuth) {
-                serverUrl = local.serverUrl
-                username = local.username
-                password = local.password
-            } else if (remote != null && remote.isConfigured) {
-                serverUrl = remote.serverUrl
-                username = remote.username
-                password = remote.password
-            } else {
-                _uiState.value = TileDesignUiState.Error("No server credentials configured")
+            if (local == null || !local.isConfigured || (!local.hasAuth && !local.hasApiToken)) {
+                _uiState.value = TileDesignUiState.Error("Local server not configured — required for tile designer")
                 return@launch
             }
+
+            val serverUrl = local.serverUrl
+            val username = local.username
+            val password = local.password
 
             // Load tile pages
             val namespace = credentialStore.tileNamespace
@@ -169,7 +195,7 @@ class TileDesignViewModel @Inject constructor(
                 compareBy { if (it.uid == "main") 0 else 1 }
             )
 
-            val isReadOnly = local == null || !local.isConfigured || (!local.hasAuth && !local.hasApiToken)
+            val isReadOnly = false // local server always allows writes
 
             _uiState.value = TileDesignUiState.Success(
                 editor = TileEditorState(
@@ -179,8 +205,13 @@ class TileDesignViewModel @Inject constructor(
                 ),
                 isReadOnly = isReadOnly,
                 iconBaseUrl = serverUrl,
-                iconAuthHeader = okhttp3.Credentials.basic(username, password)
+                iconAuthHeader = okhttp3.Credentials.basic(username, password),
+                watchScreenWidthDp = watchScreenWidthDp
             )
+
+            // Fetch initial item states and start SSE for live updates
+            fetchItemStates(serverUrl, username, password, sortedPages)
+            startSse(serverUrl, username, password)
         }
     }
 
@@ -559,6 +590,209 @@ class TileDesignViewModel @Inject constructor(
                 }
             _isSaving.value = false
         }
+    }
+
+    // ─── Live Item States ───
+
+    /**
+     * Fetch current states for all items referenced in the tile pages.
+     */
+    private fun fetchItemStates(serverUrl: String, username: String, password: String, pages: List<TilePageState>) {
+        viewModelScope.launch {
+            val itemNames = collectReferencedItems(pages)
+            if (itemNames.isEmpty()) return@launch
+
+            val result = apiService.getAllItems(serverUrl, username, password)
+            result.onSuccess { items ->
+                val stateMap = items
+                    .filter { it.name in itemNames }
+                    .associate { it.name to it.state }
+                _itemStates.value = stateMap
+                AppLog.d(TAG, "Fetched ${stateMap.size} item states")
+            }
+        }
+    }
+
+    /**
+     * Collect all item names referenced by tile slot configs (item, stateItem, actionItem).
+     */
+    private fun collectReferencedItems(pages: List<TilePageState>): Set<String> {
+        val names = mutableSetOf<String>()
+        for (page in pages) {
+            for (slot in page.slots) {
+                slot.item?.let { names.add(it) }
+                slot.stateItem?.let { names.add(it) }
+                slot.actionItem?.let { names.add(it) }
+            }
+        }
+        return names
+    }
+
+    /**
+     * Start SSE connection for real-time item state updates.
+     * Read-only — only receives statechanged events, never sends commands.
+     */
+    private fun startSse(serverUrl: String, username: String, password: String) {
+        sseJob?.cancel()
+        sseJob = viewModelScope.launch {
+            val baseUrl = serverUrl.trimEnd('/')
+            val url = "$baseUrl/rest/events?topics=openhab/items/*/statechanged"
+            AppLog.d(TAG, "Starting SSE: $url")
+
+            val sseClient = okHttpClient.newBuilder()
+                .readTimeout(0, TimeUnit.SECONDS)
+                .build()
+
+            val request = Request.Builder()
+                .url(url)
+                .header("Accept", "text/event-stream")
+                .header("Authorization", okhttp3.Credentials.basic(username, password))
+                .build()
+
+            val factory = EventSources.createFactory(sseClient)
+
+            while (isActive) {
+                try {
+                    val channel = kotlinx.coroutines.channels.Channel<SseMsg>(kotlinx.coroutines.channels.Channel.BUFFERED)
+
+                    val eventSource = factory.newEventSource(request, object : EventSourceListener() {
+                        override fun onOpen(eventSource: EventSource, response: Response) {
+                            AppLog.d(TAG, "SSE connected: status=${response.code}, url=${response.request.url}")
+                        }
+
+                        override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                            AppLog.d(TAG, "SSE onEvent: type=$type, id=$id, dataLen=${data.length}")
+                            val result = channel.trySend(SseMsg.Data(data))
+                            if (result.isFailure) {
+                                AppLog.w(TAG, "SSE channel send failed: ${result.exceptionOrNull()?.message}")
+                            }
+                        }
+
+                        override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                            AppLog.w(TAG, "SSE failed: ${t?.message ?: "status ${response?.code}"} (${t?.javaClass?.simpleName})")
+                            channel.trySend(SseMsg.Failed)
+                        }
+
+                        override fun onClosed(eventSource: EventSource) {
+                            AppLog.d(TAG, "SSE closed by server")
+                            channel.trySend(SseMsg.Failed)
+                        }
+                    })
+
+                    try {
+                        AppLog.d(TAG, "SSE entering event loop")
+                        for (msg in channel) {
+                            when (msg) {
+                                is SseMsg.Data -> {
+                                    AppLog.d(TAG, "SSE event received (${msg.data.length} chars)")
+                                    handleSseEvent(msg.data)
+                                }
+                                is SseMsg.Failed -> break
+                            }
+                        }
+                    } finally {
+                        eventSource.cancel()
+                        channel.close()
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    AppLog.w(TAG, "SSE error: ${e.message}")
+                }
+
+                // Reconnect after delay
+                if (isActive) {
+                    delay(5000)
+                }
+            }
+        }
+    }
+
+    private sealed interface SseMsg {
+        data class Data(val data: String) : SseMsg
+        data object Failed : SseMsg
+    }
+
+    /**
+     * Extract the new state value from SSE event data.
+     * Handles both formats:
+     * - Escaped payload: "payload":"{\"value\":\"OFF\",...}" → searches for \"value\":\"
+     * - Unescaped (direct): "value":"OFF" → searches for "value":"
+     */
+    private fun extractNewState(data: String): String? {
+        // Try escaped format first (payload is a JSON string with escaped quotes)
+        val escapedKey = "\\\"value\\\":\\\""
+        var idx = data.indexOf(escapedKey)
+        if (idx >= 0) {
+            val start = idx + escapedKey.length
+            val end = data.indexOf("\\\"", start)
+            if (end > start) return data.substring(start, end)
+        }
+
+        // Fallback: unescaped format (same as watch TileStateEventSource)
+        val plainKey = "\"value\":\""
+        idx = data.indexOf(plainKey)
+        if (idx >= 0) {
+            val start = idx + plainKey.length
+            val end = data.indexOf("\"", start)
+            if (end > start) return data.substring(start, end)
+        }
+
+        return null
+    }
+
+    /**
+     * Parse SSE statechanged event and update the item states map.
+     */
+    private fun handleSseEvent(data: String) {
+        // Skip ALIVE heartbeats
+        if (data.contains("\"type\":\"ALIVE\"") || data.contains("\"ALIVE\"")) return
+
+        AppLog.d(TAG, "SSE parsing: ${data.take(150)}")
+
+        try {
+            // Extract item name from topic: openhab/items/{name}/statechanged
+            val topicStart = data.indexOf("\"topic\":\"") + 9
+            if (topicStart < 9) return
+            val topicEnd = data.indexOf("\"", topicStart)
+            if (topicEnd < 0) return
+            val topic = data.substring(topicStart, topicEnd)
+
+            val parts = topic.split("/")
+            if (parts.size < 4 || parts[3] != "statechanged") return
+            val itemName = parts[2]
+
+            // Extract new state value from payload — handle both escaped and unescaped formats.
+            // Direct server: payload field contains escaped JSON → \"value\":\"OFF\"
+            // Use same approach as watch TileStateEventSource.extractNewState
+            val newState = extractNewState(data) ?: return
+
+            // Update the states map
+            val current = _itemStates.value
+            if (current.containsKey(itemName) || isReferencedItem(itemName)) {
+                _itemStates.value = current + (itemName to newState)
+                AppLog.d(TAG, "SSE state: $itemName → $newState")
+            }
+        } catch (e: Exception) {
+            AppLog.w(TAG, "SSE parse error: ${e.message}")
+        }
+    }
+
+    /**
+     * Check if an item name is referenced in any tile page slot.
+     */
+    private fun isReferencedItem(itemName: String): Boolean {
+        val state = (_uiState.value as? TileDesignUiState.Success) ?: return false
+        return state.editor.pages.any { page ->
+            page.slots.any { slot ->
+                slot.item == itemName || slot.stateItem == itemName || slot.actionItem == itemName
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sseJob?.cancel()
     }
 
     companion object {

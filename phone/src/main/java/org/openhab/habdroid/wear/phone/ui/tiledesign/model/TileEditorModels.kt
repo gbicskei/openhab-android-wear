@@ -262,3 +262,141 @@ data class PhoneMetadataEntry(
     val value: String = "",
     val config: Map<String, String>? = null
 )
+
+
+// ─── Preview Icon State (matches watch IconState) ───
+
+/**
+ * Three-state display mode matching the watch's IconState.
+ * Used by the phone tile preview to render buttons with correct coloring.
+ */
+enum class PreviewIconState {
+    /** Item is on/open/active — full glow, full opacity ring and icon */
+    ACTIVE,
+    /** Item has no boolean state (page nav, value display, range, stateDisplay=none) — moderate opacity */
+    NEUTRAL,
+    /** Item is off/closed/inactive — dimmed ring and icon */
+    INACTIVE
+}
+
+/**
+ * Resolves the icon state for a tile slot, matching the watch's logic exactly.
+ *
+ * Watch logic (from OpenHabTileService.onTileResourcesRequest):
+ * - Navigation buttons: ACTIVE if valueItem/own state/aggregate is active, else NEUTRAL
+ * - stateDisplay=color: ACTIVE if display item is active (respecting invertState), else INACTIVE
+ * - stateDisplay=none: always NEUTRAL
+ * - stateDisplay=value: always NEUTRAL
+ *
+ * @param slot The tile slot configuration
+ * @param itemStates Map of item name → current state string
+ * @param pages All pages (needed for aggregate state on nav buttons)
+ */
+fun resolvePreviewIconState(
+    slot: TileSlotState,
+    itemStates: Map<String, String>,
+    pages: List<TilePageState> = emptyList()
+): PreviewIconState {
+    if (slot.isEmpty) return PreviewIconState.NEUTRAL
+
+    val isNavigation = slot.action is SlotAction.Navigate
+
+    if (isNavigation) {
+        // Navigation buttons: ACTIVE if state source is active, else NEUTRAL
+        val isActive = when {
+            // Priority 1: explicit stateItem
+            slot.stateItem != null -> isItemActive(slot.stateItem, itemStates, slot.invertState)
+            // Priority 2: own item state
+            slot.item != null && itemStates[slot.item] !in listOf(null, "NULL", "UNDEF") ->
+                isItemActive(slot.item, itemStates, slot.invertState)
+            // Priority 3: aggregate from target page items
+            slot.aggregateState -> {
+                val targetPage = (slot.action as SlotAction.Navigate).targetPage
+                pages.find { it.uid == targetPage }?.slots
+                    ?.filter { it.action !is SlotAction.Navigate && !it.isEmpty }
+                    ?.any { subSlot ->
+                        val subItem = subSlot.stateItem ?: subSlot.item
+                        subItem != null && isItemActive(subItem, itemStates, subSlot.invertState)
+                    } ?: false
+            }
+            else -> false
+        }
+        return if (isActive) PreviewIconState.ACTIVE else PreviewIconState.NEUTRAL
+    }
+
+    // Regular items
+    return when (slot.stateDisplay) {
+        StateDisplay.COLOR -> {
+            val displayItem = slot.stateItem ?: slot.item
+            if (displayItem != null && isItemActive(displayItem, itemStates, slot.invertState)) {
+                PreviewIconState.ACTIVE
+            } else {
+                PreviewIconState.INACTIVE
+            }
+        }
+        StateDisplay.NONE -> PreviewIconState.NEUTRAL
+        StateDisplay.VALUE -> PreviewIconState.NEUTRAL
+    }
+}
+
+/**
+ * Check if an item is in an active state, matching the watch Item.isActive logic.
+ * Active = ON, OPEN, numeric > 0, or HSB brightness > 0.
+ */
+private fun isItemActive(itemName: String, itemStates: Map<String, String>, invertState: Boolean): Boolean {
+    val state = itemStates[itemName] ?: return false
+    val raw = state == "ON" || state == "OPEN" ||
+        (state.toIntOrNull() ?: 0) > 0 ||
+        (state.contains(',') && (state.split(',').getOrNull(2)?.trim()?.toDoubleOrNull() ?: 0.0) > 0)
+    return if (invertState) !raw else raw
+}
+
+/**
+ * Resolves the state text to display below the icon, matching the watch logic.
+ * Returns null if no state text should be shown (COLOR, NONE, or navigation).
+ * Returns "–" for NULL/UNDEF states (same as watch formatState).
+ */
+fun resolvePreviewStateText(
+    slot: TileSlotState,
+    itemStates: Map<String, String>,
+    allItems: List<PhoneItem> = emptyList()
+): String? {
+    if (slot.isEmpty) return null
+    if (slot.action is SlotAction.Navigate) return null
+    if (slot.stateDisplay == StateDisplay.COLOR) return null
+    if (slot.stateDisplay == StateDisplay.NONE) return null
+
+    // stateDisplay = VALUE: always show state text (even if NULL → "–")
+    val displayItem = slot.stateItem ?: slot.item ?: return null
+    val state = itemStates[displayItem]
+
+    // NULL/UNDEF/missing → en-dash (same as watch)
+    if (state == null || state in listOf("NULL", "UNDEF")) return "\u2013"
+
+    // Format with unit based on item type (matching watch formatRangeState)
+    val itemType = allItems.find { it.name == displayItem }?.type ?: ""
+    return formatStateText(state, itemType)
+}
+
+/**
+ * Format a state string for display, matching the watch's formatRangeState/formatState logic.
+ * Adds unit suffixes based on item type. Truncates to 6 chars with ellipsis.
+ */
+private fun formatStateText(state: String, itemType: String = ""): String {
+    val numeric = state.split(" ").first().toDoubleOrNull()
+
+    val formatted = when {
+        // Dimmer/Rollershutter: show as percentage
+        numeric != null && (itemType == "Dimmer" || itemType == "Rollershutter") ->
+            "${numeric.toInt()}%"
+        // Temperature: show with degree symbol
+        numeric != null && itemType.startsWith("Number:Temperature") ->
+            "${String.format("%.0f", numeric)}\u00B0"
+        // Quantity state from server (e.g. "22.5 °C") — compact by removing space
+        state.contains(" ") -> state.replace(" ", "")
+        // Plain numeric or string
+        else -> state
+    }
+
+    return if (formatted.length > 6) formatted.take(6) + "\u2026" else formatted
+}
