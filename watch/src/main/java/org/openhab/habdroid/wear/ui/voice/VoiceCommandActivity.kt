@@ -13,17 +13,20 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.material3.Button
@@ -32,6 +35,7 @@ import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import java.util.Locale
 
 /**
@@ -112,8 +116,19 @@ fun VoiceCommandScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // Auto-dismiss: immediately when TTS finishes, or after 2s if read-aloud is disabled
+    val successState = uiState as? VoiceUiState.Success
+    if (successState != null && !successState.isSpeaking) {
+        LaunchedEffect(Unit) {
+            if (!successState.ttsUsed) {
+                delay(2000L)
+            }
+            onDone()
+        }
+    }
+
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -149,12 +164,18 @@ fun VoiceCommandScreen(
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = "Success",
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(36.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    state.responseText,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis
+                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Done", textAlign = TextAlign.Center)
-                Spacer(modifier = Modifier.height(12.dp))
                 Button(onClick = onDone) {
                     Text("OK")
                 }
@@ -164,16 +185,18 @@ fun VoiceCommandScreen(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Error",
-                    modifier = Modifier.size(48.dp),
+                    modifier = Modifier.size(36.dp),
                     tint = MaterialTheme.colorScheme.error
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     state.message,
                     textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Button(onClick = onStartListening) {
                     Text("Retry")
                 }

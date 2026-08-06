@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.phone.data.ConnectionTester
 import org.openhab.habdroid.wear.phone.data.InvalidCredentialsException
 import org.openhab.habdroid.wear.phone.data.LocalServerConfig
@@ -18,6 +20,7 @@ import org.openhab.habdroid.wear.phone.data.WriteNotAllowedException
 import org.openhab.habdroid.wear.phone.sync.NoNetworkException
 import org.openhab.habdroid.wear.phone.sync.NoWatchConnectedException
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
+import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import javax.inject.Inject
 
@@ -70,9 +73,17 @@ class SetupViewModel @Inject constructor(
                     )
                 }
             }
-            // Load user key
+            // Load user key and Google TTS API key
             val userKey = credentialStore.currentUserKey
-            _uiState.update { it.copy(userKey = userKey, hasUnsavedChanges = false) }
+            val hasGoogleTtsKey = credentialStore.hasGoogleTtsApiKey
+            _uiState.update {
+                it.copy(
+                    userKey = userKey,
+                    hasStoredGoogleTtsApiKey = hasGoogleTtsKey,
+                    debugMode = credentialStore.isDebugMode,
+                    hasUnsavedChanges = false
+                )
+            }
         }
     }
 
@@ -110,7 +121,8 @@ class SetupViewModel @Inject constructor(
             }
 
             // Don't override a recent sync success — the watch may still be writing its DataItem
-            if (_uiState.value.watchStatus == WatchStatus.Synced && !_uiState.value.configOutOfSync) {
+            // But always re-check if settings need sync (local save after last sync)
+            if (_uiState.value.watchStatus == WatchStatus.Synced && !_uiState.value.configOutOfSync && !credentialStore.settingsNeedSync) {
                 return@launch
             }
 
@@ -147,12 +159,12 @@ class SetupViewModel @Inject constructor(
                 AppLog.d("SetupVM", "Sync check: serverVersion=$serverVersion")
 
                 if (serverVersion == null) {
-                    _uiState.update { it.copy(configOutOfSync = false) }
+                    _uiState.update { it.copy(configOutOfSync = credentialStore.settingsNeedSync) }
                     return@launch
                 }
 
-                val outOfSync = watchVersion != serverVersion
-                AppLog.d("SetupVM", "Sync check: outOfSync=$outOfSync")
+                val outOfSync = watchVersion != serverVersion || credentialStore.settingsNeedSync
+                AppLog.d("SetupVM", "Sync check: outOfSync=$outOfSync (configVersion: watch=$watchVersion server=$serverVersion, settingsNeedSync=${credentialStore.settingsNeedSync})")
                 _uiState.update { it.copy(configOutOfSync = outOfSync) }
             } catch (e: Exception) {
                 AppLog.w("SetupVM", "Config sync check failed", e)
@@ -244,6 +256,44 @@ class SetupViewModel @Inject constructor(
         _uiState.update { it.copy(configUseApiToken = useApiToken, configConnectionStatus = ConnectionStatus.Idle, hasUnsavedChanges = true) }
     }
 
+    // ─── Other — Google Cloud TTS ───
+
+    fun onGoogleTtsApiKeyChanged(key: String) {
+        _uiState.update {
+            it.copy(
+                googleTtsApiKey = key,
+                googleTtsApiKeyModifiedThisSession = true,
+                googleTtsTestStatus = ConnectionStatus.Idle,
+                hasUnsavedChanges = true
+            )
+        }
+    }
+
+    fun testGoogleTts() {
+        val state = _uiState.value
+        val key = if (state.googleTtsApiKeyModifiedThisSession) state.googleTtsApiKey.trim()
+        else credentialStore.getGoogleTtsApiKey()
+
+        if (key.isBlank()) return
+
+        _uiState.update { it.copy(googleTtsTestStatus = ConnectionStatus.Testing, googleTtsTestError = null) }
+
+        viewModelScope.launch {
+            connectionTester.testGoogleTts(key)
+                .onSuccess {
+                    _uiState.update { it.copy(googleTtsTestStatus = ConnectionStatus.Success) }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            googleTtsTestStatus = ConnectionStatus.Failed,
+                            googleTtsTestError = error.message ?: "TTS test failed"
+                        )
+                    }
+                }
+        }
+    }
+
     fun testConfigConnection() {
         val state = _uiState.value
         if (state.configServerUrl.isBlank()) return
@@ -306,11 +356,17 @@ class SetupViewModel @Inject constructor(
                 )
             }
 
+            // Save Google Cloud TTS API key
+            if (state.googleTtsApiKeyModifiedThisSession) {
+                credentialStore.saveGoogleTtsApiKey(state.googleTtsApiKey.trim())
+            }
+
             _uiState.update {
                 it.copy(
                     hasUnsavedChanges = false,
                     hasStoredPassword = effectivePassword.isNotBlank(),
-                    configHasStoredPassword = effectiveConfigPassword.isNotBlank()
+                    configHasStoredPassword = effectiveConfigPassword.isNotBlank(),
+                    hasStoredGoogleTtsApiKey = credentialStore.hasGoogleTtsApiKey
                 )
             }
             AppLog.d("SetupVM", "All settings saved")
@@ -334,10 +390,11 @@ class SetupViewModel @Inject constructor(
                 serverUrl = state.serverUrl.trim(),
                 username = state.username.trim(),
                 password = effectivePassword,
-                userKey = state.userKey
+                userKey = state.userKey,
+                googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
 
-            dataLayerSender.sendCredentials(credentials)
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode)
                 .onSuccess {
                     // Also send reload signal so the watch refreshes tile config
                     try {
@@ -348,6 +405,21 @@ class SetupViewModel @Inject constructor(
                         val theme = credentialStore.getSelectedTheme()
                         dataLayerSender.sendTheme(theme)
                     } catch (_: Exception) {}
+                    // Send voice settings to the watch
+                    try {
+                        val voicePayload = SyncVoiceSettingsPayload(
+                            voiceCommandsEnabled = credentialStore.isVoiceCommandsEnabled,
+                            readAloudEnabled = credentialStore.isReadAloudEnabled,
+                            useServerTts = credentialStore.isUseServerTts,
+                            serverTtsVoice = credentialStore.serverTtsVoice,
+                            volume = credentialStore.ttsVolume,
+                            speechRate = credentialStore.ttsSpeechRate,
+                            pitch = credentialStore.ttsPitch
+                        )
+                        dataLayerSender.sendVoiceSettings(Json.encodeToString(voicePayload))
+                    } catch (_: Exception) {}
+                    // Clear settings sync flag
+                    credentialStore.clearSettingsNeedSync()
                     _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
                     // Re-check sync status after giving the watch time to reload config + write DataItem
                     kotlinx.coroutines.delay(10_000)
@@ -379,6 +451,12 @@ class SetupViewModel @Inject constructor(
         return if (state.configPasswordModifiedThisSession) state.configPassword
         else credentialStore.localConfig.first()?.password ?: ""
     }
+
+    private fun getEffectiveGoogleTtsApiKey(): String {
+        val state = _uiState.value
+        return if (state.googleTtsApiKeyModifiedThisSession) state.googleTtsApiKey.trim()
+        else credentialStore.getGoogleTtsApiKey()
+    }
 }
 
 data class SetupUiState(
@@ -402,6 +480,12 @@ data class SetupUiState(
     val configPasswordModifiedThisSession: Boolean = false,
     val configConnectionStatus: ConnectionStatus = ConnectionStatus.Idle,
     val configErrorMessage: String? = null,
+    // Other — Google Cloud TTS
+    val googleTtsApiKey: String = "",
+    val hasStoredGoogleTtsApiKey: Boolean = false,
+    val googleTtsApiKeyModifiedThisSession: Boolean = false,
+    val googleTtsTestStatus: ConnectionStatus = ConnectionStatus.Idle,
+    val googleTtsTestError: String? = null,
     // Watch
     val watchStatus: WatchStatus = WatchStatus.Unknown,
     val watchName: String? = null,
@@ -409,7 +493,9 @@ data class SetupUiState(
     val syncResult: SyncResult? = null,
     val configOutOfSync: Boolean = false,
     // Unsaved changes tracking
-    val hasUnsavedChanges: Boolean = false
+    val hasUnsavedChanges: Boolean = false,
+    // Debug
+    val debugMode: Boolean = false
 ) {
     val canTest: Boolean get() = serverUrl.isNotBlank() && connectionStatus != ConnectionStatus.Testing
     val canTestConfig: Boolean get() = configServerUrl.isNotBlank() && configConnectionStatus != ConnectionStatus.Testing
@@ -426,6 +512,7 @@ data class SetupUiState(
     }
     val passwordPlaceholder: String get() = if (hasStoredPassword && !passwordModifiedThisSession) "••••••••" else ""
     val configPasswordPlaceholder: String get() = if (configHasStoredPassword && !configPasswordModifiedThisSession) "••••••••" else ""
+    val googleTtsApiKeyPlaceholder: String get() = if (hasStoredGoogleTtsApiKey && !googleTtsApiKeyModifiedThisSession) "••••••••••••••••" else ""
 }
 
 enum class ConnectionStatus { Idle, Testing, Success, Failed }

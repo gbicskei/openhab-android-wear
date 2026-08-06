@@ -19,7 +19,9 @@ import org.openhab.habdroid.wear.data.api.OpenHabApiService
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.data.repository.TilePreferenceStore
+import org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
 import org.openhab.habdroid.wear.complication.ComplicationPreferenceStore
+import org.openhab.habdroid.wear.util.TtsManager
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
@@ -29,6 +31,7 @@ import javax.inject.Singleton
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "openhab_wear_prefs")
 private val Context.tileDataStore: DataStore<Preferences> by preferencesDataStore(name = "tile_selection_prefs")
 private val Context.complicationDataStore: DataStore<Preferences> by preferencesDataStore(name = "complication_prefs")
+private val Context.voiceDataStore: DataStore<Preferences> by preferencesDataStore(name = "voice_prefs")
 
 /** Hilt dependency injection module providing app-wide singletons: OkHttpClient, Retrofit, DataStore, API service. */
 @Module
@@ -80,6 +83,36 @@ object AppModule {
         @Named("complications") dataStore: DataStore<Preferences>
     ): ComplicationPreferenceStore {
         return ComplicationPreferenceStore(dataStore)
+    }
+
+    @Provides
+    @Singleton
+    @Named("voice")
+    fun provideVoiceDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+        return context.voiceDataStore
+    }
+
+    @Provides
+    @Singleton
+    fun provideVoicePreferenceStore(
+        @Named("voice") dataStore: DataStore<Preferences>
+    ): VoicePreferenceStore {
+        return VoicePreferenceStore(dataStore)
+    }
+
+    @Provides
+    @Singleton
+    fun provideTtsManager(@ApplicationContext context: Context): TtsManager {
+        return TtsManager(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideServerTtsPlayer(
+        @ApplicationContext context: Context,
+        okHttpClient: OkHttpClient
+    ): org.openhab.habdroid.wear.util.ServerTtsPlayer {
+        return org.openhab.habdroid.wear.util.ServerTtsPlayer(context, okHttpClient)
     }
 
     @Provides

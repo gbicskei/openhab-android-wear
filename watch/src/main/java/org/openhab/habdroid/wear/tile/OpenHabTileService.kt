@@ -70,6 +70,9 @@ class OpenHabTileService : TileService() {
     lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
 
     @Inject
+    lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
+
+    @Inject
     lateinit var itemCache: org.openhab.habdroid.wear.data.repository.ItemCache
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
@@ -141,7 +144,8 @@ class OpenHabTileService : TileService() {
             currentPageItems = pageItems
 
             AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
-            val tile = buildTile(pageItems, effectivePage, requestParams)
+            val voiceEnabled = voicePreferenceStore.voiceCommandsEnabled.first()
+            val tile = buildTile(pageItems, effectivePage, requestParams, voiceEnabled)
             AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
 
             // Ensure SSE is running (covers process restart while tile is visible)
@@ -324,7 +328,7 @@ class OpenHabTileService : TileService() {
         return names
     }
 
-    private fun buildTile(items: List<TileItem>, currentPage: String, requestParams: RequestBuilders.TileRequest): TileBuilders.Tile {
+    private fun buildTile(items: List<TileItem>, currentPage: String, requestParams: RequestBuilders.TileRequest, voiceEnabled: Boolean): TileBuilders.Tile {
         // Get screen dimensions for responsive layout
         val deviceParams = requestParams.deviceConfiguration
         // Galaxy Watch Ultra: 481px at 340dpi → 226dp
@@ -334,7 +338,7 @@ class OpenHabTileService : TileService() {
         val layout = if (items.isEmpty() && currentPage == TileItem.PAGE_MAIN) {
             buildEmptyState()
         } else {
-            buildPageLayout(items, currentPage, screenW, screenH, itemCache.statesLoaded)
+            buildPageLayout(items, currentPage, screenW, screenH, itemCache.statesLoaded, voiceEnabled)
         }
 
         val timeline = TimelineBuilders.Timeline.Builder()
@@ -404,7 +408,7 @@ class OpenHabTileService : TileService() {
      * Buttons are positioned at absolute screen coordinates.
      * Title and mic are overlays that don't affect button positioning.
      */
-    private fun buildPageLayout(items: List<TileItem>, currentPage: String, screenW: Float, screenH: Float, isLive: Boolean): LayoutElementBuilders.LayoutElement {
+    private fun buildPageLayout(items: List<TileItem>, currentPage: String, screenW: Float, screenH: Float, isLive: Boolean, voiceEnabled: Boolean): LayoutElementBuilders.LayoutElement {
         val title = if (currentPage == TileItem.PAGE_MAIN) "openHAB"
             else repository.pageLabels[currentPage]?.takeIf { it.isNotBlank() }
                 ?: currentPage.replaceFirstChar { it.uppercase() }
@@ -412,7 +416,16 @@ class OpenHabTileService : TileService() {
         val count = items.size.coerceIn(0, 7)
 
         // Compute absolute button center positions (x, y) and button size for this layout
-        val (positions, btnSize) = computePositions(count, screenW, screenH)
+        val (rawPositions, btnSize) = computePositions(count, screenW, screenH)
+
+        // When mic is hidden on main page, shift buttons down to vertically center
+        // in the expanded space (no bottom element consuming ~38dp)
+        val positions = if (currentPage == TileItem.PAGE_MAIN && !voiceEnabled) {
+            val yShift = 10f // subtle shift down into freed mic space
+            rawPositions.map { (x, y) -> x to y + yShift }
+        } else {
+            rawPositions
+        }
 
         AppLog.d("TilePos", "=== buildPageLayout ===")
 
@@ -529,28 +542,31 @@ class OpenHabTileService : TileService() {
                 .build()
         )
 
-        // Bottom overlay: mic on main page, back button on sub-pages
-        root.addContent(
-            LayoutElementBuilders.Box.Builder()
-                .setWidth(dp(screenW))
-                .setHeight(dp(screenH))
-                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                .setModifiers(
-                    ModifiersBuilders.Modifiers.Builder()
-                        .setPadding(
-                            ModifiersBuilders.Padding.Builder()
-                                .setBottom(dp(10f))
-                                .build()
-                        )
-                        .build()
-                )
-                .addContent(
-                    if (currentPage == TileItem.PAGE_MAIN) buildMicButton()
-                    else buildBackButton()
-                )
-                .build()
-        )
+        // Bottom overlay: mic on main page (if voice enabled), back button on sub-pages
+        val showBottomButton = currentPage != TileItem.PAGE_MAIN || voiceEnabled
+        if (showBottomButton) {
+            root.addContent(
+                LayoutElementBuilders.Box.Builder()
+                    .setWidth(dp(screenW))
+                    .setHeight(dp(screenH))
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_BOTTOM)
+                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                    .setModifiers(
+                        ModifiersBuilders.Modifiers.Builder()
+                            .setPadding(
+                                ModifiersBuilders.Padding.Builder()
+                                    .setBottom(dp(10f))
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .addContent(
+                        if (currentPage == TileItem.PAGE_MAIN) buildMicButton()
+                        else buildBackButton()
+                    )
+                    .build()
+            )
+        }
 
         return root.build()
     }

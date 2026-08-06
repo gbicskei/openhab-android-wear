@@ -155,7 +155,13 @@ class OpenHabRepository @Inject constructor(
         val namespace = credentialStore.credentials.first()?.tileNamespace
             ?: SyncConstants.DEFAULT_TILE_NAMESPACE
         AppLog.d(TAG, "coldLoad: fetching tile components (namespace=$namespace)")
-        val components = apiService.getTileComponents(namespace)
+        val components = try {
+            apiService.getTileComponents(namespace)
+        } catch (e: kotlinx.serialization.SerializationException) {
+            // Server may return empty body when namespace has no components
+            AppLog.w(TAG, "coldLoad: no components in namespace (empty response), treating as empty")
+            emptyList()
+        }
         AppLog.d(TAG, "coldLoad: got ${components.size} components")
         val tilePages = components.filter { it.isTilePage }
 
@@ -400,13 +406,47 @@ class OpenHabRepository @Inject constructor(
 
     /**
      * Send a voice command to the openHAB interpreter.
+     * Returns the interpreter's response text on success, or throws with a meaningful error message.
      */
-    suspend fun sendVoiceCommand(text: String): Result<Unit> = runCatching {
+    suspend fun sendVoiceCommand(text: String): Result<String> = runCatching {
         val body = text.toRequestBody("text/plain".toMediaType())
-        apiService.interpretVoiceCommand(
+        val response = apiService.interpretVoiceCommand(
             command = body,
             language = Locale.getDefault().language
         )
+
+        if (response.isSuccessful) {
+            response.body()?.string()?.trim() ?: ""
+        } else {
+            val errorBody = response.errorBody()?.string()
+            val errorMessage = parseErrorMessage(response.code(), errorBody)
+            throw VoiceCommandException(errorMessage)
+        }
+    }
+
+    /**
+     * Parse the error message from the voice interpreter response.
+     * openHAB returns JSON: {"error":{"message":"...","http-code":400}}
+     */
+    private fun parseErrorMessage(httpCode: Int, errorBody: String?): String {
+        if (errorBody.isNullOrBlank()) {
+            return when (httpCode) {
+                401 -> "Authentication failed"
+                404 -> "No voice interpreter configured"
+                else -> "Command failed (HTTP $httpCode)"
+            }
+        }
+
+        return try {
+            val json = kotlinx.serialization.json.Json.parseToJsonElement(errorBody)
+            val errorObj = json.jsonObject["error"]?.jsonObject
+            errorObj?.get("message")?.let {
+                it.toString().trim('"')
+            } ?: "Command failed (HTTP $httpCode)"
+        } catch (_: Exception) {
+            // Not JSON — might be plain text error
+            errorBody.take(200)
+        }
     }
 
     /**

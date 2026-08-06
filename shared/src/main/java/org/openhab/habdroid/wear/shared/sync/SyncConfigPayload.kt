@@ -19,7 +19,9 @@ data class SyncConfigPayload(
     val serverUrl: String,
     val username: String = "",
     val password: String = "",
-    val userKey: String = ""
+    val userKey: String = "",
+    val googleTtsApiKey: String = "",
+    val debugMode: Boolean = false
 ) {
     /**
      * The UI components namespace derived from the user key.

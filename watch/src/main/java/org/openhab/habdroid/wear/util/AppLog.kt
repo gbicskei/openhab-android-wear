@@ -19,6 +19,9 @@ object AppLog {
     /** Optional callback to publish debug log after error/warning. Set by DI at app startup. */
     var onErrorLogged: (suspend () -> Unit)? = null
 
+    /** Controls whether errors are published to the phone. Synced from phone settings. */
+    var debugMode: Boolean = false
+
     /** Log debug message (only in debug builds). */
     fun d(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
@@ -70,6 +73,7 @@ object AppLog {
     }
 
     private fun schedulePublish() {
+        if (!debugMode) return
         onErrorLogged?.let { publish ->
             scope.launch { publish() }
         }

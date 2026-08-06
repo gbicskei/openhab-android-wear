@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Deploy phone companion APK to the connected Galaxy phone via USB.
 
+clear
+
 set -euo pipefail
 
 APK="phone/build/outputs/apk/debug/phone-debug.apk"
@@ -10,10 +12,8 @@ RETRY_DELAY=2
 
 cd "$(dirname "$0")/.."
 
-if [[ ! -f "$APK" ]]; then
-    echo "APK not found at $APK — building first..."
-    ./gradlew :phone:assembleDebug
-fi
+echo "Building phone APK..."
+./gradlew :phone:assembleDebug -q || { echo "Build failed!"; exit 1; }
 
 echo "Deploying phone companion app..."
 echo "APK: $APK ($(du -h "$APK" | cut -f1))"

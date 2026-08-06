@@ -41,6 +41,16 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_HOME_WIFI_SSID = "home_wifi_ssid"
         const val KEY_USER_KEY = "user_key"
         const val KEY_SELECTED_THEME = "selected_theme"
+        const val KEY_GOOGLE_TTS_API_KEY = "google_tts_api_key"
+        const val KEY_DEBUG_MODE = "debug_mode"
+        const val KEY_VOICE_COMMANDS_ENABLED = "voice_commands_enabled"
+        const val KEY_READ_ALOUD_ENABLED = "read_aloud_enabled"
+        const val KEY_USE_SERVER_TTS = "use_server_tts"
+        const val KEY_SERVER_TTS_VOICE = "server_tts_voice"
+        const val KEY_TTS_VOLUME = "tts_volume"
+        const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
+        const val KEY_TTS_PITCH = "tts_pitch"
+        const val KEY_SETTINGS_NEED_SYNC = "settings_need_sync"
         const val DEFAULT_THEME = "AMBER"
     }
 
@@ -182,6 +192,125 @@ class PhoneCredentialStore @Inject constructor(
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
                 .putString(KEY_SELECTED_THEME, themeName)
+                .apply()
+        }
+    }
+
+    /** Get the stored Google Cloud TTS API key. Empty string if not set. */
+    fun getGoogleTtsApiKey(): String {
+        return try {
+            encryptedPrefs.getString(KEY_GOOGLE_TTS_API_KEY, "") ?: ""
+        } catch (_: Exception) { "" }
+    }
+
+    /** Whether a Google TTS API key has been stored. */
+    val hasGoogleTtsApiKey: Boolean get() = getGoogleTtsApiKey().isNotBlank()
+
+    /** Save the Google Cloud TTS API key securely. */
+    suspend fun saveGoogleTtsApiKey(key: String) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putString(KEY_GOOGLE_TTS_API_KEY, key)
+                .apply()
+        }
+    }
+
+    /** Whether debug mode is enabled. */
+    val isDebugMode: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_DEBUG_MODE, false)
+    } catch (_: Exception) { false }
+
+    /** Set debug mode. */
+    suspend fun setDebugMode(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_DEBUG_MODE, enabled)
+                .apply()
+        }
+    }
+
+    // ─── Voice Settings ───
+
+    /** Whether voice commands are enabled. Default: true. */
+    val isVoiceCommandsEnabled: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_VOICE_COMMANDS_ENABLED, true)
+    } catch (_: Exception) { true }
+
+    /** Whether read-aloud is enabled. Default: false. */
+    val isReadAloudEnabled: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_READ_ALOUD_ENABLED, false)
+    } catch (_: Exception) { false }
+
+    /** Whether server TTS is enabled. Default: false. */
+    val isUseServerTts: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_USE_SERVER_TTS, false)
+    } catch (_: Exception) { false }
+
+    /** Selected server TTS voice name. */
+    val serverTtsVoice: String get() = try {
+        encryptedPrefs.getString(KEY_SERVER_TTS_VOICE, "") ?: ""
+    } catch (_: Exception) { "" }
+
+    /** TTS volume (0.0–1.0). Default: 1.0. */
+    val ttsVolume: Float get() = try {
+        encryptedPrefs.getFloat(KEY_TTS_VOLUME, 1.0f)
+    } catch (_: Exception) { 1.0f }
+
+    /** TTS speech rate. Default: 1.0. */
+    val ttsSpeechRate: Float get() = try {
+        encryptedPrefs.getFloat(KEY_TTS_SPEECH_RATE, 1.0f)
+    } catch (_: Exception) { 1.0f }
+
+    /** TTS pitch. Default: 1.0. */
+    val ttsPitch: Float get() = try {
+        encryptedPrefs.getFloat(KEY_TTS_PITCH, 1.0f)
+    } catch (_: Exception) { 1.0f }
+
+    /** Save all voice settings at once. */
+    suspend fun saveVoiceSettings(
+        voiceCommandsEnabled: Boolean,
+        readAloudEnabled: Boolean,
+        useServerTts: Boolean,
+        serverTtsVoice: String,
+        volume: Float,
+        speechRate: Float,
+        pitch: Float
+    ) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_VOICE_COMMANDS_ENABLED, voiceCommandsEnabled)
+                .putBoolean(KEY_READ_ALOUD_ENABLED, readAloudEnabled)
+                .putBoolean(KEY_USE_SERVER_TTS, useServerTts)
+                .putString(KEY_SERVER_TTS_VOICE, serverTtsVoice)
+                .putFloat(KEY_TTS_VOLUME, volume)
+                .putFloat(KEY_TTS_SPEECH_RATE, speechRate)
+                .putFloat(KEY_TTS_PITCH, pitch)
+                .putBoolean(KEY_SETTINGS_NEED_SYNC, true)
+                .apply()
+        }
+    }
+
+    // ─── Settings sync flag ───
+
+    /** Whether saved settings need to be synced to the watch. */
+    val settingsNeedSync: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_SETTINGS_NEED_SYNC, false)
+    } catch (_: Exception) { false }
+
+    /** Mark settings as synced (called after successful sync to watch). */
+    suspend fun clearSettingsNeedSync() {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_SETTINGS_NEED_SYNC, false)
+                .apply()
+        }
+    }
+
+    /** Mark settings as needing sync. */
+    suspend fun markSettingsNeedSync() {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_SETTINGS_NEED_SYNC, true)
                 .apply()
         }
     }

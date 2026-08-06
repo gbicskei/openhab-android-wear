@@ -105,7 +105,7 @@ class PhoneDataLayerSender @Inject constructor(
     /**
      * Send credentials to the connected watch.
      */
-    suspend fun sendCredentials(credentials: ServerCredentials): Result<Unit> = runCatching {
+    suspend fun sendCredentials(credentials: ServerCredentials, debugMode: Boolean = false): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
             throw NoNetworkException()
         }
@@ -120,7 +120,9 @@ class PhoneDataLayerSender @Inject constructor(
                 serverUrl = credentials.serverUrl,
                 username = credentials.username,
                 password = credentials.password,
-                userKey = credentials.userKey
+                userKey = credentials.userKey,
+                googleTtsApiKey = credentials.googleTtsApiKey,
+                debugMode = debugMode
             )
         )
 
@@ -154,6 +156,19 @@ class PhoneDataLayerSender @Inject constructor(
             watchNode.id,
             SyncConstants.PATH_THEME,
             themeName.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
+
+    /**
+     * Send voice settings to the watch.
+     */
+    suspend fun sendVoiceSettings(payloadJson: String): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_VOICE_SETTINGS,
+            payloadJson.toByteArray(Charsets.UTF_8)
         ).await()
     }
 }
