@@ -148,12 +148,10 @@ class TileDesignViewModel @Inject constructor(
             }
 
             val serverUrl = local.serverUrl
-            val username = local.username
-            val password = local.password
 
             // Load tile pages
             val namespace = credentialStore.tileNamespace
-            val tilesResult = apiService.getAllTilePages(serverUrl, username, password, namespace)
+            val tilesResult = apiService.getAllTilePages(local, namespace)
             if (tilesResult.isFailure) {
                 _uiState.value = TileDesignUiState.Error(
                     tilesResult.exceptionOrNull()?.message ?: "Failed to load tile config"
@@ -162,7 +160,7 @@ class TileDesignViewModel @Inject constructor(
             }
 
             // Load items for picker
-            val allItemsResult = apiService.getAllItems(serverUrl, username, password)
+            val allItemsResult = apiService.getAllItems(local)
             val allItems = allItemsResult.getOrDefault(emptyList())
 
             // Parse tile pages
@@ -173,20 +171,16 @@ class TileDesignViewModel @Inject constructor(
                 // No config yet — create default main page
                 val defaultMain = TilePageState(uid = "main", label = "Main", layout = 6)
                 // Persist the default main page to the server so the watch can find it
-                if (local != null && local.isConfigured && (local.hasAuth || local.hasApiToken)) {
-                    val ns = credentialStore.tileNamespace
-                    apiService.createTilePage(local, defaultMain.toDto(), ns)
-                }
+                val ns = credentialStore.tileNamespace
+                apiService.createTilePage(local, defaultMain.toDto(), ns)
                 listOf(defaultMain)
             } else {
                 val parsed = tilePageDtos.map { TilePageState.fromDto(it) }
                 // Ensure a main page exists even if only sub-pages were created
                 if (parsed.none { it.uid == "main" }) {
                     val defaultMain = TilePageState(uid = "main", label = "Main", layout = 6)
-                    if (local != null && local.isConfigured && (local.hasAuth || local.hasApiToken)) {
-                        val ns = credentialStore.tileNamespace
-                        apiService.createTilePage(local, defaultMain.toDto(), ns)
-                    }
+                    val ns = credentialStore.tileNamespace
+                    apiService.createTilePage(local, defaultMain.toDto(), ns)
                     parsed + defaultMain
                 } else {
                     parsed
@@ -208,13 +202,13 @@ class TileDesignViewModel @Inject constructor(
                 ),
                 isReadOnly = isReadOnly,
                 iconBaseUrl = serverUrl,
-                iconAuthHeader = okhttp3.Credentials.basic(username, password),
+                iconAuthHeader = local.resolveAuthHeader(),
                 watchScreenWidthDp = watchScreenWidthDp
             )
 
             // Fetch initial item states and start SSE for live updates
-            fetchItemStates(serverUrl, username, password, sortedPages)
-            startSse(serverUrl, username, password)
+            fetchItemStates(local, sortedPages)
+            startSse(local)
             } finally {
                 AppLog.d(TAG, "← loadTileConfig() ${System.currentTimeMillis() - _traceStart}ms")
             }
@@ -420,9 +414,7 @@ class TileDesignViewModel @Inject constructor(
             }
 
             // Fetch items with wearTile metadata
-            val itemsResult = apiService.getItemsWithMetadata(
-                config.serverUrl, config.username, config.password
-            )
+            val itemsResult = apiService.getItemsWithMetadata(config)
             if (itemsResult.isFailure) {
                 _snackbarMessage.value = "Failed to fetch metadata: ${itemsResult.exceptionOrNull()?.message}"
                 _isSaving.value = false
@@ -618,7 +610,7 @@ class TileDesignViewModel @Inject constructor(
     /**
      * Fetch current states for all items referenced in the tile pages.
      */
-    private fun fetchItemStates(serverUrl: String, username: String, password: String, pages: List<TilePageState>) {
+    private fun fetchItemStates(localConfig: LocalServerConfig, pages: List<TilePageState>) {
         viewModelScope.launch {
             val _traceStart = System.currentTimeMillis()
             AppLog.d(TAG, "→ fetchItemStates()")
@@ -626,7 +618,7 @@ class TileDesignViewModel @Inject constructor(
             val itemNames = collectReferencedItems(pages)
             if (itemNames.isEmpty()) return@launch
 
-            val result = apiService.getAllItems(serverUrl, username, password)
+            val result = apiService.getAllItems(localConfig)
             result.onSuccess { items ->
                 val stateMap = items
                     .filter { it.name in itemNames }
@@ -660,11 +652,11 @@ class TileDesignViewModel @Inject constructor(
      * Start SSE connection for real-time item state updates.
      * Read-only — only receives statechanged events, never sends commands.
      */
-    private fun startSse(serverUrl: String, username: String, password: String) {
+    private fun startSse(localConfig: LocalServerConfig) {
         sseJob?.cancel()
         sseJob = viewModelScope.launch {
             AppLog.d(TAG, "→ startSse()")
-            val baseUrl = serverUrl.trimEnd('/')
+            val baseUrl = localConfig.serverUrl.trimEnd('/')
             val url = "$baseUrl/rest/events?topics=openhab/items/*/statechanged"
             AppLog.d(TAG, "Starting SSE: $url")
 
@@ -675,7 +667,7 @@ class TileDesignViewModel @Inject constructor(
             val request = Request.Builder()
                 .url(url)
                 .header("Accept", "text/event-stream")
-                .header("Authorization", okhttp3.Credentials.basic(username, password))
+                .apply { localConfig.resolveAuthHeader()?.let { header("Authorization", it) } }
                 .build()
 
             val factory = EventSources.createFactory(sseClient)
