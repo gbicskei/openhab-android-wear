@@ -19,7 +19,7 @@ android {
         minSdk = 34
         targetSdk = 35
         versionCode = 35
-        versionName = "1.0.12"
+        versionName = "1.1.0"
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
