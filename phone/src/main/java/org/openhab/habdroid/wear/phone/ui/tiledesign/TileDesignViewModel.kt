@@ -83,9 +83,6 @@ class TileDesignViewModel @Inject constructor(
     private val _selectedTheme = MutableStateFlow(credentialStore.getSelectedTheme())
     val selectedTheme: StateFlow<String> = _selectedTheme.asStateFlow()
 
-    /** Tracks if user manually changed the theme this session (prevents DataClient override) */
-    private var themeModifiedByUser = false
-
     /** Watch screen width in dp, read from DataClient */
     private var watchScreenWidthDp: Int? = null
 
@@ -106,17 +103,13 @@ class TileDesignViewModel @Inject constructor(
 
     /**
      * Read the current watch status from DataClient (theme + screen size).
-     * Falls back to the locally stored theme if DataClient is unavailable.
+     * The locally persisted theme is authoritative — the watch theme is only used
+     * as the initial value when no explicit selection has been saved yet.
      */
     private fun loadWatchStatus() {
         viewModelScope.launch {
             val status = watchStatusReader.readStatus()
             if (status != null) {
-                val watchTheme = status.theme
-                if (!watchTheme.isNullOrBlank() && !themeModifiedByUser) {
-                    _selectedTheme.value = watchTheme
-                    credentialStore.saveSelectedTheme(watchTheme)
-                }
                 status.screenWidthDp?.let { widthDp ->
                     watchScreenWidthDp = widthDp
                     // Update the UI state if already loaded
@@ -259,7 +252,6 @@ class TileDesignViewModel @Inject constructor(
     }
 
     fun onThemeSelected(themeName: String) {
-        themeModifiedByUser = true
         _selectedTheme.value = themeName
         viewModelScope.launch {
             credentialStore.saveSelectedTheme(themeName)
