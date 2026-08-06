@@ -18,7 +18,7 @@ android {
         applicationId = "org.openhab.habdroid.wear"
         minSdk = 34
         targetSdk = 35
-        versionCode = 38
+        versionCode = 40
         versionName = "1.1.0"
     }
 
