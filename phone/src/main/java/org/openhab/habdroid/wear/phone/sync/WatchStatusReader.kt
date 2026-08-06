@@ -31,6 +31,7 @@ class WatchStatusReader @Inject constructor(
         private const val PATH_STATUS = "/openhab/status"
         private const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
         private const val KEY_THEME = "theme"
+        private const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
     }
 
     private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
@@ -49,7 +50,8 @@ class WatchStatusReader @Inject constructor(
                 val dataMap = DataMapItem.fromDataItem(item).dataMap
                 WatchStatus(
                     configTimestamp = dataMap.getString(KEY_CONFIG_TIMESTAMP),
-                    theme = dataMap.getString(KEY_THEME)
+                    theme = dataMap.getString(KEY_THEME),
+                    screenWidthDp = dataMap.getInt(KEY_SCREEN_WIDTH_DP, 0).takeIf { it > 0 }
                 )
             }
 
@@ -70,6 +72,13 @@ class WatchStatusReader @Inject constructor(
     }
 
     /**
+     * Read the watch screen width in dp. Returns null if never synced.
+     */
+    suspend fun readScreenWidthDp(): Int? {
+        return readStatus()?.screenWidthDp
+    }
+
+    /**
      * Read just the config timestamp. Convenience method for sync detection.
      */
     suspend fun readConfigTimestamp(): String? {
@@ -82,5 +91,6 @@ class WatchStatusReader @Inject constructor(
  */
 data class WatchStatus(
     val configTimestamp: String?,
-    val theme: String?
+    val theme: String?,
+    val screenWidthDp: Int? = null
 )

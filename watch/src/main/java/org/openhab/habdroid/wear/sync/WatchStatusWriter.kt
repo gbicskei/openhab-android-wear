@@ -33,6 +33,7 @@ class WatchStatusWriter @Inject constructor(
         private const val PATH_STATUS = "/openhab/status"
         private const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
         private const val KEY_THEME = "theme"
+        private const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
     }
 
     private val dataClient by lazy { Wearable.getDataClient(context) }
@@ -40,6 +41,7 @@ class WatchStatusWriter @Inject constructor(
     /** In-memory state — always written atomically */
     private var currentConfigTimestamp: String = ""
     private var currentTheme: String = ""
+    private var currentScreenWidthDp: Int = 0
 
     /**
      * Write the config timestamp after a successful cold load.
@@ -55,6 +57,17 @@ class WatchStatusWriter @Inject constructor(
     suspend fun writeTheme(themeName: String) {
         currentTheme = themeName
         writeFullStatus()
+    }
+
+    /**
+     * Write the watch screen width in dp.
+     * Called once after the first tile request provides device configuration.
+     */
+    suspend fun writeScreenWidthDp(widthDp: Int) {
+        if (widthDp > 0 && widthDp != currentScreenWidthDp) {
+            currentScreenWidthDp = widthDp
+            writeFullStatus()
+        }
     }
 
     /**
@@ -75,9 +88,12 @@ class WatchStatusWriter @Inject constructor(
             val request = PutDataMapRequest.create(PATH_STATUS).apply {
                 dataMap.putString(KEY_CONFIG_TIMESTAMP, currentConfigTimestamp)
                 dataMap.putString(KEY_THEME, currentTheme)
+                if (currentScreenWidthDp > 0) {
+                    dataMap.putInt(KEY_SCREEN_WIDTH_DP, currentScreenWidthDp)
+                }
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
-            AppLog.d(TAG, "Wrote status: configTimestamp=$currentConfigTimestamp, theme=$currentTheme")
+            AppLog.d(TAG, "Wrote status: configTimestamp=$currentConfigTimestamp, theme=$currentTheme, screenWidthDp=$currentScreenWidthDp")
         } catch (e: Exception) {
             AppLog.w(TAG, "Failed to write status", e)
         }

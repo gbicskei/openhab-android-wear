@@ -101,6 +101,7 @@ dependencies {
     // Networking (connection test)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
+    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation(libs.kotlinx.serialization.json)
 
     // Security (encrypted credential storage)
