@@ -566,18 +566,27 @@ class TileDesignViewModel @Inject constructor(
                 return@launch
             }
 
-            // Increment configVersion on the main page to track changes
-            val pageToSave = if (page.uid == "main") {
-                page.copy(configVersion = page.configVersion + 1)
-            } else page
-
-            // Also update the state so the incremented version is reflected
-            if (page.uid == "main") {
-                updatePageInState(pageToSave)
-            }
-
             val namespace = credentialStore.tileNamespace
             _isSaving.value = true
+
+            // Always increment configVersion on the main page to signal sync needed.
+            // The watch uses the main page's configVersion for change detection.
+            val state = (_uiState.value as? TileDesignUiState.Success)
+            val mainPage = state?.editor?.pages?.find { it.uid == "main" }
+            if (mainPage != null) {
+                val updatedMain = mainPage.copy(configVersion = mainPage.configVersion + 1)
+                updatePageInState(updatedMain)
+                if (page.uid != "main") {
+                    // Save main page configVersion bump separately
+                    apiService.updateTilePage(config, updatedMain.toDto(), namespace)
+                }
+            }
+
+            // Save the actual page (with bumped configVersion if it IS main)
+            val pageToSave = if (page.uid == "main" && mainPage != null) {
+                page.copy(configVersion = mainPage.configVersion + 1)
+            } else page
+
             apiService.updateTilePage(config, pageToSave.toDto(), namespace)
                 .onFailure { e ->
                     // If 404, the page doesn't exist yet — create it

@@ -121,9 +121,9 @@ class SetupViewModel @Inject constructor(
             }
 
             // Don't override a recent sync success — the watch may still be writing its DataItem
-            // But always re-check if settings need sync (local save after last sync)
+            // Always re-check if tile config may have changed (configVersion comparison is cheap)
             if (_uiState.value.watchStatus == WatchStatus.Synced && !_uiState.value.configOutOfSync && !credentialStore.settingsNeedSync) {
-                return@launch
+                // Still re-check configVersion — tile editor may have changed it
             }
 
             try {

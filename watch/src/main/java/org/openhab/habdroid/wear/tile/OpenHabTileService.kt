@@ -143,10 +143,11 @@ class OpenHabTileService : TileService() {
                     val layout = items.firstOrNull()?.pageLayout ?: 7
                     items.take(layout)
                 }
+            val pageLayout = pageItems.firstOrNull()?.pageLayout ?: 7
 
             currentPageItems = pageItems
 
-            AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}")
+            AppLog.d("TileNav", "page=$effectivePage, pageItems=${pageItems.size}, layout=$pageLayout")
             val voiceEnabled = voicePreferenceStore.voiceCommandsEnabled.first()
 
             // Sync screen dimensions to phone for accurate tile preview
@@ -155,7 +156,7 @@ class OpenHabTileService : TileService() {
                 watchStatusWriter.writeScreenWidthDp(screenWidthDp)
             }
 
-            val tile = buildTile(pageItems, effectivePage, requestParams, voiceEnabled)
+            val tile = buildTile(pageItems, pageLayout, effectivePage, requestParams, voiceEnabled)
             AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
 
             // Ensure SSE is running (covers process restart while tile is visible)
@@ -338,7 +339,7 @@ class OpenHabTileService : TileService() {
         return names
     }
 
-    private fun buildTile(items: List<TileItem>, currentPage: String, requestParams: RequestBuilders.TileRequest, voiceEnabled: Boolean): TileBuilders.Tile {
+    private fun buildTile(items: List<TileItem>, pageLayout: Int, currentPage: String, requestParams: RequestBuilders.TileRequest, voiceEnabled: Boolean): TileBuilders.Tile {
         // Get screen dimensions for responsive layout
         val deviceParams = requestParams.deviceConfiguration
         // Galaxy Watch Ultra: 481px at 340dpi → 226dp
@@ -348,7 +349,7 @@ class OpenHabTileService : TileService() {
         val layout = if (items.isEmpty() && currentPage == TileItem.PAGE_MAIN) {
             buildEmptyState()
         } else {
-            buildPageLayout(items, currentPage, screenW, screenH, itemCache.statesLoaded, voiceEnabled)
+            buildPageLayout(items, pageLayout, currentPage, screenW, screenH, itemCache.statesLoaded, voiceEnabled)
         }
 
         val timeline = TimelineBuilders.Timeline.Builder()
@@ -418,12 +419,14 @@ class OpenHabTileService : TileService() {
      * Buttons are positioned at absolute screen coordinates.
      * Title and mic are overlays that don't affect button positioning.
      */
-    private fun buildPageLayout(items: List<TileItem>, currentPage: String, screenW: Float, screenH: Float, isLive: Boolean, voiceEnabled: Boolean): LayoutElementBuilders.LayoutElement {
+    private fun buildPageLayout(items: List<TileItem>, pageLayout: Int, currentPage: String, screenW: Float, screenH: Float, isLive: Boolean, voiceEnabled: Boolean): LayoutElementBuilders.LayoutElement {
         val title = if (currentPage == TileItem.PAGE_MAIN) "openHAB"
             else repository.pageLabels[currentPage]?.takeIf { it.isNotBlank() }
                 ?: currentPage.replaceFirstChar { it.uppercase() }
 
-        val count = items.size.coerceIn(0, 7)
+        // Use the configured layout count for position computation (not items.size)
+        // This ensures correct spacing even when some slots are empty
+        val count = pageLayout.coerceIn(1, 7)
 
         // Compute absolute button center positions (x, y) and button size for this layout
         val (rawPositions, btnSize) = computePositions(count, screenW, screenH)
@@ -455,9 +458,10 @@ class OpenHabTileService : TileService() {
             val padLeft = (cx - halfBtn).coerceAtLeast(0f)
             val padTop = (cy - halfBtn).coerceAtLeast(0f)
 
-            AppLog.d("TilePos", "  render btn${index+1}: center=($cx,$cy) padLeft=$padLeft padTop=$padTop")
+            val slotNumber = index + 1
+            val tileItem = items.find { it.slot == slotNumber } ?: continue
 
-            val tileItem = items.getOrNull(index) ?: continue
+            AppLog.d("TilePos", "  render btn$slotNumber: center=($cx,$cy) padLeft=$padLeft padTop=$padTop item=${tileItem.item.name}")
 
             root.addContent(
                 LayoutElementBuilders.Box.Builder()
