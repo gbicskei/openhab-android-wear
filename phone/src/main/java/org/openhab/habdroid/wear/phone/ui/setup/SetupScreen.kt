@@ -182,6 +182,26 @@ fun SetupScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // ─── Other ───
+            SectionHeader(
+                title = "Other",
+                helpText = "Optional settings for enhanced features on the watch."
+            )
+
+            GoogleTtsFields(
+                apiKey = uiState.googleTtsApiKey,
+                apiKeyPlaceholder = uiState.googleTtsApiKeyPlaceholder,
+                apiKeyModified = uiState.googleTtsApiKeyModifiedThisSession,
+                testStatus = uiState.googleTtsTestStatus,
+                errorMessage = uiState.googleTtsTestError,
+                onApiKeyChanged = viewModel::onGoogleTtsApiKeyChanged,
+                onTest = viewModel::testGoogleTts
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             // ─── Save Button ───
             androidx.compose.material3.Button(
                 onClick = viewModel::saveAll,
@@ -444,4 +464,50 @@ private fun SectionHeader(
             modifier = Modifier.padding(bottom = 4.dp)
         )
     }
+}
+
+@Composable
+private fun GoogleTtsFields(
+    apiKey: String,
+    apiKeyPlaceholder: String,
+    apiKeyModified: Boolean,
+    testStatus: ConnectionStatus,
+    errorMessage: String?,
+    onApiKeyChanged: (String) -> Unit,
+    onTest: () -> Unit
+) {
+    var keyVisible by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = if (apiKeyModified) apiKey else apiKeyPlaceholder,
+        onValueChange = onApiKeyChanged,
+        label = { Text("Google Cloud TTS API Key (optional)") },
+        placeholder = { Text("AIza...") },
+        singleLine = true,
+        visualTransformation = if (keyVisible && apiKeyModified) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        trailingIcon = {
+            IconButton(onClick = { keyVisible = !keyVisible }) {
+                Icon(
+                    if (keyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (keyVisible) "Hide" else "Show"
+                )
+            }
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+
+    Text(
+        text = "API token to access Google TTS service for enhanced voice features",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+    )
+
+    TestButton(
+        connectionStatus = testStatus,
+        errorMessage = errorMessage,
+        canTest = apiKeyModified && apiKey.isNotBlank() || apiKeyPlaceholder.isNotBlank(),
+        onTest = onTest
+    )
 }

@@ -1,8 +1,10 @@
 package org.openhab.habdroid.wear.data.api
 
 import okhttp3.RequestBody
+import okhttp3.ResponseBody
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.model.WearTileComponent
+import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -47,12 +49,13 @@ interface OpenHabApiService {
     /**
      * Send a voice command to the default human language interpreter.
      * The body is plain text with the spoken command.
+     * Returns Response<ResponseBody> so the caller can read the interpreter's text response.
      */
     @POST("rest/voice/interpreters")
     suspend fun interpretVoiceCommand(
         @Body command: RequestBody,
         @Header("Accept-Language") language: String? = null
-    )
+    ): Response<ResponseBody>
 
     /**
      * Get all UI components from the given namespace (tile page configs + complications).

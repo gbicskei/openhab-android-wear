@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Watch
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
@@ -50,6 +51,7 @@ fun HomeScreen(
     onNavigateToConnection: () -> Unit,
     onNavigateToTileDesign: () -> Unit,
     onNavigateToComplications: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onNavigateToDebugLog: () -> Unit = {},
     viewModel: SetupViewModel = hiltViewModel()
 ) {
@@ -114,46 +116,48 @@ fun HomeScreen(
             // Navigation cards
             NavigationCard(
                 title = "Connection",
-                subtitle = "Server credentials & config server",
                 icon = Icons.Outlined.Settings,
                 onClick = onNavigateToConnection
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             val configReady = uiState.configConnectionStatus == ConnectionStatus.Success ||
                 uiState.configHasStoredPassword
 
             NavigationCard(
                 title = "Tile Design",
-                subtitle = if (configReady) "Configure watch tile layout"
-                    else "Set up config server first",
                 icon = Icons.Default.GridView,
                 onClick = onNavigateToTileDesign,
                 enabled = configReady
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             NavigationCard(
                 title = "Complications",
-                subtitle = if (configReady) "Configure watch face data"
-                    else "Set up config server first",
                 icon = Icons.Default.Watch,
                 onClick = onNavigateToComplications,
                 enabled = configReady
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Debug Log
             NavigationCard(
-                title = "Debug Log",
-                subtitle = "View errors from watch and phone",
+                title = "General Settings",
                 icon = Icons.Outlined.Settings,
-                onClick = onNavigateToDebugLog,
-                enabled = true
+                onClick = onNavigateToSettings
             )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (uiState.debugMode) {
+                NavigationCard(
+                    title = "Debug Log",
+                    icon = Icons.Outlined.Settings,
+                    onClick = onNavigateToDebugLog
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -256,7 +260,7 @@ private fun WatchStatusChip(
 @Composable
 private fun NavigationCard(
     title: String,
-    subtitle: String,
+    subtitle: String? = null,
     icon: ImageVector,
     onClick: () -> Unit,
     enabled: Boolean = true
@@ -274,23 +278,23 @@ private fun NavigationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
                 shape = MaterialTheme.shapes.medium,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(8.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -298,11 +302,13 @@ private fun NavigationCard(
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                if (subtitle != null) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

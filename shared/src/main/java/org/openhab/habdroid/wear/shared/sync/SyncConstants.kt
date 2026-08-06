@@ -13,6 +13,9 @@ object SyncConstants {
     /** Message path for setting the watch theme (phone → watch) */
     const val PATH_THEME = "/openhab/theme"
 
+    /** Message path for voice settings sync (phone → watch) */
+    const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
+
     /** Default UI components namespace for wear tile config */
     const val DEFAULT_TILE_NAMESPACE = "wear:tile"
 

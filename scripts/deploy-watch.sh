@@ -1,49 +1,55 @@
 #!/usr/bin/env bash
-#
-# Deploy the debug APK to a connected Wear OS device.
-# Automatically finds the watch (filters out phones) and installs.
-#
-
-set -euo pipefail
+# Deploy watch APK to Galaxy Watch over WiFi debugging.
+# Retries automatically when the watch connection drops.
 
 clear
 
-APK="app/build/outputs/apk/debug/app-debug.apk"
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+set -euo pipefail
 
-cd "$PROJECT_DIR"
+APK="watch/build/outputs/apk/debug/watch-debug.apk"
+WATCH_SERIAL_PREFIX="adb-RFAXA2EE8ZZ"
+MAX_ATTEMPTS=20
+RETRY_DELAY=3
 
-# Build first
-echo "Building..."
-./gradlew :app:assembleDebug -q
+cd "$(dirname "$0")/.."
 
-if [ ! -f "$APK" ]; then
-    echo "ERROR: APK not found at $APK"
-    exit 1
-fi
+echo "Building watch APK..."
+./gradlew :watch:assembleDebug -q || { echo "Build failed!"; exit 1; }
 
-# Find watch device (look for adb-tls-connect which indicates wireless Wear OS device)
-WATCH_SERIAL=$(adb devices | grep "_adb-tls-connect" | grep -v "offline" | head -1 | cut -f1)
+echo "APK: $APK ($(du -h "$APK" | cut -f1))"
+echo "Waiting for watch to connect..."
+echo ""
 
-if [ -z "$WATCH_SERIAL" ]; then
-    # Fallback: show all devices and let user pick
-    echo "No wireless watch device found. Connected devices:"
-    adb devices -l
+for attempt in $(seq 1 $MAX_ATTEMPTS); do
+    # Find the watch serial
+    WATCH_SERIAL=$(adb devices 2>/dev/null | grep "$WATCH_SERIAL_PREFIX" | cut -f1)
+
+    if [[ -z "$WATCH_SERIAL" ]]; then
+        printf "\r[%d/%d] Watch not connected, waiting %ds..." "$attempt" "$MAX_ATTEMPTS" "$RETRY_DELAY"
+        sleep "$RETRY_DELAY"
+        continue
+    fi
+
     echo ""
-    echo "Enter device serial to deploy to:"
-    read -r WATCH_SERIAL
-fi
+    echo "[${attempt}/${MAX_ATTEMPTS}] Watch found: $WATCH_SERIAL"
+    echo "Installing..."
 
-if [ -z "$WATCH_SERIAL" ]; then
-    echo "ERROR: No device selected"
-    exit 1
-fi
-
-echo "Deploying to: $WATCH_SERIAL"
-adb -s "$WATCH_SERIAL" install -r "$APK"
+    if adb -s "$WATCH_SERIAL" install -r "$APK" 2>&1 | tee /dev/stderr | grep -q "Success"; then
+        echo ""
+        echo "Install successful!"
+        echo "Launching voice command activity..."
+        adb -s "$WATCH_SERIAL" shell am start -n "org.openhab.habdroid.wear.debug/org.openhab.habdroid.wear.ui.voice.VoiceCommandActivity" 2>/dev/null || true
+        echo "Done."
+        exit 0
+    else
+        echo "Install failed or connection dropped. Retrying in ${RETRY_DELAY}s..."
+        sleep "$RETRY_DELAY"
+    fi
+done
 
 echo ""
-echo "Forcing tile refresh..."
-adb -s "$WATCH_SERIAL" shell am broadcast -a com.google.android.clockwork.home.action.FORCE_UPDATE_TILES 2>/dev/null || true
-
-echo "Done."
+echo "Failed after $MAX_ATTEMPTS attempts. Tips:"
+echo "  - Keep the watch screen on during install (tap it)"
+echo "  - Move watch closer to WiFi router"
+echo "  - Try: adb tcpip 5555 on the watch via USB cradle first"
+exit 1

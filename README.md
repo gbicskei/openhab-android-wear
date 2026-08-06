@@ -59,6 +59,7 @@ Items with `wearTile` metadata are supported as a fallback for complication disc
 | [Configuration Schema](docs/configuration-schema.md) | Server-side config format: wear:tile namespace, JSON schema, sync |
 | [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
 | [Complications](docs/complications.md) | Watch face complications setup and usage |
+| [Voice Commands](docs/voice-commands.md) | Voice command feature, TTS engines, settings sync, configuration |
 | [Icons](docs/icons/ICONS.md) | Custom icon system — design spec, theming, creating new icons |
 | [Development](docs/development.md) | Build, deploy, debug, project structure |
 | [Distribution](docs/distribution.md) | Signing, Play Store, testing tracks |

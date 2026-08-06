@@ -15,6 +15,7 @@ import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.tile.OpenHabTileService
 import androidx.wear.tiles.TileService
 import javax.inject.Inject
@@ -47,6 +48,9 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var watchStatusWriter: WatchStatusWriter
 
+    @Inject
+    lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -56,6 +60,7 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
             SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
+            SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
             else -> super.onMessageReceived(messageEvent)
         }
     }
@@ -76,6 +81,18 @@ class WearDataLayerListenerService : WearableListenerService() {
                 )
                 credentialStore.saveCredentials(credentials)
                 AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
+
+                // Save Google TTS API key if provided
+                if (configData.googleTtsApiKey.isNotBlank()) {
+                    voicePreferenceStore.setServerTtsApiKey(configData.googleTtsApiKey)
+                    voicePreferenceStore.setServerTtsEnabled(true)
+                    voicePreferenceStore.setVoiceResponseSpoken(true)
+                    AppLog.d(TAG, "Google TTS API key synced from phone")
+                }
+
+                // Update debug mode
+                AppLog.debugMode = configData.debugMode
+
                 // Also trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
                     .requestUpdate(OpenHabTileService::class.java)
@@ -111,6 +128,28 @@ class WearDataLayerListenerService : WearableListenerService() {
             // Refresh tile to apply new theme
             TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(OpenHabTileService::class.java)
+        }
+    }
+
+    private fun handleVoiceSettingsMessage(messageEvent: MessageEvent) {
+        try {
+            val payload = String(messageEvent.data, Charsets.UTF_8)
+            AppLog.d(TAG, "Voice settings received (${payload.length} chars)")
+
+            val settings = json.decodeFromString<SyncVoiceSettingsPayload>(payload)
+
+            serviceScope.launch {
+                voicePreferenceStore.setVoiceCommandsEnabled(settings.voiceCommandsEnabled)
+                voicePreferenceStore.setVoiceResponseSpoken(settings.readAloudEnabled)
+                voicePreferenceStore.setServerTtsEnabled(settings.useServerTts)
+                voicePreferenceStore.setServerTtsVoice(settings.serverTtsVoice)
+                voicePreferenceStore.setTtsVolume(settings.volume)
+                voicePreferenceStore.setTtsSpeechRate(settings.speechRate)
+                voicePreferenceStore.setTtsPitch(settings.pitch)
+                AppLog.d(TAG, "Voice settings saved from phone sync")
+            }
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to parse voice settings message", e)
         }
     }
 

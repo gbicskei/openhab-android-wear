@@ -8,7 +8,8 @@ data class ServerCredentials(
     val serverUrl: String,
     val username: String = "",
     val password: String = "",
-    val userKey: String = ""
+    val userKey: String = "",
+    val googleTtsApiKey: String = ""
 ) {
     val isConfigured: Boolean get() = serverUrl.isNotBlank()
     val hasAuth: Boolean get() = username.isNotBlank() && password.isNotBlank()
