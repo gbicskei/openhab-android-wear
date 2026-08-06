@@ -632,6 +632,7 @@ class TileDesignViewModel @Inject constructor(
                 slot.item?.let { names.add(it) }
                 slot.stateItem?.let { names.add(it) }
                 slot.actionItem?.let { names.add(it) }
+                slot.doubleTapItem?.let { names.add(it) }
             }
         }
         return names

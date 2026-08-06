@@ -22,6 +22,7 @@ data class RotaryControlState(
     val max: Double = 100.0,
     val step: Double = 1.0,
     val pattern: String? = null,
+    val unit: String = "",
     val themeColor: Long = 0xFFFFB300,
     val isLoading: Boolean = true,
     val error: String? = null
@@ -34,11 +35,14 @@ data class RotaryControlState(
             return when {
                 pattern != null -> try {
                     String.format(
-                        pattern.replace("%unit%", ""),
+                        pattern.replace("%unit%", unit),
                         if (isWholeNumber) intValue else currentValue
                     )
                 } catch (e: Exception) {
-                    if (isWholeNumber) intValue.toString() else String.format("%.1f", currentValue)
+                    if (isWholeNumber) "$intValue$unit" else "${String.format("%.1f", currentValue)}$unit"
+                }
+                unit.isNotEmpty() -> {
+                    if (isWholeNumber) "$intValue$unit" else "${String.format("%.1f", currentValue)}$unit"
                 }
                 isWholeNumber -> intValue.toString()
                 else -> String.format("%.1f", currentValue)
@@ -102,6 +106,7 @@ class RotaryControlViewModel @Inject constructor(
                             max = stateDesc?.maximum ?: 100.0,
                             step = stateDesc?.step ?: 1.0,
                             pattern = stateDesc?.pattern,
+                            unit = resolveUnit(item.type, stateDesc?.pattern),
                             isLoading = false
                         )
                     }
@@ -125,6 +130,7 @@ class RotaryControlViewModel @Inject constructor(
                         max = stateDesc?.maximum ?: current.max,
                         step = stateDesc?.step ?: current.step,
                         pattern = stateDesc?.pattern ?: current.pattern,
+                        unit = resolveUnit(item.type, stateDesc?.pattern) .ifEmpty { current.unit },
                         isLoading = false
                     )
                 }
@@ -177,5 +183,36 @@ class RotaryControlViewModel @Inject constructor(
             String.format("%.1f", value)
         }
         repository.sendCommand(itemName, command)
+    }
+
+    /**
+     * Resolve display unit from item type and pattern.
+     */
+    private fun resolveUnit(itemType: String, pattern: String?): String {
+        // Extract unit from pattern if it contains a literal suffix after the format specifier
+        if (pattern != null && pattern.contains("%unit%")) {
+            // %unit% is a placeholder — resolve from item type
+            return when {
+                itemType.startsWith("Number:Temperature") -> "°C"
+                itemType == "Dimmer" || itemType == "Rollershutter" -> "%"
+                itemType.startsWith("Number:Angle") -> "°"
+                itemType.startsWith("Number:Power") -> "W"
+                itemType.startsWith("Number:Energy") -> "kWh"
+                itemType.startsWith("Number:Pressure") -> "hPa"
+                itemType.startsWith("Number:Speed") -> "km/h"
+                itemType.startsWith("Number:Length") -> "m"
+                itemType.startsWith("Number:Dimensionless") -> "%"
+                else -> ""
+            }
+        }
+        // No %unit% in pattern — infer from type if no pattern at all
+        if (pattern == null) {
+            return when {
+                itemType == "Dimmer" || itemType == "Rollershutter" -> "%"
+                itemType.startsWith("Number:Temperature") -> "°C"
+                else -> ""
+            }
+        }
+        return ""
     }
 }

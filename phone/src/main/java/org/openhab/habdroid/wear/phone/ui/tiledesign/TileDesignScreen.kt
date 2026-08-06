@@ -252,7 +252,8 @@ fun TileDesignScreen(
                         onSave = { viewModel.updateSlotConfig(it) },
                         onPositionSwap = { newPos -> viewModel.swapSlotPosition(pageUid, position, newPos) },
                         onDelete = { viewModel.removeSlot(pageUid, position) },
-                        onDismiss = { viewModel.dismissConfigSheet() }
+                        onDismiss = { viewModel.dismissConfigSheet() },
+                        allItems = editor.allItems
                     )
                 }
             }
