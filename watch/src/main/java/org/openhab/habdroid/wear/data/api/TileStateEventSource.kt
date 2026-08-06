@@ -77,6 +77,7 @@ class TileStateEventSource @Inject constructor(
      * @param onChanged callback invoked when a watched item's state changes (triggers tile refresh)
      */
     fun start(onChanged: () -> Unit) {
+        AppLog.d(TAG, "→ start()")
         if (connectionJob?.isActive == true) {
             AppLog.d(TAG, "Already running, skipping start")
             return
@@ -146,6 +147,8 @@ class TileStateEventSource @Inject constructor(
      * Run a single SSE session. Returns when the connection fails, times out, or is cancelled.
      */
     private suspend fun runSseSession(baseUrl: String, onChanged: () -> Unit): SseResult {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ runSseSession()")
         val url = "$baseUrl$EVENTS_PATH?topics=$TOPIC_FILTER"
         AppLog.d(TAG, "Connecting SSE: $url")
 
@@ -233,6 +236,7 @@ class TileStateEventSource @Inject constructor(
             return SseResult.CANCELLED
         } finally {
             channel.close()
+            AppLog.d(TAG, "← runSseSession() ${System.currentTimeMillis() - _traceStart}ms")
         }
     }
 
@@ -242,6 +246,7 @@ class TileStateEventSource @Inject constructor(
      * Runs until SSE is re-established or the coroutine is cancelled (tile leave → stop()).
      */
     private suspend fun pollLoop(onChanged: () -> Unit): SseResult {
+        AppLog.d(TAG, "→ pollLoop()")
         AppLog.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
         while (true) {
             delay(POLL_INTERVAL_MS)
@@ -267,6 +272,8 @@ class TileStateEventSource @Inject constructor(
      * Parse SSE event data and update cache + trigger callback if relevant.
      */
     private fun handleEvent(data: String, onChanged: () -> Unit) {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ handleEvent() dataLen=${data.length}")
         try {
             // Check for ALIVE event (server heartbeat)
             if (data.contains("\"type\":\"ALIVE\"") || data.contains("\"ALIVE\"")) {
@@ -307,6 +314,8 @@ class TileStateEventSource @Inject constructor(
             }
         } catch (e: Exception) {
             AppLog.w(TAG, "Error parsing SSE event", e)
+        } finally {
+            AppLog.d(TAG, "← handleEvent() ${System.currentTimeMillis() - _traceStart}ms")
         }
     }
 

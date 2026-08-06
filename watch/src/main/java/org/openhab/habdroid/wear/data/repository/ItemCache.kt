@@ -85,6 +85,9 @@ class ItemCache @Inject constructor(
      * Checks primary item names, valueItem names, and Group members for matches.
      */
     fun updateItemState(itemName: String, newState: String) {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ updateItemState() itemName=$itemName")
+        try {
         // Always store in extra states map (for doubleTapItem lookups)
         extraItemStates[itemName] = newState
 
@@ -107,6 +110,9 @@ class ItemCache @Inject constructor(
                     }
                 }
             }
+        }
+        } finally {
+            AppLog.d(TAG, "← updateItemState() ${System.currentTimeMillis() - _traceStart}ms")
         }
     }
 

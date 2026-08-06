@@ -62,6 +62,8 @@ class QuickActionActivity : ComponentActivity() {
     private var doubleTapDetected = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ onCreate()")
         super.onCreate(savedInstanceState)
 
         val itemName = intent.getStringExtra(EXTRA_ITEM_NAME)
@@ -83,9 +85,12 @@ class QuickActionActivity : ComponentActivity() {
                 executePrimaryAction(itemName)
             }
         }
+        Log.d(TAG, "← onCreate() ${System.currentTimeMillis() - _traceStart}ms")
     }
 
     override fun onNewIntent(intent: android.content.Intent) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ onNewIntent()")
         super.onNewIntent(intent)
 
         val itemName = intent.getStringExtra(EXTRA_ITEM_NAME) ?: return
@@ -99,12 +104,15 @@ class QuickActionActivity : ComponentActivity() {
         window?.decorView?.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
 
         executeDoubleTapAction(itemName, intent)
+        Log.d(TAG, "← onNewIntent() ${System.currentTimeMillis() - _traceStart}ms")
     }
 
     /**
      * Execute the primary action (single tap) based on the item's configured action.
      */
     private fun executePrimaryAction(itemName: String) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ executePrimaryAction()")
         val primaryAction = intent.getStringExtra(EXTRA_PRIMARY_ACTION) // "toggle", "command", or null (auto)
         val fixedCommand = intent.getStringExtra(EXTRA_SHORT_COMMAND)
         val needsConfirmation = intent.getBooleanExtra("needs_confirmation", false)
@@ -138,12 +146,15 @@ class QuickActionActivity : ComponentActivity() {
                 finish()
             }
         }
+        Log.d(TAG, "← executePrimaryAction() ${System.currentTimeMillis() - _traceStart}ms")
     }
 
     /**
      * Execute the double-tap action on the doubleTapItem.
      */
     private fun executeDoubleTapAction(itemName: String, secondIntent: android.content.Intent) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ executeDoubleTapAction()")
         val doubleTapItemName = secondIntent.getStringExtra(EXTRA_DOUBLE_PRESS_ITEM)
             ?: intent.getStringExtra(EXTRA_DOUBLE_PRESS_ITEM) ?: itemName
         val doubleTapAction = secondIntent.getStringExtra(EXTRA_DOUBLE_PRESS_ACTION)
@@ -188,6 +199,7 @@ class QuickActionActivity : ComponentActivity() {
                 finish()
             }
         }
+        Log.d(TAG, "← executeDoubleTapAction() ${System.currentTimeMillis() - _traceStart}ms")
     }
 
     private fun executeAction(itemName: String, action: String?, command: String?) {
@@ -229,6 +241,8 @@ class QuickActionActivity : ComponentActivity() {
     }
 
     private fun openControlActivity(itemName: String) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ openControlActivity()")
         val cachedItem = itemCache.get()?.find { it.item.name == itemName }
         val item = cachedItem?.item ?: itemCache.getExtraItem(itemName)
 
@@ -236,6 +250,7 @@ class QuickActionActivity : ComponentActivity() {
             // Item not in any cache — fetch from server to determine type
             Log.d(TAG, "Item '$itemName' not in any cache, fetching from server")
             fetchAndOpenControl(itemName)
+            Log.d(TAG, "← openControlActivity() ${System.currentTimeMillis() - _traceStart}ms")
             return
         }
 
@@ -250,6 +265,7 @@ class QuickActionActivity : ComponentActivity() {
                 // Fallback: toggle
                 executeToggle(itemName)
                 requestTileUpdate()
+                Log.d(TAG, "← openControlActivity() ${System.currentTimeMillis() - _traceStart}ms")
                 return
             }
         }
@@ -259,6 +275,7 @@ class QuickActionActivity : ComponentActivity() {
             putExtra("item_name", itemName)
         })
         finish()
+        Log.d(TAG, "← openControlActivity() ${System.currentTimeMillis() - _traceStart}ms")
     }
 
     private fun isToggleableItem(itemName: String): Boolean {
@@ -284,6 +301,8 @@ class QuickActionActivity : ComponentActivity() {
      * Called when the item isn't in the tile cache (doubleTap items).
      */
     private fun fetchAndOpenControl(itemName: String) {
+        val _traceStart = System.currentTimeMillis()
+        Log.d(TAG, "→ fetchAndOpenControl()")
         CoroutineScope(Dispatchers.IO).launch {
             repository.getItem(itemName)
                 .onSuccess { item ->
@@ -300,6 +319,7 @@ class QuickActionActivity : ComponentActivity() {
                                 executeToggle(itemName)
                                 requestTileUpdate()
                                 finish()
+                                Log.d(TAG, "← fetchAndOpenControl() ${System.currentTimeMillis() - _traceStart}ms")
                                 return@withContext
                             }
                             else -> {
@@ -312,6 +332,7 @@ class QuickActionActivity : ComponentActivity() {
                             putExtra("item_name", itemName)
                         })
                         finish()
+                        Log.d(TAG, "← fetchAndOpenControl() ${System.currentTimeMillis() - _traceStart}ms")
                     }
                 }
                 .onFailure { e ->
@@ -321,6 +342,7 @@ class QuickActionActivity : ComponentActivity() {
                             putExtra("item_name", itemName)
                         })
                         finish()
+                        Log.d(TAG, "← fetchAndOpenControl() ${System.currentTimeMillis() - _traceStart}ms")
                     }
                 }
         }

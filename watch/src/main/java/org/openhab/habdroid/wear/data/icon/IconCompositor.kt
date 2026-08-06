@@ -31,6 +31,8 @@ import javax.inject.Singleton
 class IconCompositor @Inject constructor() {
 
     companion object {
+        private const val TAG = "IconCompositor"
+
         /** Output bitmap size in pixels (renders at 2x for sharp display on high-density watches) */
         const val SIZE = 96
 
@@ -110,6 +112,8 @@ class IconCompositor @Inject constructor() {
      * @return Compressed pixel bytes for ProtoLayout, or null on failure
      */
     fun composite(bytes: ByteArray, format: IconFormat, state: IconState, themeColor: Int, label: String? = null, stateText: String? = null): ByteArray? {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ composite() label=$label")
         val key = CompositeKey(
             iconContentHash = bytes.contentHashCode(),
             format = format,
@@ -119,10 +123,17 @@ class IconCompositor @Inject constructor() {
             stateText = stateText
         )
 
-        cache.get(key)?.let { return it }
+        cache.get(key)?.let {
+            AppLog.d(TAG, "← composite() ${System.currentTimeMillis() - _traceStart}ms [cache hit]")
+            return it
+        }
 
-        val result = render(bytes, format, state, themeColor, label, stateText) ?: return null
+        val result = render(bytes, format, state, themeColor, label, stateText) ?: run {
+            AppLog.d(TAG, "← composite() ${System.currentTimeMillis() - _traceStart}ms [cache miss, render failed]")
+            return null
+        }
         cache.put(key, result)
+        AppLog.d(TAG, "← composite() ${System.currentTimeMillis() - _traceStart}ms [cache miss]")
         return result
     }
 

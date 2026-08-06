@@ -84,6 +84,8 @@ class WatchStatusWriter @Inject constructor(
      * Persists the full in-memory status to the DataClient atomically.
      */
     private suspend fun writeFullStatus() {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ writeFullStatus()")
         try {
             val request = PutDataMapRequest.create(PATH_STATUS).apply {
                 dataMap.putString(KEY_CONFIG_TIMESTAMP, currentConfigTimestamp)
@@ -96,6 +98,8 @@ class WatchStatusWriter @Inject constructor(
             AppLog.d(TAG, "Wrote status: configTimestamp=$currentConfigTimestamp, theme=$currentTheme, screenWidthDp=$currentScreenWidthDp")
         } catch (e: Exception) {
             AppLog.w(TAG, "Failed to write status", e)
+        } finally {
+            AppLog.d(TAG, "← writeFullStatus() ${System.currentTimeMillis() - _traceStart}ms")
         }
     }
 }
