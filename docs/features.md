@@ -28,6 +28,7 @@ Items behave differently based on their type and metadata configuration:
 | Contact (read-only) | Label + value | No action (display only) |
 | Command button (`action: "command"`) | Label + state from `valueItem` or primary | Sends fixed `commandValue` to target item |
 | Navigation button (`action: "page:..."`) | Page label + icon | Navigate to sub-page (via LoadAction) |
+| Double-tap button (`doubleTapItem` set) | Label + doubleTap item state (if `doubleTapStateDisplay: "value"`) | Single tap: primary action; Double tap: secondary action on doubleTapItem |
 
 #### Switch items (toggle)
 
@@ -40,6 +41,21 @@ If `needsConfirmation: true` is set in metadata, a confirmation dialog appears b
 When `action: "command"` is set, tapping always sends the fixed `commandValue` string to the target item (`commandItem` or primary item). No toggle logic — the same command is sent regardless of state.
 
 Display state can come from a separate `valueItem` (e.g., a Contact sensor), with optional `invertValue` to flip the active/inactive color interpretation. This enables patterns like gate buttons (tap sends pulse, display shows sensor feedback).
+
+#### Double-tap buttons (two actions per button)
+
+When `doubleTapItem` is configured on a slot, the button supports two distinct actions:
+
+- **Single tap** (no second tap within 350ms): executes the primary action (toggle, command, or auto-detect)
+- **Double tap** (second tap within 350ms): executes a secondary action on the `doubleTapItem`
+
+The secondary action uses the same auto-detection logic as primary: range items open RotaryControl, Color items open ColorPicker, etc. This can be overridden with `doubleTapAction: "toggle"` or `"command"`.
+
+When `doubleTapStateDisplay: "value"` is set, the button shows the double-tap item's current state (e.g., temperature setpoint) as text on the button face.
+
+Typical use case: AC control — single tap toggles power ON/OFF, double tap opens the temperature setpoint rotary control. The button shows the power state color AND the current setpoint value.
+
+Haptic feedback (long-press vibration) confirms the double-tap was detected.
 
 #### Range/Dimmer items (rotary control)
 
@@ -158,12 +174,24 @@ Theme picker uses bezel/crown rotation with live preview.
 
 ### Caching
 
-- **Tile config**: persisted to disk as JSON (`TileConfigDiskCache`). On process restart, renders immediately from disk cache (warm start), then refreshes states from server in background.
-- **Item states**: fetched fresh on each tile enter (cold load = 2 API calls, hot path = 1 batch call). Updated via SSE while visible.
+- **Tile config**: persisted to disk as JSON (`TileConfigDiskCache`) with a `configVersion` tag. On process restart, renders immediately from disk cache (warm start). Cache stays valid as long as `configVersion` matches the server — no re-fetch needed.
+- **Item metadata**: fetched in parallel (max 3 concurrent) for only the ~14 referenced items. Never fetches all 748 items. Cached to disk with configVersion — skips network entirely when version unchanged.
+- **Item states**: fetched fresh on each tile enter via parallel `getItem()` calls for ~12 items (~0.8–1s). Updated via SSE while tile is visible.
 - **Group item state**: when a Group's own state is NULL/UNDEF, derives activity from its members.
 - **Icon bytes**: LRU memory cache (30 entries). Survives tile refreshes.
-- **Composited bitmaps**: regenerated each render (theme/state dependent).
+- **Composited bitmaps**: LRU memory cache (128 entries). Cache hits are 0ms.
 - **SSE reconnection**: coroutine-based loop with 30s ALIVE timeout, 5s reconnect delay, 3-strike polling fallback (15s interval).
+
+#### Performance (via myopenhab.org cloud relay)
+
+| Operation | Duration | Notes |
+|-----------|----------|-------|
+| Cold load (disk cache valid) | ~0ms | configVersion matches, loaded from disk |
+| Cold load (config changed) | ~1.7s | Parallel fetch of ~14 items (throttled 3 concurrent) |
+| State refresh (tile enter) | ~0.8–1s | Parallel fetch of ~12 items |
+| Icon composite (cache hit) | 0ms | LRU hit |
+| Icon composite (cache miss) | 8–25ms | SVG/PNG render + compress |
+| Send command | ~230ms | Single API call |
 
 ### Configuration
 
@@ -187,9 +215,11 @@ Each tile button's state indicator can be configured with one of three modes:
 |-----------|------|------|
 | `OpenHabTileService` | `tile/OpenHabTileService.kt` | Fetches items, computes positions, builds tile layout |
 | `TileActionReceiver` | `tile/TileActionReceiver.kt` | Handles tap → sends command → requests refresh |
+| `QuickActionActivity` | `tile/QuickActionActivity.kt` | Double-tap detection (350ms window), routes primary/secondary actions |
 | `PageNavigationActivity` | `tile/PageNavigationActivity.kt` | Handles confirmed page navigation |
 | `ThemePickerActivity` | `ui/tile/ThemePickerActivity.kt` | Theme color selector (bezel rotation) |
 | `ItemCache` | `data/repository/ItemCache.kt` | In-memory cache for tile items + states |
+| `TileConfigDiskCache` | `data/repository/TileConfigDiskCache.kt` | Disk persistence with configVersion tracking |
 | `TileStateEventSource` | `data/api/TileStateEventSource.kt` | SSE client for real-time state updates |
 | `IconCompositor` | `data/icon/IconCompositor.kt` | Renders icons with ring, glow, tint, label |
 
