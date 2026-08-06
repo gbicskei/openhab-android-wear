@@ -150,10 +150,10 @@ class TileEditorModelsTest {
     }
 
     @Test
-    fun `fromDto null action defaults to Toggle`() {
+    fun `fromDto null action defaults to Auto`() {
         val dto = SlotDto(config = SlotConfig(position = 1.0, action = null))
         val state = TileSlotState.fromDto(dto)
-        assertEquals(SlotAction.Toggle, state.action)
+        assertEquals(SlotAction.Auto, state.action)
     }
 
     @Test
@@ -260,5 +260,123 @@ class TileEditorModelsTest {
         assertEquals(1, PageConfig(layout = -1.0).layoutInt)
         assertEquals(7, PageConfig(layout = 99.0).layoutInt)
         assertEquals(4, PageConfig(layout = 4.0).layoutInt)
+    }
+
+    // --- DoubleTap fields in fromDto ---
+
+    @Test
+    fun `fromDto parses doubleTapItem`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            item = "AC_Power",
+            doubleTapItem = "AC_Setpoint"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals("AC_Setpoint", state.doubleTapItem)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapAction toggle`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapAction = "toggle"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals(SlotAction.Toggle, state.doubleTapAction)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapAction command`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapAction = "command"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals(SlotAction.Command, state.doubleTapAction)
+    }
+
+    @Test
+    fun `fromDto null doubleTapAction maps to null`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapAction = null
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertNull(state.doubleTapAction)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapCommand`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapCommand = "BOOST"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals("BOOST", state.doubleTapCommand)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapConfirmation`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapConfirmation = true
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertTrue(state.doubleTapConfirmation)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapStateDisplay value`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapStateDisplay = "value"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals(StateDisplay.VALUE, state.doubleTapStateDisplay)
+    }
+
+    @Test
+    fun `fromDto parses doubleTapStateDisplay none`() {
+        val dto = SlotDto(config = SlotConfig(
+            position = 1.0,
+            doubleTapItem = "X",
+            doubleTapStateDisplay = "none"
+        ))
+        val state = TileSlotState.fromDto(dto)
+        assertEquals(StateDisplay.NONE, state.doubleTapStateDisplay)
+    }
+
+    // --- toDto round-trip with doubleTap ---
+
+    @Test
+    fun `TilePageState toDto includes slots with doubleTap config`() {
+        val page = TilePageState(
+            uid = "climate",
+            label = "Climate",
+            layout = 2,
+            slots = listOf(
+                TileSlotState(
+                    position = 1,
+                    item = "AC_Power",
+                    doubleTapItem = "AC_Setpoint",
+                    doubleTapAction = SlotAction.Toggle,
+                    doubleTapCommand = null,
+                    doubleTapConfirmation = true,
+                    doubleTapStateDisplay = StateDisplay.VALUE
+                )
+            )
+        )
+        val dto = page.toDto()
+        val slotConfig = dto.slots.default[0].config
+        assertEquals("AC_Setpoint", slotConfig.doubleTapItem)
+        assertEquals("toggle", slotConfig.doubleTapAction)
+        assertTrue(slotConfig.doubleTapConfirmation)
+        assertEquals("value", slotConfig.doubleTapStateDisplay)
     }
 }
