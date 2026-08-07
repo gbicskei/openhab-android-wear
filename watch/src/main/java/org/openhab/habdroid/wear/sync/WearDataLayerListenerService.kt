@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.ItemCache
@@ -51,6 +52,9 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
 
+    @Inject
+    lateinit var assistantRegistrar: org.openhab.habdroid.wear.ui.voice.AssistantRegistrar
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -61,6 +65,8 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
             SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
+            SyncConstants.PATH_ASSISTANT_STATUS_REQUEST -> handleAssistantStatusRequest(messageEvent)
+            SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
             else -> super.onMessageReceived(messageEvent)
         }
     }
@@ -155,5 +161,31 @@ class WearDataLayerListenerService : WearableListenerService() {
 
     companion object {
         private const val TAG = "WearDataLayerListener"
+    }
+
+    private fun handleAssistantStatusRequest(messageEvent: MessageEvent) {
+        AppLog.d(TAG, "Assistant status request received")
+        val status = assistantRegistrar.getStatus(this)
+        val response = "${status.hasPermission}|${status.isRegistered}"
+
+        serviceScope.launch {
+            try {
+                val messageClient = com.google.android.gms.wearable.Wearable.getMessageClient(this@WearDataLayerListenerService)
+                messageClient.sendMessage(
+                    messageEvent.sourceNodeId,
+                    SyncConstants.PATH_ASSISTANT_STATUS_RESPONSE,
+                    response.toByteArray(Charsets.UTF_8)
+                ).await()
+                AppLog.d(TAG, "Sent assistant status: $response")
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Failed to send assistant status", e)
+            }
+        }
+    }
+
+    private fun handleAssistantRegister() {
+        AppLog.d(TAG, "Assistant register command received")
+        val success = assistantRegistrar.register(this)
+        AppLog.d(TAG, "Assistant register result: $success")
     }
 }

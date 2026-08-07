@@ -186,4 +186,60 @@ class VoiceCommandViewModelTest {
 
         assertEquals(VoiceUiState.Idle, vm.uiState.value)
     }
+
+    @Test
+    fun `setListening transitions to Listening state`() {
+        val vm = createViewModel()
+        vm.setListening()
+
+        val state = vm.uiState.value
+        assertTrue(state is VoiceUiState.Listening)
+        assertEquals(0f, (state as VoiceUiState.Listening).rmsLevel)
+        assertEquals("", state.partialText)
+    }
+
+    @Test
+    fun `updateRmsLevel updates Listening state`() {
+        val vm = createViewModel()
+        vm.setListening()
+        vm.updateRmsLevel(5.5f)
+
+        val state = vm.uiState.value as VoiceUiState.Listening
+        assertEquals(5.5f, state.rmsLevel)
+    }
+
+    @Test
+    fun `updateRmsLevel does nothing when not in Listening state`() {
+        val vm = createViewModel()
+        vm.updateRmsLevel(5.5f)
+
+        assertEquals(VoiceUiState.Idle, vm.uiState.value)
+    }
+
+    @Test
+    fun `setPartialResult updates Listening state`() {
+        val vm = createViewModel()
+        vm.setListening()
+        vm.setPartialResult("turn on the")
+
+        val state = vm.uiState.value as VoiceUiState.Listening
+        assertEquals("turn on the", state.partialText)
+    }
+
+    @Test
+    fun `setPartialResult does nothing when not in Listening state`() {
+        val vm = createViewModel()
+        vm.setPartialResult("something")
+
+        assertEquals(VoiceUiState.Idle, vm.uiState.value)
+    }
+
+    @Test
+    fun `setProcessing transitions to Processing state`() {
+        val vm = createViewModel()
+        vm.setListening()
+        vm.setProcessing()
+
+        assertEquals(VoiceUiState.Processing, vm.uiState.value)
+    }
 }

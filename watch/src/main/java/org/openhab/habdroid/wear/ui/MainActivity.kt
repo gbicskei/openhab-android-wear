@@ -36,7 +36,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.openhab.habdroid.wear.R
-import org.openhab.habdroid.wear.ui.settings.LocalConfigActivity
 
 /**
  * Main launcher activity for the openHAB Wear OS app.
@@ -53,9 +52,6 @@ class MainActivity : ComponentActivity() {
             MainScreen(
                 onAbout = {
                     startActivity(Intent(this@MainActivity, AboutActivity::class.java))
-                },
-                onLocalConfig = {
-                    startActivity(Intent(this@MainActivity, LocalConfigActivity::class.java))
                 }
             )
         }
@@ -65,8 +61,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    onAbout: () -> Unit = {},
-    onLocalConfig: () -> Unit = {}
+    onAbout: () -> Unit = {}
 ) {
     val reloadState by viewModel.reloadState.collectAsState()
     val context = LocalContext.current
@@ -147,19 +142,6 @@ fun MainScreen(
                     icon = {
                         Icon(
                             Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                )
-            }
-            item {
-                Button(
-                    onClick = onLocalConfig,
-                    label = { Text("Local Config") },
-                    icon = {
-                        Icon(
-                            Icons.Default.Settings,
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )

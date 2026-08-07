@@ -69,6 +69,11 @@ fun SettingsScreen(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
+            // ─── Assistant Setup section ───
+            AssistantSetupSection()
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
             // ─── Debug section ───
             DebugSection(
                 debugMode = settingsState.debugMode,

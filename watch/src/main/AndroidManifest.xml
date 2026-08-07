@@ -15,6 +15,12 @@
     <!-- Wake lock for tile updates and background work -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Re-register assistant after reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Required to register as system assistant (granted via ADB during setup) -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
 
     <application
         android:name=".OpenHabWearApp"
@@ -42,12 +48,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Voice Command Activity -->
+        <!-- Voice Command Activity (also handles system ASSIST action) -->
         <activity
             android:name=".ui.voice.VoiceCommandActivity"
             android:exported="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.DeviceDefault" />
+            android:theme="@android:style/Theme.DeviceDefault">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
 
         <!-- Theme Picker (launched by system pencil on tile long-press) -->
         <activity
@@ -217,6 +228,35 @@
                     android:pathPrefix="/openhab" />
             </intent-filter>
         </service>
+
+        <!-- Voice Interaction Service (registers this app as a selectable assistant) -->
+        <service
+            android:name=".ui.voice.OpenHabVoiceInteractionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION">
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/voice_interaction_service" />
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+        </service>
+
+        <!-- Voice Interaction Session Service (creates voice sessions) -->
+        <service
+            android:name=".ui.voice.OpenHabVoiceInteractionSessionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_VOICE_INTERACTION" />
+
+        <!-- Re-registers assistant after reinstall or reboot -->
+        <receiver
+            android:name=".ui.voice.AssistantBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

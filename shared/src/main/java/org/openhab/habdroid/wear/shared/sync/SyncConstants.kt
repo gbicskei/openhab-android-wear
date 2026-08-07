@@ -16,6 +16,15 @@ object SyncConstants {
     /** Message path for voice settings sync (phone → watch) */
     const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
 
+    /** Message path for assistant status query (phone → watch, watch replies) */
+    const val PATH_ASSISTANT_STATUS_REQUEST = "/openhab/assistant-status-request"
+
+    /** Message path for assistant status response (watch → phone) */
+    const val PATH_ASSISTANT_STATUS_RESPONSE = "/openhab/assistant-status-response"
+
+    /** Message path for assistant setup command (phone → watch: register after ADB grant) */
+    const val PATH_ASSISTANT_REGISTER = "/openhab/assistant-register"
+
     /** Default UI components namespace for wear tile config */
     const val DEFAULT_TILE_NAMESPACE = "wear:tile"
 
