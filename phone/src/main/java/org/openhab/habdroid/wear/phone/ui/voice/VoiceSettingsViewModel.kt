@@ -54,6 +54,7 @@ class VoiceSettingsViewModel @Inject constructor(
     init {
         loadSettings()
         checkOpenHabVersion()
+        loadVoices()
     }
 
     private fun loadSettings() {
@@ -83,8 +84,6 @@ class VoiceSettingsViewModel @Inject constructor(
                 )
                 val supported = isVersionSupported(version)
                 _uiState.update { it.copy(ohVersion = version, ohVersionSupported = supported) }
-                // Load voices after we know the server is reachable
-                loadVoices()
             } catch (e: Exception) {
                 AppLog.w(TAG, "Failed to check OH version", e)
             }
@@ -109,13 +108,31 @@ class VoiceSettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                // Use the phone's locale language as a proxy for the watch language
-                val languageTag = java.util.Locale.getDefault().toLanguageTag() // e.g. "en-GB"
+                val languageTag = java.util.Locale.getDefault().toLanguageTag()
                 val voices = connectionTester.fetchGoogleVoices(apiKey, languageTag)
-                _uiState.update { it.copy(availableVoices = voices, voicesLoading = false) }
+                if (voices.isEmpty()) {
+                    // API key invalid or no voices available — disable server TTS
+                    AppLog.w(TAG, "No voices returned — disabling server TTS")
+                    _uiState.update {
+                        it.copy(
+                            voicesLoading = false,
+                            availableVoices = emptyList(),
+                            useServerTts = false,
+                            hasGoogleTtsKey = false
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(availableVoices = voices, voicesLoading = false) }
+                }
             } catch (e: Exception) {
-                AppLog.w(TAG, "Failed to load voices", e)
-                _uiState.update { it.copy(voicesLoading = false) }
+                AppLog.w(TAG, "Failed to load voices — disabling server TTS", e)
+                _uiState.update {
+                    it.copy(
+                        voicesLoading = false,
+                        useServerTts = false,
+                        hasGoogleTtsKey = false
+                    )
+                }
             }
         }
     }

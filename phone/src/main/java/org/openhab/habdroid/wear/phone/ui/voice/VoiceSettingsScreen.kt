@@ -105,72 +105,50 @@ fun VoiceSettingsContent(viewModel: VoiceSettingsViewModel) {
                         valueLabel = "${(uiState.volume * 100).toInt()}%"
                     )
 
-                    if (uiState.hasGoogleTtsKey) {
-                        // ─── Server TTS (Google WaveNet) ───
-                        Spacer(modifier = Modifier.height(12.dp))
+                    // ─── Server TTS (Google WaveNet) ───
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        SettingsToggle(
-                            label = "Use Google WaveNet voices",
-                            subtitle = "High-quality server-side speech synthesis",
-                            checked = uiState.useServerTts,
-                            onCheckedChange = viewModel::onUseServerTtsChanged
-                        )
+                    SettingsToggle(
+                        label = "Use Google WaveNet voices",
+                        subtitle = if (uiState.hasGoogleTtsKey)
+                            "High-quality server-side speech synthesis"
+                        else
+                            "Requires Google Cloud TTS API key (Connection settings)",
+                        checked = uiState.useServerTts,
+                        onCheckedChange = viewModel::onUseServerTtsChanged,
+                        enabled = uiState.hasGoogleTtsKey
+                    )
 
-                        AnimatedVisibility(visible = uiState.useServerTts) {
-                            Column {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                VoicePicker(
-                                    selectedVoice = uiState.selectedVoice,
-                                    voices = uiState.availableVoices,
-                                    loading = uiState.voicesLoading,
-                                    onVoiceSelected = viewModel::onVoiceSelected
-                                )
-                            }
+                    AnimatedVisibility(visible = uiState.useServerTts && uiState.hasGoogleTtsKey) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            VoicePicker(
+                                selectedVoice = uiState.selectedVoice,
+                                voices = uiState.availableVoices,
+                                loading = uiState.voicesLoading,
+                                onVoiceSelected = viewModel::onVoiceSelected
+                            )
                         }
+                    }
 
-                        AnimatedVisibility(visible = !uiState.useServerTts) {
-                            Column {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                SystemTtsSettings(
-                                    speechRate = uiState.speechRate,
-                                    pitch = uiState.pitch,
-                                    onSpeechRateChanged = viewModel::onSpeechRateChanged,
-                                    onPitchChanged = viewModel::onPitchChanged
-                                )
-                            }
+                    AnimatedVisibility(visible = !uiState.useServerTts || !uiState.hasGoogleTtsKey) {
+                        Column {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            SystemTtsSettings(
+                                speechRate = uiState.speechRate,
+                                pitch = uiState.pitch,
+                                onSpeechRateChanged = viewModel::onSpeechRateChanged,
+                                onPitchChanged = viewModel::onPitchChanged
+                            )
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                        OutlinedButton(onClick = { viewModel.testVoice() }) {
-                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Test voice")
-                        }
-                    } else {
-                        // ─── System TTS only ───
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SystemTtsSettings(
-                            speechRate = uiState.speechRate,
-                            pitch = uiState.pitch,
-                            onSpeechRateChanged = viewModel::onSpeechRateChanged,
-                            onPitchChanged = viewModel::onPitchChanged
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        OutlinedButton(onClick = { viewModel.testVoice() }) {
-                            Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Test voice")
-                        }
-
-                        Text(
-                            text = "Configure a Google Cloud TTS API key in Connection settings for enhanced voice quality",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
+                    OutlinedButton(onClick = { viewModel.testVoice() }) {
+                        Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Test voice")
                     }
                 }
             }

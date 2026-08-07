@@ -11,8 +11,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,24 +62,47 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
-            // ─── Voice Settings section ───
-            VoiceSettingsContent(viewModel = voiceViewModel)
+            Spacer(modifier = Modifier.height(8.dp))
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            // ─── Voice Settings card ───
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    VoiceSettingsContent(viewModel = voiceViewModel)
+                }
+            }
 
-            // ─── Assistant Setup section ───
-            AssistantSetupSection()
+            Spacer(modifier = Modifier.height(12.dp))
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+            // ─── Assistant Setup card ───
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    AssistantSetupSection()
+                }
+            }
 
-            // ─── Debug section ───
-            DebugSection(
-                debugMode = settingsState.debugMode,
-                onDebugModeChanged = settingsViewModel::setDebugMode
-            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ─── Debug card ───
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    DebugSection(
+                        debugMode = settingsState.debugMode,
+                        onDebugModeChanged = settingsViewModel::setDebugMode
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
