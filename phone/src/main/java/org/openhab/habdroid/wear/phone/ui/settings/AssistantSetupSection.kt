@@ -1,30 +1,37 @@
 package org.openhab.habdroid.wear.phone.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+
+private const val SETUP_DOC_URL =
+    "https://github.com/gbicskei/openhab-android-wear/blob/master/docs/voice-assistant-setup.md"
 
 @Composable
 fun AssistantSetupSection(
     viewModel: AssistantSetupViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -66,7 +73,7 @@ fun AssistantSetupSection(
                     result.hasPermission && !result.isRegistered ->
                         "\u26A0\uFE0F Permission granted but not registered. Relaunch the openHAB watch app."
                     else ->
-                        "\u274C Setup needed \u2014 follow the instructions below."
+                        "\u274C Setup needed \u2014 see instructions below."
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = if (result.hasPermission && result.isRegistered)
@@ -89,69 +96,24 @@ fun AssistantSetupSection(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ─── Setup instructions ───
+        // ─── Setup link ───
         Text(
-            text = "One-time setup (from a PC)",
-            style = MaterialTheme.typography.titleSmall
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "This requires a one-time ADB command from a computer. " +
-                "You already have ADB if you sideloaded the watch app.",
+            text = "One-time setup required from a PC.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "1. Connect your watch to the PC via ADB:",
-            style = MaterialTheme.typography.labelLarge
-        )
-        Text(
-            text = "\u2022 On watch: Settings \u2192 About watch \u2192 tap Software version 5 times\n" +
-                "\u2022 Settings \u2192 Developer options \u2192 enable ADB debugging\n" +
-                "\u2022 Enable Wireless debugging \u2192 Pair new device\n" +
-                "\u2022 On PC: adb pair <ip>:<pairing-port> <code>\n" +
-                "\u2022 Then: adb connect <ip>:<port>",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 8.dp, top = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = "2. Run the setup command:",
-            style = MaterialTheme.typography.labelLarge
         )
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            SelectionContainer {
-                Text(
-                    text = "adb shell pm grant org.openhab.habdroid.wear android.permission.WRITE_SECURE_SETTINGS",
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(12.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         Text(
-            text = "3. That\u2019s it! The watch app auto-registers on every launch. " +
-                "You can disable ADB debugging and disconnect. " +
-                "Use \u201CCheck watch status\u201D above to verify.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "Setup instructions",
+            style = MaterialTheme.typography.bodyMedium.copy(
+                textDecoration = TextDecoration.Underline
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.clickable {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SETUP_DOC_URL)))
+            }
         )
     }
 }
