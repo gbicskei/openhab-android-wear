@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Metadata for the VoiceInteractionService that tells the system
+     which VoiceInteractionSessionService to use when a session starts. -->
+<voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:sessionService="org.openhab.habdroid.wear.ui.voice.OpenHabVoiceInteractionSessionService"
+    android:supportsAssist="true"
+    android:supportsLaunchVoiceAssistFromKeyguard="true" />

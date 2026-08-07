@@ -16,6 +16,8 @@ import javax.inject.Inject
 
 sealed interface VoiceUiState {
     data object Idle : VoiceUiState
+    data class Listening(val rmsLevel: Float = 0f, val partialText: String = "") : VoiceUiState
+    data object Processing : VoiceUiState
     data class Sending(val command: String) : VoiceUiState
     data class Success(val responseText: String, val isSpeaking: Boolean = false, val ttsUsed: Boolean = false) : VoiceUiState
     data class Error(val message: String) : VoiceUiState
@@ -81,6 +83,35 @@ class VoiceCommandViewModel @Inject constructor(
 
     fun setError(message: String) {
         _uiState.value = VoiceUiState.Error(message)
+    }
+
+    fun setListening() {
+        _uiState.value = VoiceUiState.Listening()
+    }
+
+    fun setSpeaking() {
+        val current = _uiState.value
+        if (current is VoiceUiState.Listening) {
+            _uiState.value = current.copy(rmsLevel = current.rmsLevel)
+        }
+    }
+
+    fun setProcessing() {
+        _uiState.value = VoiceUiState.Processing
+    }
+
+    fun updateRmsLevel(rmsDb: Float) {
+        val current = _uiState.value
+        if (current is VoiceUiState.Listening) {
+            _uiState.value = current.copy(rmsLevel = rmsDb)
+        }
+    }
+
+    fun setPartialResult(text: String) {
+        val current = _uiState.value
+        if (current is VoiceUiState.Listening) {
+            _uiState.value = current.copy(partialText = text)
+        }
     }
 
     fun reset() {
