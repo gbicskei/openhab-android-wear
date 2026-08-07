@@ -12,14 +12,14 @@ plugins {
 
 android {
     namespace = "org.openhab.habdroid.wear"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "org.openhab.habdroid.wear"
         minSdk = 34
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 49
-        versionName = "1.2.0"
+        versionName = "1.3.0"
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
