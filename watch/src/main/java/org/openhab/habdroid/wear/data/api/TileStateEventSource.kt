@@ -54,7 +54,7 @@ class TileStateEventSource @Inject constructor(
         private const val EVENT_TIMEOUT_MS = 30_000L
 
         /** Delay between reconnection attempts */
-        private const val RECONNECT_DELAY_MS = 5_000L
+        private const val RECONNECT_DELAY_MS = 1_000L
 
         /** If connection fails this quickly, count it as a "quick failure" */
         private const val QUICK_FAILURE_THRESHOLD_MS = 10_000L
@@ -84,16 +84,17 @@ class TileStateEventSource @Inject constructor(
         }
 
         connectionJob = scope.launch {
-            val credentials = credentialStore.credentials.first() ?: run {
-                AppLog.w(TAG, "No credentials, cannot connect SSE")
-                return@launch
-            }
-
-            val baseUrl = credentials.serverUrl.trimEnd('/')
             var consecutiveQuickFailures = 0
 
             // Main loop: try SSE, fall back to polling if unstable
             while (isActive) {
+                // Re-read credentials on each iteration (picks up server URL changes)
+                val credentials = credentialStore.credentials.first() ?: run {
+                    AppLog.w(TAG, "No credentials, cannot connect SSE")
+                    return@launch
+                }
+                val baseUrl = credentials.serverUrl.trimEnd('/')
+
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
                     AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")
                     val pollResult = pollLoop(onChanged)
@@ -116,14 +117,17 @@ class TileStateEventSource @Inject constructor(
                             consecutiveQuickFailures++
                             AppLog.d(TAG, "Quick failure #$consecutiveQuickFailures (${elapsed}ms)")
                         } else {
-                            // Connection lasted a while — reset counter
+                            // Connection lasted a while then died — may have missed events
                             consecutiveQuickFailures = 0
+                            AppLog.d(TAG, "SSE dropped after ${elapsed}ms, refreshing states")
+                            refreshAndNotify(onChanged)
                         }
                     }
                     SseResult.TIMEOUT -> {
                         // No events for 30s — reconnect (not a "quick" failure)
                         consecutiveQuickFailures = 0
-                        AppLog.d(TAG, "Event timeout, reconnecting")
+                        AppLog.d(TAG, "Event timeout, refreshing states and reconnecting")
+                        refreshAndNotify(onChanged)
                     }
                 }
 
@@ -155,11 +159,22 @@ class TileStateEventSource @Inject constructor(
         val sseClient = okHttpClient.newBuilder()
             .readTimeout(0, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
+            .apply {
+                // Remove body-level logging interceptors — they buffer SSE streams
+                val interceptorsToKeep = interceptors().filter { interceptor ->
+                    interceptor !is okhttp3.logging.HttpLoggingInterceptor
+                }
+                interceptors().clear()
+                interceptorsToKeep.forEach { addInterceptor(it) }
+            }
             .build()
 
         val request = Request.Builder()
             .url(url)
             .header("Accept", "text/event-stream")
+            .header("Cache-Control", "no-cache")
+            .header("Connection", "keep-alive")
+            .header("X-Accel-Buffering", "no")
             .build()
 
         val channel = Channel<SseEvent>(Channel.BUFFERED)
@@ -241,6 +256,42 @@ class TileStateEventSource @Inject constructor(
     }
 
     /**
+     * Quick state refresh to catch events missed during SSE gap.
+     * Only fetches items currently on the visible tile page (lightweight).
+     */
+    private suspend fun refreshAndNotify(onChanged: () -> Unit) {
+        try {
+            // Only refresh the watched items (current page) — not all 14
+            val itemsToRefresh = watchedItems.take(4) // max 4 items on a tile page
+            if (itemsToRefresh.isEmpty()) {
+                repository.refreshStates()
+                    .onSuccess { onChanged() }
+                    .onFailure { e -> AppLog.w(TAG, "Reconnect refresh failed: ${e.message}") }
+                return
+            }
+            
+            var anyChanged = false
+            for (name in itemsToRefresh) {
+                try {
+                    val item = repository.fetchSingleItem(name)
+                    if (item != null) {
+                        val newState = item.state
+                        if (newState != null) {
+                            itemCache.updateItemState(name, newState)
+                            anyChanged = true
+                        }
+                    }
+                } catch (e: Exception) {
+                    AppLog.w(TAG, "Refresh item '$name' failed: ${e.message}")
+                }
+            }
+            if (anyChanged) onChanged()
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Reconnect refresh error: ${e.message}")
+        }
+    }
+
+    /**
      * Polling fallback: fetch states periodically when SSE is unstable.
      * After a successful poll (network is back), retries SSE.
      * Runs until SSE is re-established or the coroutine is cancelled (tile leave → stop()).
@@ -283,18 +334,25 @@ class TileStateEventSource @Inject constructor(
 
             // Quick string parsing — avoid full JSON for performance
             val topicStart = data.indexOf("\"topic\":\"") + 9
-            if (topicStart < 9) return
+            if (topicStart < 9) {
+                AppLog.d(TAG, "No topic found in event, data=${data.take(200)}")
+                return
+            }
             val topicEnd = data.indexOf("\"", topicStart)
             if (topicEnd < 0) return
             val topic = data.substring(topicStart, topicEnd)
 
             // Topic format: openhab/items/{itemName}/statechanged
             val parts = topic.split("/")
-            if (parts.size < 4 || parts[3] != "statechanged") return
+            if (parts.size < 4 || parts[3] != "statechanged") {
+                AppLog.d(TAG, "Non-statechanged topic: $topic")
+                return
+            }
             val itemName = parts[2]
 
             // Extract new state from payload
             val newState = extractNewState(data)
+            AppLog.d(TAG, "Parsed: item=$itemName state=$newState watched=${watchedItems.contains(itemName)} watchedItems=${watchedItems.size}")
 
             if (watchedItems.isEmpty() || watchedItems.contains(itemName)) {
                 AppLog.d(TAG, "State changed: $itemName → $newState")
@@ -321,16 +379,27 @@ class TileStateEventSource @Inject constructor(
 
     /**
      * Extract the new state value from SSE event payload.
-     * Payload is nested JSON: {"payload":"{\"type\":\"...\",\"value\":\"ON\",...}"}
+     * The data format is: {"topic":"...","payload":"{\"type\":\"...\",\"value\":\"ON\",...}"}
+     * The payload is a JSON-encoded string (escaped), so we need to look for escaped value key.
      */
     private fun extractNewState(data: String): String? {
         return try {
-            // Find "value":" in the payload
-            val valueKey = "\"value\":\""
-            val valueStart = data.indexOf(valueKey)
-            if (valueStart < 0) return null
-            val stateStart = valueStart + valueKey.length
-            val stateEnd = data.indexOf("\"", stateStart)
+            // The payload is escaped JSON inside a string, so "value" appears as \"value\":\"
+            val escapedValueKey = "\\\"value\\\":\\\""
+            val valueStart = data.indexOf(escapedValueKey)
+            if (valueStart < 0) {
+                // Fallback: try unescaped (in case payload is not string-wrapped)
+                val plainKey = "\"value\":\""
+                val plainStart = data.indexOf(plainKey)
+                if (plainStart < 0) return null
+                val stateStart = plainStart + plainKey.length
+                val stateEnd = data.indexOf("\"", stateStart)
+                if (stateEnd < 0) return null
+                return data.substring(stateStart, stateEnd)
+            }
+            val stateStart = valueStart + escapedValueKey.length
+            // Find the closing escaped quote: \"
+            val stateEnd = data.indexOf("\\\"", stateStart)
             if (stateEnd < 0) return null
             data.substring(stateStart, stateEnd)
         } catch (e: Exception) {
@@ -351,3 +420,4 @@ class TileStateEventSource @Inject constructor(
         data object Closed : SseEvent
     }
 }
+

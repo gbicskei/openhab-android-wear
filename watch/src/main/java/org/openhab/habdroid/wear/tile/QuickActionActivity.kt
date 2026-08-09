@@ -230,6 +230,11 @@ class QuickActionActivity : ComponentActivity() {
             }
             Log.d(TAG, "Toggle '$itemName': state=$state → $command")
             repository.sendCommand(itemName, command)
+                .onSuccess {
+                    // Optimistically update local cache so tile re-renders immediately
+                    itemCache.updateItemState(itemName, command)
+                    requestTileUpdate()
+                }
         }
     }
 
@@ -237,6 +242,11 @@ class QuickActionActivity : ComponentActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             Log.d(TAG, "Command '$itemName': $command")
             repository.sendCommand(itemName, command)
+                .onSuccess {
+                    // Optimistically update local cache so tile re-renders immediately
+                    itemCache.updateItemState(itemName, command)
+                    requestTileUpdate()
+                }
         }
     }
 

@@ -15,8 +15,10 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.openhab.habdroid.wear.BuildConfig
 import org.openhab.habdroid.wear.data.api.AuthInterceptor
+import org.openhab.habdroid.wear.data.api.CachingDns
 import org.openhab.habdroid.wear.data.api.OpenHabApiService
 import org.openhab.habdroid.wear.data.repository.CredentialStore
+import org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
 import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.data.repository.TilePreferenceStore
 import org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
@@ -32,6 +34,7 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 private val Context.tileDataStore: DataStore<Preferences> by preferencesDataStore(name = "tile_selection_prefs")
 private val Context.complicationDataStore: DataStore<Preferences> by preferencesDataStore(name = "complication_prefs")
 private val Context.voiceDataStore: DataStore<Preferences> by preferencesDataStore(name = "voice_prefs")
+private val Context.notificationDataStore: DataStore<Preferences> by preferencesDataStore(name = "notification_prefs")
 
 /** Hilt dependency injection module providing app-wide singletons: OkHttpClient, Retrofit, DataStore, API service. */
 @Module
@@ -102,6 +105,21 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Named("notification")
+    fun provideNotificationDataStore(@ApplicationContext context: Context): DataStore<Preferences> {
+        return context.notificationDataStore
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationPreferenceStore(
+        @Named("notification") dataStore: DataStore<Preferences>
+    ): NotificationPreferenceStore {
+        return NotificationPreferenceStore(dataStore)
+    }
+
+    @Provides
+    @Singleton
     fun provideTtsManager(@ApplicationContext context: Context): TtsManager {
         return TtsManager(context)
     }
@@ -127,8 +145,9 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: AuthInterceptor): OkHttpClient {
+    fun provideOkHttpClient(authInterceptor: AuthInterceptor, cachingDns: CachingDns): OkHttpClient {
         return OkHttpClient.Builder()
+            .dns(cachingDns)
             .addInterceptor(authInterceptor)
             .apply {
                 if (BuildConfig.DEBUG) {

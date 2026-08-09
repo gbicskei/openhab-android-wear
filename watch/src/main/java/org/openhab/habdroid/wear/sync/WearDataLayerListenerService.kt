@@ -13,9 +13,11 @@ import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.ItemCache
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.notification.FcmRegistrationWorker
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.tile.OpenHabTileService
 import androidx.wear.tiles.TileService
@@ -55,6 +57,15 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var assistantRegistrar: org.openhab.habdroid.wear.ui.voice.AssistantRegistrar
 
+    @Inject
+    lateinit var notificationPreferenceStore: org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
+
+    @Inject
+    lateinit var cachingDns: org.openhab.habdroid.wear.data.api.CachingDns
+
+    @Inject
+    lateinit var tileStateEventSource: org.openhab.habdroid.wear.data.api.TileStateEventSource
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -65,6 +76,7 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
             SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
+            SyncConstants.PATH_NOTIFICATION_SETTINGS -> handleNotificationSettingsMessage(messageEvent)
             SyncConstants.PATH_ASSISTANT_STATUS_REQUEST -> handleAssistantStatusRequest(messageEvent)
             SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
             else -> super.onMessageReceived(messageEvent)
@@ -88,6 +100,19 @@ class WearDataLayerListenerService : WearableListenerService() {
                 credentialStore.saveCredentials(credentials)
                 AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
 
+                // Seed DNS cache with phone-resolved IPs
+                if (configData.resolvedIps.isNotEmpty()) {
+                    try {
+                        val host = java.net.URI(configData.serverUrl).host
+                        if (host != null) {
+                            cachingDns.seedCache(host, configData.resolvedIps)
+                            AppLog.d(TAG, "DNS cache seeded: $host → ${configData.resolvedIps.joinToString()}")
+                        }
+                    } catch (e: Exception) {
+                        AppLog.w(TAG, "Failed to seed DNS cache: ${e.message}")
+                    }
+                }
+
                 // Save Google TTS API key if provided
                 if (configData.googleTtsApiKey.isNotBlank()) {
                     voicePreferenceStore.setServerTtsApiKey(configData.googleTtsApiKey)
@@ -98,6 +123,12 @@ class WearDataLayerListenerService : WearableListenerService() {
 
                 // Update debug mode
                 AppLog.debugMode = configData.debugMode
+
+                // Register FCM token with cloud for push notifications
+                FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
+
+                // Restart SSE so it picks up the new server URL immediately
+                tileStateEventSource.stop()
 
                 // Also trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
@@ -156,6 +187,26 @@ class WearDataLayerListenerService : WearableListenerService() {
             }
         } catch (e: Exception) {
             AppLog.e(TAG, "Failed to parse voice settings message", e)
+        }
+    }
+
+    private fun handleNotificationSettingsMessage(messageEvent: MessageEvent) {
+        try {
+            val payload = String(messageEvent.data, Charsets.UTF_8)
+            AppLog.d(TAG, "Notification settings received (${payload.length} chars)")
+
+            val settings = json.decodeFromString<SyncNotificationSettingsPayload>(payload)
+
+            serviceScope.launch {
+                notificationPreferenceStore.setNotificationsEnabled(settings.notificationsEnabled)
+                notificationPreferenceStore.setReadAloudEnabled(settings.readAloudEnabled)
+                notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
+                notificationPreferenceStore.setChimeSound(settings.chimeSound)
+                notificationPreferenceStore.setNotificationVolume(settings.notificationVolume)
+                AppLog.d(TAG, "Notification settings saved from phone sync")
+            }
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to parse notification settings message", e)
         }
     }
 

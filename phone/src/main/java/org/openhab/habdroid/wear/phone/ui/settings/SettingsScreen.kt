@@ -36,13 +36,15 @@ import org.openhab.habdroid.wear.phone.ui.voice.VoiceSettingsViewModel
 fun SettingsScreen(
     onBack: () -> Unit,
     voiceViewModel: VoiceSettingsViewModel = hiltViewModel(),
-    settingsViewModel: SettingsViewModel = hiltViewModel()
+    settingsViewModel: SettingsViewModel = hiltViewModel(),
+    notificationViewModel: NotificationSettingsViewModel = hiltViewModel()
 ) {
     val settingsState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val voiceState by voiceViewModel.uiState.collectAsStateWithLifecycle()
+    val notificationState by notificationViewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
-    val anyUnsaved = settingsState.hasUnsavedChanges || voiceState.hasUnsavedChanges
+    val anyUnsaved = settingsState.hasUnsavedChanges || voiceState.hasUnsavedChanges || notificationState.hasUnsavedChanges
 
     Scaffold(
         topBar = {
@@ -74,6 +76,18 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     VoiceSettingsContent(viewModel = voiceViewModel)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ─── Notification Settings card ───
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    NotificationSettingsContent(viewModel = notificationViewModel)
                 }
             }
 
@@ -111,6 +125,7 @@ fun SettingsScreen(
                 onClick = {
                     voiceViewModel.save()
                     settingsViewModel.save()
+                    notificationViewModel.save()
                 },
                 enabled = anyUnsaved,
                 modifier = Modifier.fillMaxWidth()

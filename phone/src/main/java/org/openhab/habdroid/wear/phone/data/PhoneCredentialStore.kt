@@ -51,6 +51,9 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
         const val KEY_TTS_PITCH = "tts_pitch"
         const val KEY_SETTINGS_NEED_SYNC = "settings_need_sync"
+        const val KEY_NOTIFICATION_READ_ALOUD = "notification_read_aloud"
+        const val KEY_NOTIFICATION_CHIME = "notification_chime"
+        const val KEY_NOTIFICATION_VOLUME = "notification_volume"
         const val DEFAULT_THEME = "AMBER"
     }
 
@@ -291,6 +294,37 @@ class PhoneCredentialStore @Inject constructor(
     }
 
     // ─── Settings sync flag ───
+
+    // ─── Notification Settings ───
+
+    /** Whether notification read-aloud is enabled. Default: false. */
+    val isNotificationReadAloud: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_NOTIFICATION_READ_ALOUD, false)
+    } catch (_: Exception) { false }
+
+    /** Whether notification chime is enabled. Default: true. */
+    val isNotificationChime: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_NOTIFICATION_CHIME, true)
+    } catch (_: Exception) { true }
+
+    /** Notification volume (0.0–1.0). Default: 1.0 (max). */
+    val notificationVolume: Float get() = try {
+        encryptedPrefs.getFloat(KEY_NOTIFICATION_VOLUME, 1.0f)
+    } catch (_: Exception) { 1.0f }
+
+    /** Save notification settings. */
+    suspend fun saveNotificationSettings(readAloud: Boolean, chime: Boolean, volume: Float) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_NOTIFICATION_READ_ALOUD, readAloud)
+                .putBoolean(KEY_NOTIFICATION_CHIME, chime)
+                .putFloat(KEY_NOTIFICATION_VOLUME, volume)
+                .putBoolean(KEY_SETTINGS_NEED_SYNC, true)
+                .apply()
+        }
+    }
+
+    // ─── Settings sync flag (original) ───
 
     /** Whether saved settings need to be synced to the watch. */
     val settingsNeedSync: Boolean get() = try {

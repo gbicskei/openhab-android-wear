@@ -16,6 +16,9 @@ object SyncConstants {
     /** Message path for voice settings sync (phone → watch) */
     const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
 
+    /** Message path for notification settings sync (phone → watch) */
+    const val PATH_NOTIFICATION_SETTINGS = "/openhab/notification-settings"
+
     /** Message path for assistant status query (phone → watch, watch replies) */
     const val PATH_ASSISTANT_STATUS_REQUEST = "/openhab/assistant-status-request"
 

@@ -47,7 +47,7 @@ fun VoiceSettingsContent(viewModel: VoiceSettingsViewModel) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // ─── Voice Settings (parent section) ───
-    SectionTitle("Voice Settings")
+    SectionTitle("Voice Command Settings")
 
     SettingsToggle(
         label = "Enable voice commands",
