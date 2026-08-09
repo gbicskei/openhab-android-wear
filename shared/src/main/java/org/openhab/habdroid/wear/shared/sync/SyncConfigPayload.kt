@@ -20,6 +20,7 @@ data class SyncConfigPayload(
     val username: String = "",
     val password: String = "",
     val userKey: String = "",
+    val deviceName: String = "",
     val googleTtsApiKey: String = "",
     val debugMode: Boolean = false,
     /** Pre-resolved IP addresses for the server hostname (seeded by phone DNS). */

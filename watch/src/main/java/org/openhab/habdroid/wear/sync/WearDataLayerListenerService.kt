@@ -7,6 +7,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.json.Json
@@ -19,6 +20,7 @@ import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
 import org.openhab.habdroid.wear.tile.OpenHabTileService
 import androidx.wear.tiles.TileService
 import javax.inject.Inject
@@ -43,13 +45,13 @@ class WearDataLayerListenerService : WearableListenerService() {
     lateinit var itemCache: ItemCache
 
     @Inject
-    lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
-
-    @Inject
     lateinit var repository: org.openhab.habdroid.wear.data.repository.OpenHabRepository
 
     @Inject
     lateinit var watchStatusWriter: WatchStatusWriter
+
+    @Inject
+    lateinit var serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer
 
     @Inject
     lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
@@ -74,11 +76,12 @@ class WearDataLayerListenerService : WearableListenerService() {
         when (messageEvent.path) {
             SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
-            SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
             SyncConstants.PATH_NOTIFICATION_SETTINGS -> handleNotificationSettingsMessage(messageEvent)
             SyncConstants.PATH_ASSISTANT_STATUS_REQUEST -> handleAssistantStatusRequest(messageEvent)
             SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
+            SyncConstants.PATH_SETTINGS_REQUEST -> handleSettingsRequest(messageEvent)
+            SyncConstants.PATH_TTS_TEST -> handleTtsTest()
             else -> super.onMessageReceived(messageEvent)
         }
     }
@@ -121,8 +124,9 @@ class WearDataLayerListenerService : WearableListenerService() {
                     AppLog.d(TAG, "Google TTS API key synced from phone")
                 }
 
-                // Update debug mode
+                // Update debug mode (persist to DataStore)
                 AppLog.debugMode = configData.debugMode
+                credentialStore.setDebugMode(configData.debugMode)
 
                 // Register FCM token with cloud for push notifications
                 FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
@@ -149,20 +153,6 @@ class WearDataLayerListenerService : WearableListenerService() {
                 .onFailure { e ->
                     AppLog.e(TAG, "Reload failed: ${e.message}")
                 }
-            TileService.getUpdater(this@WearDataLayerListenerService)
-                .requestUpdate(OpenHabTileService::class.java)
-        }
-    }
-
-    private fun handleThemeMessage(messageEvent: MessageEvent) {
-        val themeName = String(messageEvent.data, Charsets.UTF_8).trim()
-        AppLog.d(TAG, "Theme message received: $themeName")
-        serviceScope.launch {
-            val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
-            themeStore.setTheme(theme)
-            // Write theme to DataClient so phone can read it
-            watchStatusWriter.writeTheme(themeName)
-            // Refresh tile to apply new theme
             TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(OpenHabTileService::class.java)
         }
@@ -210,8 +200,75 @@ class WearDataLayerListenerService : WearableListenerService() {
         }
     }
 
+    private fun handleTtsTest() {
+        AppLog.d(TAG, "TTS test requested from phone")
+        serviceScope.launch {
+            try {
+                val useServerTts = voicePreferenceStore.serverTtsEnabled.first()
+                val volume = voicePreferenceStore.ttsVolume.first()
+                if (useServerTts) {
+                    val apiKey = voicePreferenceStore.serverTtsApiKey.first()
+                    val voice = voicePreferenceStore.serverTtsVoice.first()
+                    serverTtsPlayer.setApiKey(apiKey)
+                    serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice, volume = volume)
+                } else {
+                    // System TTS
+                    val rate = voicePreferenceStore.ttsSpeechRate.first()
+                    val pitch = voicePreferenceStore.ttsPitch.first()
+                    val tts = android.speech.tts.TextToSpeech(this@WearDataLayerListenerService, null)
+                    kotlinx.coroutines.delay(800)
+                    tts.setSpeechRate(rate)
+                    tts.setPitch(pitch)
+                    val params = android.os.Bundle().apply {
+                        putFloat(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
+                    }
+                    tts.speak("This is a voice test.", android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "test")
+                    kotlinx.coroutines.delay(3000)
+                    tts.shutdown()
+                }
+            } catch (e: Exception) {
+                AppLog.e(TAG, "TTS test failed", e)
+            }
+        }
+    }
+
     companion object {
         private const val TAG = "WearDataLayerListener"
+    }
+
+    private fun handleSettingsRequest(messageEvent: MessageEvent) {
+        AppLog.d(TAG, "Settings request received from phone")
+        serviceScope.launch {
+            try {
+                val snapshot = WatchSettingsSnapshot(
+                    debugMode = AppLog.debugMode,
+                    voiceCommandsEnabled = voicePreferenceStore.voiceCommandsEnabled.first(),
+                    readAloudEnabled = voicePreferenceStore.voiceResponseSpoken.first(),
+                    useServerTts = voicePreferenceStore.serverTtsEnabled.first(),
+                    serverTtsVoice = voicePreferenceStore.serverTtsVoice.first(),
+                    ttsVolume = voicePreferenceStore.ttsVolume.first(),
+                    ttsSpeechRate = voicePreferenceStore.ttsSpeechRate.first(),
+                    ttsPitch = voicePreferenceStore.ttsPitch.first(),
+                    notificationsEnabled = notificationPreferenceStore.notificationsEnabled.first(),
+                    notificationReadAloud = notificationPreferenceStore.readAloudEnabled.first(),
+                    chimeEnabled = notificationPreferenceStore.chimeEnabled.first(),
+                    chimeSound = notificationPreferenceStore.chimeSound.first(),
+                    notificationVolume = notificationPreferenceStore.notificationVolume.first()
+                )
+
+                val responseJson = json.encodeToString(WatchSettingsSnapshot.serializer(), snapshot)
+                val responseBytes = responseJson.toByteArray(Charsets.UTF_8)
+                val messageClient = com.google.android.gms.wearable.Wearable.getMessageClient(this@WearDataLayerListenerService)
+                messageClient.sendMessage(
+                    messageEvent.sourceNodeId,
+                    SyncConstants.PATH_SETTINGS_RESPONSE,
+                    responseBytes
+                ).await()
+                AppLog.d(TAG, "Sent settings snapshot (${responseJson.length} chars, ${responseBytes.size} bytes)")
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Failed to send settings response", e)
+            }
+        }
     }
 
     private fun handleAssistantStatusRequest(messageEvent: MessageEvent) {

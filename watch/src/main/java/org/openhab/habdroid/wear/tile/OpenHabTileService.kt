@@ -99,7 +99,7 @@ class OpenHabTileService : TileService() {
             val currentPage = tilePreferenceStore.currentPage.first()
             AppLog.d("TileNav", "currentPage=$currentPage lastClickableId=${requestParams.currentState.lastClickableId}")
 
-            // Handle back button via loadAction (resets to main)
+            // Always reset to main when tile is freshly displayed (no user interaction)
             val effectivePage = if (requestParams.currentState.lastClickableId == "nav_back") {
                 AppLog.d("TileNav", "→ nav_back → main")
                 tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
@@ -110,6 +110,13 @@ class OpenHabTileService : TileService() {
                 AppLog.d("TileNav", "→ nav_page → $targetPage")
                 tilePreferenceStore.setCurrentPage(targetPage)
                 targetPage
+            } else if (requestParams.currentState.lastClickableId.isNullOrEmpty()) {
+                // No interaction — tile freshly shown, reset to main
+                if (currentPage != TileItem.PAGE_MAIN) {
+                    AppLog.d("TileNav", "→ fresh display → resetting to main")
+                    tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
+                }
+                TileItem.PAGE_MAIN
             } else {
                 currentPage
             }

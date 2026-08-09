@@ -287,8 +287,9 @@ class NotificationHandler @Inject constructor(
 
         if (useServerTts && serverTtsPlayer.isConfigured) {
             val voice = voicePrefs.serverTtsVoice.first()
+            val volume = voicePrefs.ttsVolume.first()
             AppLog.d(TAG, "Speaking via server TTS (voice=$voice): '${text.take(50)}...'")
-            serverTtsPlayer.speakFromServer(text, voice)
+            serverTtsPlayer.speakFromServer(text, voice, volume = volume)
         } else {
             val volume = voicePrefs.ttsVolume.first()
             val rate = voicePrefs.ttsSpeechRate.first()

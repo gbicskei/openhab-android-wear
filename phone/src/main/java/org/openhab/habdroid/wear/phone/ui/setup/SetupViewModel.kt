@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.phone.data.ConnectionTester
 import org.openhab.habdroid.wear.phone.data.InvalidCredentialsException
 import org.openhab.habdroid.wear.phone.data.LocalServerConfig
@@ -20,7 +18,6 @@ import org.openhab.habdroid.wear.phone.data.WriteNotAllowedException
 import org.openhab.habdroid.wear.phone.sync.NoNetworkException
 import org.openhab.habdroid.wear.phone.sync.NoWatchConnectedException
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
-import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import javax.inject.Inject
 
@@ -42,6 +39,7 @@ class SetupViewModel @Inject constructor(
     init {
         loadSavedCredentials()
         observeWatchConnection()
+        observeDebugMode()
         checkConfigSync()
     }
 
@@ -103,6 +101,14 @@ class SetupViewModel @Inject constructor(
                         watchNearby = info?.isNearby ?: false
                     )
                 }
+            }
+        }
+    }
+
+    private fun observeDebugMode() {
+        viewModelScope.launch {
+            credentialStore.debugModeFlow.collect { enabled ->
+                _uiState.update { it.copy(debugMode = enabled) }
             }
         }
     }
@@ -370,6 +376,36 @@ class SetupViewModel @Inject constructor(
                 )
             }
             AppLog.d("SetupVM", "All settings saved")
+
+            // Auto-sync credentials to watch if connected
+            syncCredentialsToWatch(state)
+        }
+    }
+
+    /**
+     * Pushes credentials to the watch silently after saving.
+     * Non-blocking — if watch is not connected, this is a no-op.
+     */
+    private suspend fun syncCredentialsToWatch(state: SetupUiState) {
+        try {
+            val node = dataLayerSender.getConnectedWatch() ?: return
+            val effectivePassword = getEffectivePassword()
+            val credentials = ServerCredentials(
+                serverUrl = state.serverUrl.trim(),
+                username = state.username.trim(),
+                password = effectivePassword,
+                userKey = state.userKey,
+                googleTtsApiKey = getEffectiveGoogleTtsApiKey()
+            )
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode)
+                .onSuccess {
+                    AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
+                }
+                .onFailure { e ->
+                    AppLog.w("SetupVM", "Auto-sync to watch failed: ${e.message}")
+                }
+        } catch (e: Exception) {
+            AppLog.w("SetupVM", "Auto-sync to watch failed: ${e.message}")
         }
     }
 
@@ -396,30 +432,10 @@ class SetupViewModel @Inject constructor(
 
             dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode)
                 .onSuccess {
-                    // Also send reload signal so the watch refreshes tile config
+                    // Send reload signal so the watch refreshes tile config (includes theme)
                     try {
                         dataLayerSender.sendReload()
                     } catch (_: Exception) {}
-                    // Send the selected theme to the watch
-                    try {
-                        val theme = credentialStore.getSelectedTheme()
-                        dataLayerSender.sendTheme(theme)
-                    } catch (_: Exception) {}
-                    // Send voice settings to the watch
-                    try {
-                        val voicePayload = SyncVoiceSettingsPayload(
-                            voiceCommandsEnabled = credentialStore.isVoiceCommandsEnabled,
-                            readAloudEnabled = credentialStore.isReadAloudEnabled,
-                            useServerTts = credentialStore.isUseServerTts,
-                            serverTtsVoice = credentialStore.serverTtsVoice,
-                            volume = credentialStore.ttsVolume,
-                            speechRate = credentialStore.ttsSpeechRate,
-                            pitch = credentialStore.ttsPitch
-                        )
-                        dataLayerSender.sendVoiceSettings(Json.encodeToString(voicePayload))
-                    } catch (_: Exception) {}
-                    // Clear settings sync flag
-                    credentialStore.clearSettingsNeedSync()
                     _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
                     // Re-check sync status after giving the watch time to reload config + write DataItem
                     kotlinx.coroutines.delay(10_000)
@@ -499,7 +515,8 @@ data class SetupUiState(
 ) {
     val canTest: Boolean get() = serverUrl.isNotBlank() && connectionStatus != ConnectionStatus.Testing
     val canTestConfig: Boolean get() = configServerUrl.isNotBlank() && configConnectionStatus != ConnectionStatus.Testing
-    val canSave: Boolean get() = serverUrl.isNotBlank() && hasUnsavedChanges
+    val canSave: Boolean get() = serverUrl.isNotBlank() && hasUnsavedChanges &&
+        connectionStatus == ConnectionStatus.Success
     val canSendToWatch: Boolean get() = (connectionStatus == ConnectionStatus.Success || hasStoredPassword) &&
         watchStatus != WatchStatus.NotFound &&
         watchStatus != WatchStatus.AppNotInstalled &&

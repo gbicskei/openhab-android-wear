@@ -52,7 +52,8 @@ class ServerTtsPlayer @Inject constructor(
     suspend fun speakFromServer(
         text: String,
         voice: String = DEFAULT_VOICE,
-        languageCode: String = DEFAULT_LANGUAGE
+        languageCode: String = DEFAULT_LANGUAGE,
+        volume: Float = 1.0f
     ): Boolean = withContext(Dispatchers.IO) {
         val key = apiKey
         if (key.isNullOrBlank()) {
@@ -88,11 +89,11 @@ class ServerTtsPlayer @Inject constructor(
                 .build()
 
             // Execute
-            AppLog.d(TAG, "Calling Google Cloud TTS...")
+            AppLog.d(TAG, "→ TTS API request (voice=$voice, lang=$effectiveLanguage, textLen=${text.length})")
             val response = okHttpClient.newCall(request).execute()
 
             if (!response.isSuccessful) {
-                AppLog.e(TAG, "TTS API error: ${response.code}")
+                AppLog.e(TAG, "← TTS API error: HTTP ${response.code}")
                 return@withContext false
             }
 
@@ -101,25 +102,26 @@ class ServerTtsPlayer @Inject constructor(
 
             // Decode base64 MP3
             val audioBytes = android.util.Base64.decode(audioContent, android.util.Base64.DEFAULT)
-            AppLog.d(TAG, "Got ${audioBytes.size} bytes of audio")
+            AppLog.d(TAG, "← TTS API success: ${audioBytes.size} bytes audio")
 
             // Write to temp file (MediaPlayer needs a file or fd)
             val tempFile = File(context.cacheDir, "server_tts.mp3")
             tempFile.writeBytes(audioBytes)
 
             // Play
-            playFile(tempFile)
+            playFile(tempFile, volume)
         } catch (e: Exception) {
             AppLog.e(TAG, "Server TTS failed", e)
             false
         }
     }
 
-    private suspend fun playFile(file: File): Boolean = suspendCancellableCoroutine { cont ->
+    private suspend fun playFile(file: File, volume: Float = 1.0f): Boolean = suspendCancellableCoroutine { cont ->
         stop()
         mediaPlayer = MediaPlayer().apply {
             try {
                 setDataSource(file.absolutePath)
+                setVolume(volume, volume)
                 setOnCompletionListener {
                     it.release()
                     mediaPlayer = null

@@ -2,9 +2,11 @@ package org.openhab.habdroid.wear.data.repository
 
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import javax.inject.Inject
@@ -22,6 +24,7 @@ class CredentialStore @Inject constructor(
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
         val KEY_USER_KEY = stringPreferencesKey("user_key")
+        val KEY_DEBUG_MODE = booleanPreferencesKey("debug_mode")
     }
 
     /** Flow of current credentials, null if not configured */
@@ -40,6 +43,11 @@ class CredentialStore @Inject constructor(
         prefs[KEY_SERVER_URL]?.isNotBlank() == true
     }
 
+    /** Flow of debug mode state */
+    val debugMode: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_DEBUG_MODE] ?: false
+    }
+
     /** Save server credentials */
     suspend fun saveCredentials(credentials: ServerCredentials) {
         dataStore.edit { prefs ->
@@ -49,6 +57,16 @@ class CredentialStore @Inject constructor(
             prefs[KEY_USER_KEY] = credentials.userKey
         }
     }
+
+    /** Save debug mode persistently */
+    suspend fun setDebugMode(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DEBUG_MODE] = enabled
+        }
+    }
+
+    /** Read debug mode synchronously (for init) */
+    suspend fun getDebugMode(): Boolean = dataStore.data.first()[KEY_DEBUG_MODE] ?: false
 
     /** Clear all stored credentials */
     suspend fun clear() {

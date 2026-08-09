@@ -170,19 +170,6 @@ class PhoneDataLayerSender @Inject constructor(
     }
 
     /**
-     * Send theme name to the watch.
-     */
-    suspend fun sendTheme(themeName: String): Result<Unit> = runCatching {
-        val nodes = nodeClient.connectedNodes.await()
-        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
-        messageClient.sendMessage(
-            watchNode.id,
-            SyncConstants.PATH_THEME,
-            themeName.toByteArray(Charsets.UTF_8)
-        ).await()
-    }
-
-    /**
      * Send voice settings to the watch.
      */
     suspend fun sendVoiceSettings(payloadJson: String): Result<Unit> = runCatching {

@@ -12,10 +12,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.Mic
@@ -31,6 +35,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -51,7 +58,7 @@ fun HomeScreen(
     onNavigateToConnection: () -> Unit,
     onNavigateToTileDesign: () -> Unit,
     onNavigateToComplications: () -> Unit,
-    onNavigateToSettings: () -> Unit,
+    onNavigateToWatchSettings: () -> Unit = {},
     onNavigateToDebugLog: () -> Unit = {},
     viewModel: SetupViewModel = hiltViewModel()
 ) {
@@ -73,6 +80,7 @@ fun HomeScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -125,59 +133,75 @@ fun HomeScreen(
             val configReady = uiState.configConnectionStatus == ConnectionStatus.Success ||
                 uiState.configHasStoredPassword
 
-            NavigationCard(
-                title = "Tile Design",
+            // ─── Content Design (collapsible) ───
+            ExpandableNavigationCard(
+                title = "Content Design",
                 icon = Icons.Default.GridView,
-                onClick = onNavigateToTileDesign,
                 enabled = configReady
-            )
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+
+                NavigationCard(
+                    title = "Tile",
+                    icon = Icons.Default.GridView,
+                    onClick = onNavigateToTileDesign,
+                    enabled = configReady
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                NavigationCard(
+                    title = "Complications",
+                    icon = Icons.Default.Watch,
+                    onClick = onNavigateToComplications,
+                    enabled = configReady
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Sync to Watch button
+                if (uiState.configOutOfSync && configReady && uiState.watchStatus != WatchStatus.AppNotInstalled) {
+                    Text(
+                        text = "Watch config out of sync",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+
+                SyncToWatchButton(
+                    syncResult = uiState.syncResult,
+                    canSync = uiState.canSendToWatch,
+                    onSync = viewModel::sendToWatch
+                )
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
+            // ─── Watch Settings ───
+            val watchConnected = uiState.watchStatus == WatchStatus.Connected ||
+                uiState.watchStatus == WatchStatus.Synced
+
             NavigationCard(
-                title = "Complications",
+                title = "Watch Settings",
                 icon = Icons.Default.Watch,
-                onClick = onNavigateToComplications,
-                enabled = configReady
+                onClick = onNavigateToWatchSettings,
+                enabled = watchConnected
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            NavigationCard(
-                title = "General Settings",
-                icon = Icons.Outlined.Settings,
-                onClick = onNavigateToSettings
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
+            // ─── Debug (shown only when enabled) ───
             if (uiState.debugMode) {
                 NavigationCard(
                     title = "Debug Log",
                     icon = Icons.Outlined.Settings,
                     onClick = onNavigateToDebugLog
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
-            // Sync to Watch button
-            if (uiState.configOutOfSync && configReady && uiState.watchStatus != WatchStatus.AppNotInstalled) {
-                Text(
-                    text = "Watch config out of sync",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-
-            SyncToWatchButton(
-                syncResult = uiState.syncResult,
-                canSync = uiState.canSendToWatch,
-                onSync = viewModel::sendToWatch
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -309,6 +333,66 @@ private fun NavigationCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableNavigationCard(
+    title: String,
+    icon: ImageVector,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    Card(
+        onClick = { if (enabled) expanded = !expanded },
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceVariant
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        ),
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.padding(8.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (expanded) {
+                content()
             }
         }
     }

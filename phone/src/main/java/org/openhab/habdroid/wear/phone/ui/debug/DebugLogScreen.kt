@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -30,6 +31,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,12 +104,43 @@ fun DebugLogScreen(
                 )
             }
         } else {
+            val listState = rememberLazyListState()
+
+            // Track if user is "following" the tail (at or near bottom)
+            val isAtBottom = remember {
+                derivedStateOf {
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    lastVisible >= entries.size - 3
+                }
+            }
+
+            // Auto-scroll to bottom only if user is already following
+            LaunchedEffect(entries.size) {
+                if (entries.isNotEmpty() && isAtBottom.value) {
+                    listState.animateScrollToItem(entries.size - 1)
+                }
+            }
+
+            // Initial scroll to bottom
+            LaunchedEffect(Unit) {
+                if (entries.isNotEmpty()) {
+                    listState.scrollToItem(entries.size - 1)
+                }
+            }
+
+            // Load more when scrolled near the top
+            LaunchedEffect(listState.firstVisibleItemIndex) {
+                if (listState.firstVisibleItemIndex < 3) {
+                    viewModel.loadMore()
+                }
+            }
+
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 8.dp),
-                reverseLayout = true
+                    .padding(horizontal = 8.dp)
             ) {
                 items(entries.size, key = { index ->
                     val entry = entries[index]
@@ -128,6 +162,8 @@ private fun DebugLogEntryCard(entry: DebugLogEntry) {
     val bgColor = when (entry.level) {
         LogLevel.ERROR -> Color(0x20FF0000)
         LogLevel.WARN -> Color(0x20FFA000)
+        LogLevel.INFO -> Color(0x200080FF)
+        LogLevel.DEBUG -> Color(0x10808080)
     }
 
     Column(

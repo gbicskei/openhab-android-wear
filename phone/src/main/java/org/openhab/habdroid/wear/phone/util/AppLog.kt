@@ -8,19 +8,29 @@ import org.openhab.habdroid.wear.shared.debug.LogSource
 /**
  * Centralized logging utility. Debug/verbose logs are stripped in release builds.
  * Warnings and errors always log and are captured in [DebugLog] for the Debug screen.
+ * When debug mode is enabled, all log levels are captured.
  */
 object AppLog {
-    /** Log debug message (only in debug builds). */
+    /** Debug mode — when true, d/i messages are also captured in DebugLog. */
+    var debugMode: Boolean = false
+
+    /** Log debug message (only in debug builds). Captured to DebugLog when debugMode is on. */
     fun d(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
             Log.d(tag, message)
         }
+        if (debugMode) {
+            DebugLog.d(LogSource.PHONE, tag, message)
+        }
     }
 
-    /** Log info message (only in debug builds). */
+    /** Log info message (only in debug builds). Captured to DebugLog when debugMode is on. */
     fun i(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
             Log.i(tag, message)
+        }
+        if (debugMode) {
+            DebugLog.i(LogSource.PHONE, tag, message)
         }
     }
 
