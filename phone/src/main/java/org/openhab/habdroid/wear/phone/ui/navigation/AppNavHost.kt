@@ -14,11 +14,11 @@ import androidx.navigation.compose.composable
 import org.openhab.habdroid.wear.phone.ui.complications.ComplicationEditorScreen
 import org.openhab.habdroid.wear.phone.ui.debug.DebugLogScreen
 import org.openhab.habdroid.wear.phone.ui.home.HomeScreen
-import org.openhab.habdroid.wear.phone.ui.settings.SettingsScreen
 import org.openhab.habdroid.wear.phone.ui.setup.SetupScreen
 import org.openhab.habdroid.wear.phone.ui.setup.SetupViewModel
 import org.openhab.habdroid.wear.phone.ui.tiledesign.TileDesignScreen
 import org.openhab.habdroid.wear.phone.ui.tiledesign.TileDesignViewModel
+import org.openhab.habdroid.wear.phone.ui.watchsettings.WatchSettingsScreen
 
 @Composable
 fun AppNavHost(
@@ -39,7 +39,7 @@ fun AppNavHost(
                 onNavigateToConnection = { navController.navigate(NavRoutes.CONNECTION) },
                 onNavigateToTileDesign = { navController.navigate(NavRoutes.TILE_DESIGN) },
                 onNavigateToComplications = { navController.navigate(NavRoutes.COMPLICATIONS) },
-                onNavigateToSettings = { navController.navigate(NavRoutes.SETTINGS) },
+                onNavigateToWatchSettings = { navController.navigate(NavRoutes.WATCH_SETTINGS) },
                 onNavigateToDebugLog = { navController.navigate(NavRoutes.DEBUG_LOG) }
             )
         }
@@ -66,21 +66,14 @@ fun AppNavHost(
             )
         }
 
-        composable(NavRoutes.VOICE_SETTINGS) {
-            // Voice settings are now part of General Settings
-            SettingsScreen(
-                onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(NavRoutes.SETTINGS) {
-            SettingsScreen(
-                onBack = { navController.popBackStack() }
-            )
-        }
-
         composable(NavRoutes.DEBUG_LOG) {
             DebugLogScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(NavRoutes.WATCH_SETTINGS) {
+            WatchSettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }

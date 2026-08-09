@@ -49,10 +49,11 @@ class VoiceCommandViewModel @Inject constructor(
                         if (useServer) {
                             val apiKey = voicePreferenceStore.serverTtsApiKey.first()
                             val voice = voicePreferenceStore.serverTtsVoice.first()
+                            val volume = voicePreferenceStore.ttsVolume.first()
                             if (apiKey.isNotBlank()) {
                                 _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = true, ttsUsed = true)
                                 serverTtsPlayer.setApiKey(apiKey)
-                                serverTtsPlayer.speakFromServer(responseText, voice = voice)
+                                serverTtsPlayer.speakFromServer(responseText, voice = voice, volume = volume)
                                 _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = false, ttsUsed = true)
                             } else {
                                 _uiState.value = VoiceUiState.Success(responseText = displayText)

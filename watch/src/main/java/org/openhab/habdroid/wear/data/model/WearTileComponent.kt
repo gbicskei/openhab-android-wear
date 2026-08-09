@@ -28,7 +28,8 @@ data class WearTileComponent(
 data class TilePageConfig(
     val label: String = "",
     val layout: Double = 6.0,
-    val configVersion: Double = 0.0
+    val configVersion: Double = 0.0,
+    val theme: String = ""
 ) {
     val layoutInt: Int get() = layout.toInt().coerceIn(1, 7)
     val configVersionInt: Int get() = configVersion.toInt()

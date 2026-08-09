@@ -51,6 +51,7 @@ class CachingDns @Inject constructor(
             // Success — update cache
             memoryCache[hostname] = addresses
             persistToDisk(hostname, addresses)
+            AppLog.d(TAG, "DNS resolved $hostname → ${addresses.joinToString { it.hostAddress ?: "?" }}")
             addresses
         } catch (e: UnknownHostException) {
             // DNS failed — try cached addresses

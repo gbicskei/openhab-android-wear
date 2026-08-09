@@ -205,6 +205,14 @@ class OpenHabRepository @Inject constructor(
         val mainPage = tilePages.find { it.uid == "main" }
         lastConfigVersion = mainPage?.config?.configVersionInt ?: 0
 
+        // Apply theme from tile config (theme is part of tile definition)
+        val tileThemeName = mainPage?.config?.theme
+        if (!tileThemeName.isNullOrBlank()) {
+            val tileTheme = TileTheme.fromName(tileThemeName)
+            themeStore.setTheme(tileTheme)
+            AppLog.d(TAG, "coldLoad: applied theme '$tileThemeName' from tile config")
+        }
+
         // Capture page labels for tile title rendering
         pageLabels = tilePages.associate { it.uid to it.config.label }
 
@@ -562,5 +570,20 @@ class OpenHabRepository @Inject constructor(
             iconName = item.iconName,
             state = item.state
         )
+    }
+
+    /**
+     * Lightweight connectivity check — fetches a minimal item list to verify server is reachable.
+     * Returns success if the server responds, failure otherwise.
+     */
+    suspend fun ping(): Result<Unit> = runCatching {
+        val _traceStart = System.currentTimeMillis()
+        AppLog.d(TAG, "→ ping()")
+        try {
+            apiService.getItems(fields = "name", recursive = false)
+            Unit
+        } finally {
+            AppLog.d(TAG, "← ping() ${System.currentTimeMillis() - _traceStart}ms")
+        }
     }
 }

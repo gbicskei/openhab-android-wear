@@ -17,7 +17,7 @@ enum class LogSource {
  * Severity level.
  */
 enum class LogLevel {
-    WARN, ERROR
+    DEBUG, INFO, WARN, ERROR
 }
 
 /**
@@ -43,9 +43,31 @@ data class DebugLogEntry(
  * Max [MAX_ENTRIES] entries; oldest entries are dropped when full.
  */
 object DebugLog {
-    private const val MAX_ENTRIES = 100
+    private const val MAX_ENTRIES = 500
 
     private val buffer = ConcurrentLinkedDeque<DebugLogEntry>()
+
+    /** Log a debug message. */
+    fun d(source: LogSource, tag: String, message: String) {
+        append(DebugLogEntry(
+            timestamp = System.currentTimeMillis(),
+            source = source,
+            level = LogLevel.DEBUG,
+            tag = tag,
+            message = message
+        ))
+    }
+
+    /** Log an info message. */
+    fun i(source: LogSource, tag: String, message: String) {
+        append(DebugLogEntry(
+            timestamp = System.currentTimeMillis(),
+            source = source,
+            level = LogLevel.INFO,
+            tag = tag,
+            message = message
+        ))
+    }
 
     /** Log a warning. */
     fun w(source: LogSource, tag: String, message: String, throwable: Throwable? = null) {

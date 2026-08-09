@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.tile.OpenHabTileService
+import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 
 sealed interface ReloadState {
@@ -30,6 +31,11 @@ class MainViewModel @Inject constructor(
     private val repository: OpenHabRepository,
     @ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
+
+    companion object {
+        private const val TAG = "MainViewModel"
+    }
+
     val isConfigured: Flow<Boolean> = credentialStore.isConfigured
 
     /** Current user key from credentials (empty = default namespace) */
@@ -42,13 +48,34 @@ class MainViewModel @Inject constructor(
     private val _reloadState = MutableStateFlow<ReloadState>(ReloadState.Idle)
     val reloadState: StateFlow<ReloadState> = _reloadState.asStateFlow()
 
+    /** Server connection status: null = unknown/checking, true = reachable, false = unreachable */
+    private val _serverOnline = MutableStateFlow<Boolean?>(null)
+    val serverOnline: StateFlow<Boolean?> = _serverOnline.asStateFlow()
+
+    init {
+        checkServerConnection()
+    }
+
+    /** Lightweight check if the openHAB server is reachable. */
+    fun checkServerConnection() {
+        viewModelScope.launch {
+            _serverOnline.value = null
+            AppLog.d(TAG, "→ checkServerConnection()")
+            val result = repository.ping()
+            _serverOnline.value = result.isSuccess
+            AppLog.d(TAG, "← checkServerConnection() online=${result.isSuccess}")
+        }
+    }
+
     fun reloadItems() {
         viewModelScope.launch {
+            AppLog.d(TAG, "→ reloadItems()")
             _reloadState.value = ReloadState.Loading
             repository.clearAndReload()
                 .onSuccess { count ->
                     _reloadState.value = ReloadState.Success(count)
                     _configVersion.value = repository.lastConfigVersion
+                    AppLog.d(TAG, "← reloadItems() success: $count items, configVersion=${repository.lastConfigVersion}")
                     // Trigger tile refresh so it picks up new config
                     TileService.getUpdater(context)
                         .requestUpdate(OpenHabTileService::class.java)
@@ -57,6 +84,7 @@ class MainViewModel @Inject constructor(
                     _reloadState.value = ReloadState.Error(
                         e.localizedMessage ?: "Reload failed"
                     )
+                    AppLog.d(TAG, "← reloadItems() failed: ${e.message}")
                 }
         }
     }

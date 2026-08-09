@@ -4,6 +4,9 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.BuildConfig
 import org.openhab.habdroid.wear.shared.debug.DebugLog
@@ -20,19 +23,52 @@ object AppLog {
     var onErrorLogged: (suspend () -> Unit)? = null
 
     /** Controls whether errors are published to the phone. Synced from phone settings. */
-    var debugMode: Boolean = false
+    var debugMode: Boolean
+        get() = _debugModeFlow.value
+        set(value) { _debugModeFlow.value = value }
 
-    /** Log debug message (only in debug builds). */
+    private val _debugModeFlow = MutableStateFlow(false)
+
+    /** Observable flow of debug mode state for Compose UI. */
+    val debugModeFlow: StateFlow<Boolean> = _debugModeFlow.asStateFlow()
+
+    /** Debounced publish job for d/i entries */
+    private var debouncedPublishJob: kotlinx.coroutines.Job? = null
+    private const val DEBOUNCE_MS = 2000L
+    private var lastPublishedTimestamp = 0L
+
+    /** Log debug message (only in debug builds, or always when debugMode is on). */
     fun d(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
             Log.d(tag, message)
         }
+        if (debugMode) {
+            DebugLog.d(LogSource.WATCH, tag, message)
+            scheduleDebouncedPublish()
+        }
     }
 
-    /** Log info message (only in debug builds). */
+    /** Log info message (only in debug builds, or always when debugMode is on). */
     fun i(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
             Log.i(tag, message)
+        }
+        if (debugMode) {
+            DebugLog.i(LogSource.WATCH, tag, message)
+            scheduleDebouncedPublish()
+        }
+    }
+
+    /** Debounced publish — only fires if there are new entries since last publish */
+    private fun scheduleDebouncedPublish() {
+        if (debouncedPublishJob?.isActive == true) return
+        debouncedPublishJob = scope.launch {
+            kotlinx.coroutines.delay(DEBOUNCE_MS)
+            val latestTimestamp = DebugLog.entries().lastOrNull()?.timestamp ?: 0L
+            if (latestTimestamp > lastPublishedTimestamp) {
+                lastPublishedTimestamp = latestTimestamp
+                onErrorLogged?.invoke()
+            }
         }
     }
 

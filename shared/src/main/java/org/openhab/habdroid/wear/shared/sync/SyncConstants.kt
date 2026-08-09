@@ -10,9 +10,6 @@ object SyncConstants {
     /** Message path for requesting the watch to reload items */
     const val PATH_RELOAD = "/openhab/reload"
 
-    /** Message path for setting the watch theme (phone → watch) */
-    const val PATH_THEME = "/openhab/theme"
-
     /** Message path for voice settings sync (phone → watch) */
     const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
 
@@ -27,6 +24,15 @@ object SyncConstants {
 
     /** Message path for assistant setup command (phone → watch: register after ADB grant) */
     const val PATH_ASSISTANT_REGISTER = "/openhab/assistant-register"
+
+    /** Message path for requesting TTS test playback on watch (phone → watch) */
+    const val PATH_TTS_TEST = "/openhab/tts-test"
+
+    /** Message path for requesting current watch settings (phone → watch) */
+    const val PATH_SETTINGS_REQUEST = "/openhab/settings-request"
+
+    /** Message path for watch settings response (watch → phone) */
+    const val PATH_SETTINGS_RESPONSE = "/openhab/settings-response"
 
     /** Default UI components namespace for wear tile config */
     const val DEFAULT_TILE_NAMESPACE = "wear:tile"

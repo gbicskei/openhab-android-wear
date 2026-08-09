@@ -52,7 +52,8 @@ class DebugLogWriter @Inject constructor(
             }.asPutDataRequest().setUrgent()
 
             dataClient.putDataItem(request).await()
-            AppLog.d(TAG, "Published ${watchEntries.size} debug log entries")
+            // Use Log directly — not AppLog — to avoid entering the DebugLog buffer
+            android.util.Log.d(TAG, "Published ${watchEntries.size} debug log entries")
         } catch (e: Exception) {
             // Don't use AppLog.e here to avoid infinite recursion
             android.util.Log.w(TAG, "Failed to publish debug log", e)

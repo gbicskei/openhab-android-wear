@@ -112,4 +112,21 @@ class DebugLogReader @Inject constructor(
             android.util.Log.w(TAG, "Failed to parse watch debug log", e)
         }
     }
+
+    /**
+     * Delete the watch debug log DataItem so stale entries don't re-sync after clear.
+     */
+    suspend fun clearWatchData() {
+        try {
+            val uri = android.net.Uri.Builder()
+                .scheme("wear")
+                .path(PATH_DEBUG_LOG)
+                .authority("*")
+                .build()
+            dataClient.deleteDataItems(uri).await()
+            _watchEntries.value = emptyList()
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Failed to clear watch debug DataItem", e)
+        }
+    }
 }

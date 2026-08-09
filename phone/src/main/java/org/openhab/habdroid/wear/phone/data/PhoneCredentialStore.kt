@@ -51,6 +51,7 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_TTS_SPEECH_RATE = "tts_speech_rate"
         const val KEY_TTS_PITCH = "tts_pitch"
         const val KEY_SETTINGS_NEED_SYNC = "settings_need_sync"
+        const val KEY_BACKUP_ENABLED = "backup_enabled"
         const val KEY_NOTIFICATION_READ_ALOUD = "notification_read_aloud"
         const val KEY_NOTIFICATION_CHIME = "notification_chime"
         const val KEY_NOTIFICATION_VOLUME = "notification_volume"
@@ -117,6 +118,10 @@ class PhoneCredentialStore @Inject constructor(
         _userKey.value = try {
             encryptedPrefs.getString(KEY_USER_KEY, "") ?: ""
         } catch (_: Exception) { "" }
+        // Sync debug mode to AppLog on startup (read directly from prefs, not via _debugModeFlow)
+        org.openhab.habdroid.wear.phone.util.AppLog.debugMode = try {
+            encryptedPrefs.getBoolean(KEY_DEBUG_MODE, false)
+        } catch (_: Exception) { false }
     }
 
     private fun readCredentials(): ServerCredentials? {
@@ -219,15 +224,37 @@ class PhoneCredentialStore @Inject constructor(
     }
 
     /** Whether debug mode is enabled. */
-    val isDebugMode: Boolean get() = try {
-        encryptedPrefs.getBoolean(KEY_DEBUG_MODE, false)
-    } catch (_: Exception) { false }
+    val isDebugMode: Boolean get() = _debugModeFlow.value
+
+    /** Observable debug mode state. */
+    private val _debugModeFlow = MutableStateFlow(
+        try { encryptedPrefs.getBoolean(KEY_DEBUG_MODE, false) } catch (_: Exception) { false }
+    )
+    val debugModeFlow: kotlinx.coroutines.flow.StateFlow<Boolean> = _debugModeFlow.asStateFlow()
 
     /** Set debug mode. */
     suspend fun setDebugMode(enabled: Boolean) {
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
                 .putBoolean(KEY_DEBUG_MODE, enabled)
+                .apply()
+        }
+        _debugModeFlow.value = enabled
+        org.openhab.habdroid.wear.phone.util.AppLog.debugMode = enabled
+    }
+
+    // ─── Backup toggle ───
+
+    /** Whether server backup is enabled. */
+    val isBackupEnabled: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_BACKUP_ENABLED, false)
+    } catch (_: Exception) { false }
+
+    /** Set backup enabled state. */
+    suspend fun setBackupEnabled(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_BACKUP_ENABLED, enabled)
                 .apply()
         }
     }
