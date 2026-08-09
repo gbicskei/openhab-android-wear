@@ -452,6 +452,15 @@ class OpenHabRepository @Inject constructor(
         }
     }
 
+    /** Fetch a single item, returning null on any failure (for lightweight refresh). */
+    suspend fun fetchSingleItem(itemName: String): Item? {
+        return try {
+            apiService.getItem(itemName)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /**
      * Get the cached state for an item without making an API call.
      * Returns the state string or null if not in cache.

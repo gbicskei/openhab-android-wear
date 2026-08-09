@@ -12,6 +12,12 @@
     <!-- Speech recognition for voice commands -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- Modify audio settings (unmute for TTS notifications) -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+    <!-- Post notifications (required since API 33) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Wake lock for tile updates and background work -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -80,7 +86,7 @@
             android:name=".tile.TileActionReceiver"
             android:exported="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.DeviceDefault" />
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <!-- Quick Action Activity (single tap = toggle, double tap = secondary action) -->
         <activity
@@ -139,10 +145,25 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 
+        <!-- Settings screen -->
+        <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <!-- Debug: grid preview -->
         <activity
             android:name=".ui.GridPreviewActivity"
             android:exported="true"
+            android:theme="@android:style/Theme.DeviceDefault" />
+
+        <!-- Speak Display Activity (shows message text during TTS/audio playback) -->
+        <activity
+            android:name=".notification.SpeakDisplayActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:launchMode="singleTop"
             android:theme="@android:style/Theme.DeviceDefault" />
 
         <!-- openHAB Tile Service -->
@@ -226,6 +247,15 @@
                     android:scheme="wear"
                     android:host="*"
                     android:pathPrefix="/openhab" />
+            </intent-filter>
+        </service>
+
+        <!-- FCM Message Listener for push notifications from openHAB Cloud -->
+        <service
+            android:name=".notification.FcmMessageListenerService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
 

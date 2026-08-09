@@ -21,7 +21,9 @@ data class SyncConfigPayload(
     val password: String = "",
     val userKey: String = "",
     val googleTtsApiKey: String = "",
-    val debugMode: Boolean = false
+    val debugMode: Boolean = false,
+    /** Pre-resolved IP addresses for the server hostname (seeded by phone DNS). */
+    val resolvedIps: List<String> = emptyList()
 ) {
     /**
      * The UI components namespace derived from the user key.

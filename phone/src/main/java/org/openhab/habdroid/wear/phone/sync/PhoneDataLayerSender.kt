@@ -114,6 +114,9 @@ class PhoneDataLayerSender @Inject constructor(
         val watchNode = nodes.firstOrNull()
             ?: throw NoWatchConnectedException()
 
+        // Pre-resolve server hostname so the watch has cached IPs from the start
+        val resolvedIps = resolveServerIps(credentials.serverUrl)
+
         val payload = json.encodeToString(
             SyncConfigPayload.serializer(),
             SyncConfigPayload(
@@ -122,7 +125,8 @@ class PhoneDataLayerSender @Inject constructor(
                 password = credentials.password,
                 userKey = credentials.userKey,
                 googleTtsApiKey = credentials.googleTtsApiKey,
-                debugMode = debugMode
+                debugMode = debugMode,
+                resolvedIps = resolvedIps
             )
         )
 
@@ -131,6 +135,25 @@ class PhoneDataLayerSender @Inject constructor(
             SyncConstants.PATH_CONFIG,
             payload.toByteArray(Charsets.UTF_8)
         ).await()
+    }
+
+    /**
+     * Resolve the hostname from a server URL to IP addresses.
+     * Returns empty list if resolution fails (non-fatal — watch will resolve on its own).
+     */
+    private fun resolveServerIps(serverUrl: String): List<String> {
+        return try {
+            val host = java.net.URI(serverUrl).host ?: return emptyList()
+            val addresses = java.net.InetAddress.getAllByName(host)
+            addresses.mapNotNull { it.hostAddress }.also { ips ->
+                if (ips.isNotEmpty()) {
+                    AppLog.d(TAG, "Resolved $host → ${ips.joinToString()}")
+                }
+            }
+        } catch (e: Exception) {
+            AppLog.w(TAG, "DNS pre-resolve failed: ${e.message}")
+            emptyList()
+        }
     }
 
     /**
@@ -168,6 +191,19 @@ class PhoneDataLayerSender @Inject constructor(
         messageClient.sendMessage(
             watchNode.id,
             SyncConstants.PATH_VOICE_SETTINGS,
+            payloadJson.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
+
+    /**
+     * Send notification settings to the watch.
+     */
+    suspend fun sendNotificationSettings(payloadJson: String): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_NOTIFICATION_SETTINGS,
             payloadJson.toByteArray(Charsets.UTF_8)
         ).await()
     }

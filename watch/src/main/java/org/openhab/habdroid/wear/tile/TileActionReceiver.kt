@@ -40,6 +40,9 @@ class TileActionReceiver : ComponentActivity() {
     @Inject
     lateinit var repository: OpenHabRepository
 
+    @Inject
+    lateinit var itemCache: org.openhab.habdroid.wear.data.repository.ItemCache
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -106,6 +109,7 @@ class TileActionReceiver : ComponentActivity() {
                 // Fixed command from tile builder
                 AppLog.d(TAG, "Sending fixed command: $command")
                 repository.sendCommand(itemName, command)
+                    .onSuccess { itemCache.updateItemState(itemName, command) }
             } else {
                 // Toggle: check local cache first (fast), fall back to API
                 val cachedState = repository.getCachedItemState(itemName)
@@ -113,6 +117,7 @@ class TileActionReceiver : ComponentActivity() {
                     val toggleCommand = if (cachedState == "ON" || cachedState.toDoubleOrNull()?.let { it > 0 } == true) "OFF" else "ON"
                     AppLog.d(TAG, "Cached state: $cachedState, sending: $toggleCommand")
                     repository.sendCommand(itemName, toggleCommand)
+                        .onSuccess { itemCache.updateItemState(itemName, toggleCommand) }
                 } else {
                     // No cache — fetch from server
                     repository.getItem(itemName)
@@ -120,6 +125,7 @@ class TileActionReceiver : ComponentActivity() {
                             val toggleCommand = if (item.isOn) "OFF" else "ON"
                             AppLog.d(TAG, "Fetched state: ${item.state}, sending: $toggleCommand")
                             repository.sendCommand(itemName, toggleCommand)
+                                .onSuccess { itemCache.updateItemState(itemName, toggleCommand) }
                         }
                         .onFailure { error ->
                             val fallbackCommand = "ON"

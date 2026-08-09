@@ -39,21 +39,39 @@ import org.openhab.habdroid.wear.R
 
 /**
  * Main launcher activity for the openHAB Wear OS app.
- * Shows logo, setup on phone, reload items, and about.
+ * Shows logo, setup on phone, reload items, settings, and about.
  * The primary interaction happens on the tile itself (buttons + mic).
  * Theme config is accessed via long-press on tile → pencil icon.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { /* no-op: we just need to prompt, user decides */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestNotificationPermissionIfNeeded()
         setContent {
             MainScreen(
                 onAbout = {
                     startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                },
+                onSettings = {
+                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
                 }
             )
+        }
+    }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 }
@@ -61,7 +79,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
-    onAbout: () -> Unit = {}
+    onAbout: () -> Unit = {},
+    onSettings: () -> Unit = {}
 ) {
     val reloadState by viewModel.reloadState.collectAsState()
     val context = LocalContext.current
@@ -142,6 +161,19 @@ fun MainScreen(
                     icon = {
                         Icon(
                             Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                )
+            }
+            item {
+                Button(
+                    onClick = onSettings,
+                    label = { Text("Settings") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Settings,
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
