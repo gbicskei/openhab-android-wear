@@ -332,15 +332,23 @@ class TileDesignViewModel @Inject constructor(
         _editingSlot.value = pageUid to toPosition
     }
 
-    /** Add a new page. */
-    fun addPage(pageName: String) {
+    /** Add a new page. The [label] is the user-visible display name; uid is auto-generated. */
+    fun addPage(label: String) {
         val state = (_uiState.value as? TileDesignUiState.Success) ?: return
-        val uid = pageName.trim().lowercase().replace(" ", "_")
-        if (uid.isBlank() || state.editor.pageNames.contains(uid)) return
+        val baseUid = label.trim().lowercase().replace(" ", "_").replace(Regex("[^a-z0-9_]"), "")
+        if (baseUid.isBlank()) return
+
+        // Ensure unique uid by appending a numeric suffix if needed
+        var uid = baseUid
+        var suffix = 2
+        while (state.editor.pageNames.contains(uid)) {
+            uid = "${baseUid}_$suffix"
+            suffix++
+        }
 
         val newPage = TilePageState(
             uid = uid,
-            label = pageName.trim().replaceFirstChar { it.uppercase() },
+            label = label.trim(),
             layout = 6
         )
 
