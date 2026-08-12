@@ -170,6 +170,20 @@ class PhoneDataLayerSender @Inject constructor(
     }
 
     /**
+     * Request the watch app's versionName via the Data Layer.
+     * The watch will reply on PATH_VERSION_RESPONSE (handled by PhoneWearListenerService).
+     */
+    suspend fun requestWatchVersion(): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_VERSION_REQUEST,
+            ByteArray(0)
+        ).await()
+    }
+
+    /**
      * Send voice settings to the watch.
      */
     suspend fun sendVoiceSettings(payloadJson: String): Result<Unit> = runCatching {

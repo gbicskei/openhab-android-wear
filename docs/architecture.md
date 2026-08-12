@@ -208,6 +208,18 @@ Phone WatchSettingsScreen
   → Watch applies immediately + backs up to server metadata
 ```
 
+### Version Handshake (Phone ↔ Watch)
+```
+Phone detects watch connected
+  → Sends PATH_VERSION_REQUEST
+  → Watch responds with BuildConfig.VERSION_NAME
+  → Phone compares with own version
+  → If mismatch (both prod builds): blocks sync, shows warning banner
+  → If either is .dev: no blocking (development mode)
+```
+
+See [Version Sync](version-sync.md) for the full specification.
+
 ## Minimum Device Requirements
 
 | Requirement | Value | Reason |

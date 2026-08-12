@@ -19,8 +19,8 @@ android {
         applicationId = "org.openhab.habdroid.wear"
         minSdk = 34
         targetSdk = 36
-        versionCode = 53
-        versionName = "1.3.0"
+        versionCode = (project.property("appVersionCodeWatch") as String).toInt()
+        versionName = project.property("appVersionName") as String
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -58,6 +58,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            versionNameSuffix = ".dev"
         }
     }
 

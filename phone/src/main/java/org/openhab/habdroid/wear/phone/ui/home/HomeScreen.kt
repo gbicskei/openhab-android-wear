@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
@@ -120,6 +121,15 @@ fun HomeScreen(
                 watchName = uiState.watchName,
                 connectionType = uiState.connectionTypeLabel
             )
+
+            // Watch version mismatch warning
+            if (uiState.watchVersionMismatch) {
+                Spacer(modifier = Modifier.height(8.dp))
+                WatchOutdatedBanner(
+                    phoneVersion = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME,
+                    watchVersion = uiState.watchVersionName
+                )
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -442,5 +452,48 @@ private fun SyncToWatchButton(
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.padding(top = 4.dp)
         )
+    }
+}
+
+@Composable
+private fun WatchOutdatedBanner(
+    phoneVersion: String,
+    watchVersion: String?
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onErrorContainer
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "Watch app outdated — sync paused",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Text(
+                    text = "Phone: v$phoneVersion · Watch: v${watchVersion ?: "unknown"}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                )
+                Text(
+                    text = "Update the watch app from Play Store",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
+                )
+            }
+        }
     }
 }

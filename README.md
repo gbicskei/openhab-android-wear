@@ -66,9 +66,11 @@ Items with `wearTile` metadata are supported as a fallback for complication disc
 | [Tile Pages](docs/tile-pages.md) | Multi-page tile navigation design (sub-pages, back button) |
 | [Complications](docs/complications.md) | Watch face complications setup and usage |
 | [Voice Commands](docs/voice-commands.md) | Voice command feature, TTS engines, settings sync, configuration |
+| [Voice Assistant Setup](docs/voice-assistant-setup.md) | Digital assistant registration, ADB permissions, phone-triggered setup |
+| [Version Sync](docs/version-sync.md) | Version enforcement, Play Core update, sync blocking between phone and watch |
 | [Icons](docs/icons/ICONS.md) | Custom icon system — design spec, theming, creating new icons |
 | [Development](docs/development.md) | Build, deploy, debug, project structure |
-| [Distribution](docs/distribution.md) | Signing, Play Store, testing tracks |
+| [Distribution](docs/distribution.md) | Signing, Play Store, testing tracks, version management |
 
 ## Tech Stack
 

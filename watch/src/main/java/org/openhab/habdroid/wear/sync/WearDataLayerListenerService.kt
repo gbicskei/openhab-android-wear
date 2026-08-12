@@ -82,6 +82,7 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
             SyncConstants.PATH_SETTINGS_REQUEST -> handleSettingsRequest(messageEvent)
             SyncConstants.PATH_TTS_TEST -> handleTtsTest()
+            SyncConstants.PATH_VERSION_REQUEST -> handleVersionRequest(messageEvent)
             else -> super.onMessageReceived(messageEvent)
         }
     }
@@ -228,6 +229,24 @@ class WearDataLayerListenerService : WearableListenerService() {
                 }
             } catch (e: Exception) {
                 AppLog.e(TAG, "TTS test failed", e)
+            }
+        }
+    }
+
+    private fun handleVersionRequest(messageEvent: MessageEvent) {
+        AppLog.d(TAG, "Version request received from phone")
+        serviceScope.launch {
+            try {
+                val versionName = org.openhab.habdroid.wear.BuildConfig.VERSION_NAME
+                val messageClient = com.google.android.gms.wearable.Wearable.getMessageClient(this@WearDataLayerListenerService)
+                messageClient.sendMessage(
+                    messageEvent.sourceNodeId,
+                    SyncConstants.PATH_VERSION_RESPONSE,
+                    versionName.toByteArray(Charsets.UTF_8)
+                ).await()
+                AppLog.d(TAG, "Sent version response: $versionName")
+            } catch (e: Exception) {
+                AppLog.e(TAG, "Failed to send version response", e)
             }
         }
     }

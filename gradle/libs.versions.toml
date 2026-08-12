@@ -22,6 +22,7 @@ wear-complications = "1.2.1"
 horologist = "0.6.22"
 wear-phone-interactions = "1.1.0"
 play-services-wearable = "18.2.0"
+play-app-update = "2.1.0"
 
 # Firebase
 firebase-bom = "33.7.0"
@@ -87,6 +88,8 @@ horologist-tiles = { module = "com.google.android.horologist:horologist-tiles", 
 wear-phone-interactions = { module = "androidx.wear:wear-phone-interactions", version.ref = "wear-phone-interactions" }
 wear-input = { module = "androidx.wear:wear-input", version = "1.2.0" }
 play-services-wearable = { module = "com.google.android.gms:play-services-wearable", version.ref = "play-services-wearable" }
+play-app-update = { module = "com.google.android.play:app-update", version.ref = "play-app-update" }
+play-app-update-ktx = { module = "com.google.android.play:app-update-ktx", version.ref = "play-app-update" }
 
 # Wear Complications
 wear-complications-data-source = { module = "androidx.wear.watchface:watchface-complications-data-source-ktx", version.ref = "wear-complications" }

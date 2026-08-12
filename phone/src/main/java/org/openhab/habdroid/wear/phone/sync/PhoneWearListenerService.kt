@@ -4,10 +4,12 @@ import android.content.Intent
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import org.openhab.habdroid.wear.phone.ui.MainActivity
+import org.openhab.habdroid.wear.shared.sync.SyncConstants
 
 /**
  * Listens for messages from the watch via Data Layer.
- * Handles the "open app" request from the watch's "Setup on Phone" button.
+ * Handles the "open app" request from the watch's "Setup on Phone" button,
+ * and the version response for the version compatibility handshake.
  */
 class PhoneWearListenerService : WearableListenerService() {
 
@@ -25,6 +27,10 @@ class PhoneWearListenerService : WearableListenerService() {
                     putExtra(EXTRA_NAVIGATE_TO, "tile_design")
                 }
                 startActivity(intent)
+            }
+            SyncConstants.PATH_VERSION_RESPONSE -> {
+                val watchVersionName = String(messageEvent.data, Charsets.UTF_8)
+                WatchVersionHolder.update(watchVersionName)
             }
             else -> super.onMessageReceived(messageEvent)
         }
