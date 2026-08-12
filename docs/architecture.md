@@ -9,13 +9,20 @@ The openHAB Wear OS app is a **standalone watch application** that communicates 
 │   Galaxy Watch  │◀──WiFi──▶│  openHAB Server  │         │   OR: via cloud │
 │   (Wear OS 5+) │  / LTE   │  (direct/local)  │         │   relay proxy   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
-        ▲
-        │ one-time sync (Data Layer API)
-        ▼
-┌─────────────────┐
-│   Phone App     │
-│  (companion)    │
-└─────────────────┘
+        ▲                                                         │
+        │ one-time sync (Data Layer API)                          │ FCM push
+        │ settings sync (MessageClient)                           ▼
+        ▼                                                 ┌─────────────────┐
+┌─────────────────┐                                       │  openHAB Cloud  │
+│   Phone App     │                                       │  (FCM relay)    │
+│  (companion)    │                                       └─────────────────┘
+└─────────────────┘                                               │
+                                                                  │ FCM
+                                                                  ▼
+                                                          ┌─────────────────┐
+                                                          │   Galaxy Watch  │
+                                                          │ (notifications) │
+                                                          └─────────────────┘
 ```
 
 Connection options:
@@ -69,7 +76,7 @@ Connection options:
 
 ### 4. One-Time Credential Sync via Data Layer API
 
-**Decision:** Phone sends server credentials to watch on first setup, then the watch stores them locally.
+**Decision:** Phone sends server credentials to watch on first setup, then the watch stores them locally. Connection settings auto-sync to watch on save (gated by successful connection test).
 
 **Rationale:**
 - Avoids typing URLs and passwords on a 1.5" screen
@@ -79,9 +86,41 @@ Connection options:
 
 **Limitation discovered during development:** The Data Layer API requires an active Bluetooth companion connection between phone and watch. During development, Bluetooth is often disabled to stabilize WiFi debugging, which breaks the sync. A `DebugSetupActivity` exists to inject credentials via ADB as a workaround.
 
-**Additional constraint:** The Data Layer API also requires both apps to be signed with the same key (or linked via Play Console) and the phone must be paired via the Galaxy Wearable app. For sideloaded debug builds, the applicationId mismatch between phone (`org.openhab.habdroid.wear.phone`) and watch (`org.openhab.habdroid.wear`) may prevent node discovery. This needs verification once Bluetooth is re-enabled.
+### 5. Watch as Source of Truth for Settings
 
-### 5. Modern Tech Stack (independent of mobile app)
+**Decision:** The watch owns all runtime settings (voice, notifications, debug). The phone is a remote editor that reads/writes via MessageClient.
+
+**Rationale:**
+- Settings are inherently local to the device that uses them (TTS volume, notification behavior)
+- Eliminates sync conflicts — one owner, one copy
+- Phone doesn't need to be connected for settings to work
+- Server backup (item metadata) provides disaster recovery without being the primary store
+- Instant-apply UX: phone changes are pushed and applied immediately (no Save button)
+
+**Implementation:**
+- Watch exposes settings via MessageClient request/response
+- Phone sends `GET_SETTINGS` → watch responds with current values
+- Phone sends `UPDATE_SETTINGS` → watch applies immediately
+- Settings backed up to server as item metadata (periodic + on change)
+
+### 6. FCM Push Notifications
+
+**Decision:** Receive notifications from openHAB Cloud via Firebase Cloud Messaging, with support for audio-sink playback directly on the watch.
+
+**Rationale:**
+- Push-based is battery-friendly (no polling)
+- Leverages existing openHAB Cloud infrastructure (same FCM setup as mobile app)
+- Audio-sink playback enables TTS announcements from rules (e.g., doorbell, alerts)
+- Watch can act as an audio sink without requiring the phone
+
+**Implementation:**
+- `FcmRegistrationWorker` registers token with openHAB Cloud
+- `FcmMessageListenerService` receives push messages
+- `NotificationHandler` routes by FCM tag: `audio-tts` (watch TTS), `audio-sink` (URL stream), or standard notification
+- `AudioUrlPlayer` streams pre-rendered audio from server URL
+- `SpeakDisplayActivity` shows message text during playback
+
+### 7. Modern Tech Stack (independent of mobile app)
 
 **Decision:** Use current Android/Wear OS best practices rather than matching the mobile app's stack.
 
@@ -103,7 +142,10 @@ Connection options:
 | Serialization | kotlinx.serialization | Kotlin-native, no reflection, smaller APK than Gson |
 | Storage | DataStore Preferences | Coroutine-native replacement for SharedPreferences |
 | Images | Coil | Compose integration, SVG decoder for openHAB icons |
-| Phone Sync | Wear Data Layer API | Standard phone↔watch messaging |
+| Phone Sync | Wear Data Layer API | Standard phone↔watch messaging + settings sync |
+| Push | Firebase Cloud Messaging | Push notifications from openHAB Cloud |
+| Audio | MediaPlayer | Streaming audio-sink URLs for TTS/announcements |
+| DNS | CachingDns | Reliable DNS on watch (reduces timeout issues) |
 | Background | WorkManager | Reliable background task scheduling |
 | Build | Kotlin DSL + Version Catalog | Type-safe, centralized dependency management |
 
@@ -140,6 +182,30 @@ VoiceCommandActivity
     → POST {serverUrl}/rest/voice/interpreters
       (with Accept-Language header)
   → openHAB server interprets and executes
+```
+
+### Push Notification (Audio Sink)
+```
+openHAB Cloud → FCM → FcmMessageListenerService
+  → NotificationHandler.handle(message)
+    → tag = "audio-sink"?
+      → AudioUrlPlayer.play(audioUrl)
+      → SpeakDisplayActivity shows message text
+      → Set notification volume → play → restore volume
+    → tag = "audio-tts"?
+      → TTS engine speaks message text
+    → else
+      → Post standard notification to watch shade
+```
+
+### Settings Sync (Phone → Watch)
+```
+Phone WatchSettingsScreen
+  → MessageClient.sendMessage(watchNode, PATH_GET_SETTINGS)
+  → Watch responds with current settings JSON
+  → User changes a value
+  → MessageClient.sendMessage(watchNode, PATH_UPDATE_SETTINGS, payload)
+  → Watch applies immediately + backs up to server metadata
 ```
 
 ## Minimum Device Requirements

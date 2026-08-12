@@ -10,7 +10,7 @@ The openHAB tile supports multiple pages — a main page with up to 7 item slots
 
 ```
 ┌──────────────────────────┐
-│      openHAB             │  ← title
+│      [logo] ●            │  ← wearOH logo + connection dot
 │                          │
 │   [item]  [item]  [item] │
 │   [item]  [item]  [item] │  ← up to 7 slots (adaptive grid)
@@ -24,7 +24,7 @@ The openHAB tile supports multiple pages — a main page with up to 7 item slots
 
 ```
 ┌──────────────────────────┐
-│      Security            │  ← page name
+│      [logo] ●            │  ← wearOH logo + connection dot
 │                          │
 │   [gate]  [lock]  [door] │
 │   [door1]   [door2]     │  ← up to 7 items on this page
@@ -37,6 +37,7 @@ The openHAB tile supports multiple pages — a main page with up to 7 item slots
 
 - **Two levels only**: main page + sub-pages. No nesting deeper.
 - **Navigation buttons** occupy one of the 7 item slots on the source page.
+- **Self-navigation not allowed**: the tile editor excludes the current page from navigation target options (prevents circular navigation).
 - **Back button** is auto-rendered at the bottom of every sub-page (not configurable, not an item slot).
 - **Page switching** uses ProtoLayout's `LoadAction` — the tile re-renders instantly with the new page content. No Activity is launched (unless confirmation is required).
 - **Navigation button state**: shows active (accent color) based on priority: `valueItem` state > own item state > aggregate from sub-page items (only if `aggregateState: "true"`). By default (`aggregateState: "false"`), nav buttons without a `valueItem` or own state remain inactive.
@@ -245,11 +246,14 @@ fun parsePosition(raw: String): Pair<String, Int> {
 
 ### Tile Editor Impact
 
-The tile editor needs to:
-- Show which page is being edited (tab/selector at top)
-- Allow adding navigation buttons as a special item type
-- Allow creating new pages (just a name)
-- Show the page structure visually
+The tile editor provides:
+- **Page tabs** at top showing all pages (main first, then sub-pages)
+- **Long-press context menu** on any tab: Rename or Duplicate
+- **Add Page** — user enters a display label; uid is auto-generated (`label.lowercase().replace(" ", "_")`) with `_2`, `_3` suffix for duplicates
+- **Duplicate Page** — "Save As..." dialog pre-filled with "{Label} (copy)"; copies all slots to a new page
+- **Navigation button creation** — in the item picker's "Navigate" tab; current page is excluded from the target list
+- **Navigation target dropdown** in config sheet — also excludes the current page
+- **Page deletion** — close button on selected non-main tab; confirmation dialog
 
 ### Resource Version
 

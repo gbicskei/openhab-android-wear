@@ -270,11 +270,12 @@ Available interpreters:
 
 ## 3. App Menu (Launcher)
 
-Opening the app from the watch launcher shows:
+Opening the app from the watch launcher shows a logo header with server connection indicator (green/red dot) and:
 
 1. **Setup on Phone** — sends a message to open the phone companion app for connection setup
 2. **Reload Items** — clears item cache, fetches fresh config from server, shows toast with result
-3. **About** — app version info
+3. **Settings** — opens watch settings (Voice, Notifications, Debug)
+4. **About** — app version info + configVersion
 
 ### Setup
 
@@ -304,7 +305,7 @@ Accessed via long-press on tile → system pencil icon.
 | Decision | Rationale |
 |----------|-----------|
 | Server is source of truth for tile config | No sync conflicts, phone app is the visual editor |
-| Watch stores only theme + credentials locally | Minimal local state, no divergence from server |
+| Watch is source of truth for settings | Settings are local to the device; phone is a remote editor, server is backup |
 | Concentric layout from screen size | Responsive to all Wear OS screen sizes |
 | Box overlay positioning (absolute) | ProtoLayout doesn't support relative/grid positioning |
 | Dim/lit state machine | Clear online indicator, prevents commands before state is known |
@@ -314,6 +315,9 @@ Accessed via long-press on tile → system pencil icon.
 | Dedicated control activities per item type | Best UX for each interaction pattern (bezel, buttons, list) |
 | Phone companion edits UI components (not metadata) | Richer config (action, stateItem, etc.) beyond what metadata supports |
 | Config version counter for sync detection | Simple integer compare, no timestamp drift issues |
+| FCM for push notifications | Battery-friendly, leverages existing openHAB Cloud infrastructure |
+| MessageClient for settings sync | Instant request/response, no polling or persistent connection needed |
+| Theme in tile page definition | Single source of truth on server, no separate sync path |
 
 ---
 
@@ -331,7 +335,7 @@ Authentication modes for Config Server:
 - **Basic Auth** — username/password (requires `allowBasicAuth=true` in openHAB API Security settings)
 - **API Token** — Bearer token generated in openHAB Settings > API Security (recommended for openHAB 5+)
 
-Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences.
+Both connections are tested before saving. Credentials are stored in EncryptedSharedPreferences. Saving auto-syncs credentials to the watch (gated by successful test).
 
 See [Connection](connection.md) for the full credential model, sync protocol, and security details.
 
@@ -339,7 +343,9 @@ See [Connection](connection.md) for the full credential model, sync protocol, an
 
 Visual editor for the watch tile layout:
 - **Page tabs** at the top for switching between tile pages
-- **Page rename** — long-press a tab to rename the page (label only, uid stays stable)
+- **Long-press context menu** on any tab — Rename or Duplicate the page
+- **Page creation** — "Add Page" asks for a display label; internal uid is auto-generated (with suffix for duplicates)
+- **Page duplication** — "Save As..." dialog pre-filled with "{Label} (copy)", copies all slots to the new page
 - **Layout selector** to set the button count (1-7)
 - **Circular watch preview** rendering the actual tile layout
 - **Slot configuration** — tap any slot to open the config sheet:
@@ -348,7 +354,11 @@ Visual editor for the watch tile layout:
   - Label override
   - State display mode (Color / Value / None)
   - Action type (Toggle / Command / Navigate)
-  - Fixed command, action item, state item, invert state, confirmation, aggregate
+  - Action item (searchable item picker — item that receives commands)
+  - State item (searchable item picker — item whose state is displayed)
+  - Fixed command, invert state, confirmation, aggregate
+- **Navigation target filtering** — current page is excluded from the target page list
+- **Position swap** — numbered circles in config sheet, tap to swap positions
 
 ### Complication Editor
 
@@ -359,12 +369,12 @@ Configure watch face complications:
 - Character limits enforced (7 chars for short text fields)
 - Import existing complication config from item metadata
 
-### Theme Sync
+### Theme Management
 
-- Select a theme color on the phone
-- Push to watch on "Sync to Watch" tap
-- Watch applies immediately (refreshes tile + saves to DataStore)
-- Phone reads current watch theme from DataClient when editor opens
+- Theme color stored in the tile page definition on the server
+- Managed via the tile design editor (no separate sync path)
+- Watch reads theme from tile config on cold load
+- 5 themes: Amber (default), Blue, Green, Purple, Red
 
 ### Config Sync Detection
 
@@ -372,3 +382,54 @@ Configure watch face complications:
 - Phone reads this + fetches the server's version, compares
 - "Watch config out of sync" banner on home screen when they differ
 - Clears on sync, re-checks on app resume
+
+### Watch Settings (Remote Editor)
+
+The phone provides a remote settings editor for watch-owned settings. The watch is the source of truth — the phone reads current values via MessageClient request/response and pushes changes back instantly (no Save button).
+
+Sections:
+- **Voice** — TTS engine, volume, speech rate, pitch, WaveNet voice, test button
+- **Notifications** — notification volume slider (controls audio-sink playback volume)
+- **Debug** — enable/disable debug mode, view debug log (24h retention, tail-f UX)
+
+Settings are backed up to the server as item metadata for disaster recovery.
+
+### Debug Log
+
+- Watch captures all log levels when debug mode is on
+- Debounced publish to phone via MessageClient
+- Phone persists log entries (24h retention, paged loading)
+- Tail-f UX: auto-scrolls to latest entries
+- Uncaught exception handler on watch sends crashes to debug log
+
+---
+
+## 6. Push Notifications
+
+FCM push notifications forwarded from openHAB Cloud to the watch.
+
+### Notification Modes
+
+| FCM Tag | Behavior |
+|---------|----------|
+| `audio-tts` | Watch speaks the message using configured TTS engine |
+| `audio-sink` | Streams pre-rendered audio from a server URL (AudioUrlPlayer) |
+| _(default)_ | Standard notification posted to watch notification shade |
+
+### Audio Sink Playback
+
+- `AudioUrlPlayer` streams audio from server-prepared URLs
+- `SpeakDisplayActivity` shows message text + wearOH logo during playback
+- Notification volume setting (phone slider, synced to watch) controls playback volume
+- Volume set before playback, restored after completion
+
+### Implementation
+
+| Component | File | Role |
+|-----------|------|------|
+| `FcmMessageListenerService` | `notification/FcmMessageListenerService.kt` | Receives FCM messages from openHAB Cloud |
+| `FcmRegistrationWorker` | `notification/FcmRegistrationWorker.kt` | Registers/refreshes FCM token with openHAB Cloud |
+| `NotificationHandler` | `notification/NotificationHandler.kt` | Routes by tag: TTS, audio-sink, or standard notification |
+| `SpeakDisplayActivity` | `notification/SpeakDisplayActivity.kt` | Shows message text + logo during audio playback |
+| `AudioUrlPlayer` | `util/AudioUrlPlayer.kt` | MediaPlayer wrapper for streaming audio URLs |
+| `NotificationPreferenceStore` | `data/repository/NotificationPreferenceStore.kt` | Stores notification volume + preferences |

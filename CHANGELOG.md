@@ -1,5 +1,80 @@
 # Changelog
 
+## [Unreleased]
+
+### Summary
+
+Feature release introducing **FCM push notifications with audio sink playback**, a **redesigned settings architecture** (watch as source of truth), **app rebranding** to wearOH, and significant **tile editor UX improvements**.
+
+---
+
+### New: Push Notifications & Audio Sink
+
+- FCM push notifications forwarded from openHAB Cloud to the watch
+- Two notification modes based on FCM tag:
+  - `audio-tts` — watch speaks the message using configured TTS engine
+  - `audio-sink` — streams pre-rendered audio from a server URL (AudioUrlPlayer)
+- `SpeakDisplayActivity` shows message text + logo during audio playback
+- Configurable notification volume (phone UI slider, synced to watch)
+- Volume set before playback, restored after
+- POST_NOTIFICATIONS permission requested at runtime (Wear OS API 33+)
+- `CachingDns` for reliable DNS resolution on watch (reduces timeout issues)
+
+### New: Settings Architecture Redesign
+
+- **Watch is source of truth** for all settings (voice, notifications, debug)
+- Phone acts as a remote editor — reads settings from watch, pushes changes back
+- New `WatchSettingsScreen` on phone with instant-apply UX (no Save button)
+- Settings are backed up to server as item metadata for disaster recovery
+- Phone reads/writes settings via MessageClient request/response pattern
+- Theme moved into tile page definition (no separate sync path)
+- Connection Settings auto-syncs credentials to watch on save (gated by test)
+- Watch `SettingsActivity` expanded: two-level nav (Voice, Notifications, Debug)
+- Google TTS voice picker on watch (loads voices from API) with test button
+- Debug mode persisted on watch (survives restart)
+- Debug log: captures all levels when debug is on, debounced publish to phone
+- Uncaught exception handler on watch sends crashes to debug log
+- Server connection status indicator (green/red dot) on watch
+
+### New: App Rebranding (wearOH)
+
+- Custom watch face icon (square case, hour markers, OH-style chevron hands in #f1350d)
+- Gray and black SVG variants in `assets/`
+- PNG exports at standard mipmap sizes
+- Shared `AppLogoHeader` composable with connection indicator
+- Logo header applied to all watch activities (Main, Settings, About, Voice, control screens)
+- Splash screen theme for watch MainActivity
+- Tile shows logo + connection status dot (page titles removed)
+- Phone launcher foreground updated to match new icon
+- Old `ic_openhab_*` drawables and SVGs removed
+
+### New: BSL 1.1 License
+
+- Licensed under Business Source License 1.1
+- Change License: Eclipse Public License 2.0
+- Change Date: upon transfer to openHAB Foundation, or 4 years from first public distribution
+- Additional Use Grant: any purpose except distributing a competing smart home wearable app
+
+### Improved: Tile Editor UX
+
+- **Add Page dialog** — now asks for a display label (not an internal ID); uid is auto-generated with suffix for duplicates
+- **Page duplication** — long-press a page tab → context menu with Rename and Duplicate options; "Save As..." dialog lets user set the name before saving
+- **Navigation target filtering** — current page excluded from the navigation target list (both in item picker and config sheet)
+- **Action/State item picker** — replaced plain text fields with searchable item picker (same pattern as Double Tap Item); includes clear button to reset
+
+### Fixed
+
+- Tile page reset: respect `tileVisible` flag (don't reset to main when tile is still visible)
+- Tile nav: fixed premature page reset on fresh display
+- Refresh all states after tile command (ensures button state updates immediately)
+- Debug logging added to `refreshStates` for troubleshooting
+
+### Project Structure
+
+- Added shared `assets/` source directory to both modules
+
+---
+
 ## [1.1.0] — 2026-08-06
 
 ### Summary

@@ -11,6 +11,8 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 - **Watch Face Complications** — Display item values on the watch face (4 types: SHORT_TEXT, LONG_TEXT, RANGED_VALUE, MONOCHROMATIC_IMAGE)
 - **Themes** — 5 color themes (amber, blue, green, purple, red) with radial glow
 - **Voice Commands** — Natural language commands processed by openHAB's interpreter, with optional TTS read-aloud (built-in or Google WaveNet)
+- **Push Notifications** — FCM notifications from openHAB Cloud with audio-sink playback and TTS speak display
+- **Watch Settings** — Voice, Notifications, and Debug settings owned by watch, phone as remote editor
 - **Standalone Operation** — Connects directly to any openHAB server over WiFi/LTE (cloud relay, local, or VPN)
 - **Real-time Updates** — SSE with automatic reconnection + polling fallback
 - **Multi-page Navigation** — Sub-pages for organizing items (Security, Climate, etc.)
@@ -18,18 +20,20 @@ A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart
 - **stateDisplay Modes** — Color (active/inactive), Value (text), None (icon only)
 
 ### Phone Companion App
-- **Tile Design Editor** — Visual editor with layout selector, watch preview, icon picker (MDI/Material/openHAB), position swap, live state updates via SSE
+- **Tile Design Editor** — Visual editor with layout selector, watch preview, icon picker (MDI/Material/openHAB), page duplication, position swap, live state updates via SSE
 - **Complication Editor** — Per-type configuration with pattern validation and metadata import
 - **Voice Settings** — Configure TTS engine, volume, speech rate, WaveNet voice; sync to watch
+- **Watch Settings** — Remote editor for watch-owned settings (voice, notifications, debug) with instant-apply UX
 - **Multi-User Support** — User key namespaces separate configs per person on the same server
-- **Theme Sync** — Select theme on phone, push to watch
+- **Theme Sync** — Theme stored in tile page definition, managed via tile editor
 - **Config Sync Detection** — Warns when watch is out of sync with server config
-- **Connection Setup** — Main server (cloud) + Config server (local) with encrypted storage, API token support
+- **Connection Setup** — Main server (cloud) + Config server (local) with encrypted storage, API token support; auto-syncs to watch on save
+- **Debug Log** — View watch debug output in real time (24h retention, tail-f UX)
 
 ## Target Platform
 
 - **Min SDK:** 34 (Wear OS 5)
-- **Target SDK:** 35 (Wear OS 6)
+- **Target SDK:** 36 (Android 16)
 - **Tested on:** Samsung Galaxy Watch Ultra 2025
 
 ## Quick Start
@@ -89,24 +93,27 @@ openhab-android-wear/
 ├── phone/                           # Phone companion app
 │   └── src/main/java/org/openhab/habdroid/wear/phone/
 │       ├── PhoneCompanionApp.kt        # @HiltAndroidApp
-│       ├── data/                        # CredentialStore, ConnectionTester, LocalServerConfig
+│       ├── data/                        # CredentialStore, ConnectionTester, LocalServerConfig, DebugLogPersistence, ServerBackupRepository
 │       ├── di/                          # Hilt DI module
-│       ├── sync/                        # PhoneDataLayerSender, WatchStatusReader, ListenerService
+│       ├── sync/                        # PhoneDataLayerSender, WatchStatusReader, ListenerService, DebugLogReader
 │       └── ui/
 │           ├── home/                    # Home screen (nav cards, sync, status)
 │           ├── setup/                   # Connection settings
 │           ├── tiledesign/              # Tile editor + components + data layer
 │           ├── complications/           # Complication editor
+│           ├── watchsettings/           # Remote watch settings editor (voice, notifications, debug)
+│           ├── debug/                   # Debug log viewer
 │           └── navigation/              # Nav routes + host
 ├── watch/                           # Wear OS watch app (standalone)
 │   └── src/main/java/org/openhab/habdroid/wear/
 │       ├── OpenHabWearApp.kt           # @HiltAndroidApp
 │       ├── di/                          # Hilt DI
 │       ├── data/
-│       │   ├── api/                     # Retrofit API, Auth, SSE client
+│       │   ├── api/                     # Retrofit API, Auth, SSE client, CachingDns
 │       │   ├── icon/                    # Icon resolution + compositing
 │       │   ├── model/                   # Item, TileItem, WearTileComponent, WearComplicationConfig
-│       │   └── repository/             # Repository, ItemCache, TileConfigDiskCache, stores
+│       │   └── repository/             # Repository, ItemCache, TileConfigDiskCache, NotificationPreferenceStore
+│       ├── notification/                # FCM listener, registration, NotificationHandler, SpeakDisplayActivity, AudioUrlPlayer
 │       ├── tile/                        # Tile service + action handling
 │       ├── complication/                # Watch face complication service
 │       ├── sync/                        # Data Layer listener + WatchStatusWriter
@@ -114,10 +121,15 @@ openhab-android-wear/
 │           ├── control/                 # RotaryControl, ColorPicker, RollerShutter, ChoicePicker
 │           ├── tile/                    # Tile config + theme picker
 │           ├── voice/                   # Voice command input
-│           └── setup/                   # Debug setup
+│           ├── components/              # Shared composables (AppLogoHeader)
+│           └── SettingsActivity.kt      # Watch settings (voice, notifications, debug)
 └── docs/                            # Documentation
 ```
 
 ## License
 
-TBD — to be aligned with openHAB project licensing (Eclipse Public License 2.0).
+Licensed under the [Business Source License 1.1](LICENSE).
+
+- **Change License:** Eclipse Public License 2.0
+- **Change Date:** Upon transfer to the openHAB Foundation, or 4 years from first public distribution (whichever is earlier)
+- **Additional Use Grant:** Any purpose except distributing a competing smart home wearable application
