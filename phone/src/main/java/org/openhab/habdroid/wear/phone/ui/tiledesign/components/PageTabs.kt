@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -28,7 +32,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Scrollable tab row for tile page management.
- * Long-press a tab to rename the page.
+ * Long-press a tab to show context menu (rename, duplicate).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -40,11 +44,14 @@ fun PageTabs(
     onAddPage: (String) -> Unit,
     onDeletePage: (String) -> Unit,
     onRenamePage: (String, String) -> Unit = { _, _ -> },
+    onDuplicatePage: (String, String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to label
     var showRenameDialog by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to current label
+    var showContextMenu by remember { mutableStateOf<Pair<String, String>?>(null) } // uid to label
+    var showDuplicateDialog by remember { mutableStateOf<String?>(null) } // uid to duplicate
 
     ScrollableTabRow(
         selectedTabIndex = selectedIndex,
@@ -61,7 +68,7 @@ fun PageTabs(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.combinedClickable(
                             onClick = { onPageSelected(index) },
-                            onLongClick = { showRenameDialog = pageName to label }
+                            onLongClick = { showContextMenu = pageName to label }
                         )
                     ) {
                         Text(
@@ -80,6 +87,30 @@ fun PageTabs(
                                 )
                             }
                         }
+                    }
+
+                    // Context menu on long-press
+                    DropdownMenu(
+                        expanded = showContextMenu?.first == pageName,
+                        onDismissRequest = { showContextMenu = null }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Rename") },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                            onClick = {
+                                showContextMenu = null
+                                showRenameDialog = pageName to label
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Duplicate") },
+                            leadingIcon = { Icon(Icons.Default.ContentCopy, contentDescription = null) },
+                            onClick = {
+                                val uid = showContextMenu?.first
+                                showContextMenu = null
+                                showDuplicateDialog = uid
+                            }
+                        )
                     }
                 }
             )
@@ -132,6 +163,18 @@ fun PageTabs(
                 showRenameDialog = null
             },
             onDismiss = { showRenameDialog = null }
+        )
+    }
+
+    showDuplicateDialog?.let { sourceUid ->
+        val sourceLabel = pageLabels.getOrElse(pageNames.indexOf(sourceUid)) { sourceUid }
+        DuplicatePageDialog(
+            defaultLabel = "$sourceLabel (copy)",
+            onConfirm = { newLabel ->
+                onDuplicatePage(sourceUid, newLabel)
+                showDuplicateDialog = null
+            },
+            onDismiss = { showDuplicateDialog = null }
         )
     }
 }
@@ -191,6 +234,35 @@ private fun AddPageDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(label.trim()) }, enabled = isValid) { Text("Add") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+private fun DuplicatePageDialog(
+    defaultLabel: String,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var label by remember { mutableStateOf(defaultLabel) }
+    val isValid = label.trim().isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save As...") },
+        text = {
+            OutlinedTextField(
+                value = label,
+                onValueChange = { label = it },
+                label = { Text("Page Label") },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(label.trim()) }, enabled = isValid) { Text("Save") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

@@ -367,6 +367,43 @@ class TileDesignViewModel @Inject constructor(
         }
     }
 
+    /** Duplicate a page with all its slots. */
+    fun duplicatePage(pageUid: String, newLabel: String) {
+        val state = (_uiState.value as? TileDesignUiState.Success) ?: return
+        val sourcePage = state.editor.pages.find { it.uid == pageUid } ?: return
+
+        // Generate unique uid from label
+        val baseUid = newLabel.trim().lowercase().replace(" ", "_").replace(Regex("[^a-z0-9_]"), "")
+        if (baseUid.isBlank()) return
+
+        var uid = baseUid
+        var suffix = 2
+        while (state.editor.pageNames.contains(uid)) {
+            uid = "${baseUid}_$suffix"
+            suffix++
+        }
+
+        val newPage = sourcePage.copy(
+            uid = uid,
+            label = newLabel.trim(),
+            configVersion = 0
+        )
+
+        val newPages = state.editor.pages + newPage
+        _uiState.value = state.copy(
+            editor = state.editor.copy(pages = newPages, currentPageIndex = newPages.lastIndex)
+        )
+
+        // Create on server
+        viewModelScope.launch {
+            val config = localConfig ?: return@launch
+            val namespace = credentialStore.tileNamespace
+            apiService.createTilePage(config, newPage.toDto(), namespace)
+                .onFailure { _snackbarMessage.value = "Failed to duplicate page: ${it.message}" }
+                .onSuccess { _snackbarMessage.value = "Page duplicated" }
+        }
+    }
+
     /** Delete a non-main page. */
     fun deletePage(pageUid: String) {
         if (pageUid == "main") return
