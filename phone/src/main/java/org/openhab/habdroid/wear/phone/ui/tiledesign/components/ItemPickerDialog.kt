@@ -55,6 +55,7 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem
 fun ItemPickerDialog(
     items: List<PhoneItem>,
     pageNames: List<String>,
+    currentPageUid: String,
     onItemSelected: (PhoneItem) -> Unit,
     onNavigateSelected: (targetPage: String, label: String?, icon: String?) -> Unit,
     onDismiss: () -> Unit
@@ -109,6 +110,7 @@ fun ItemPickerDialog(
                 0 -> ItemList(items = items, onItemSelected = onItemSelected)
                 1 -> PageNavigationList(
                     pageNames = pageNames,
+                    currentPageUid = currentPageUid,
                     onNavigateSelected = onNavigateSelected
                 )
             }
@@ -251,9 +253,10 @@ private fun ItemList(
 @Composable
 private fun PageNavigationList(
     pageNames: List<String>,
+    currentPageUid: String,
     onNavigateSelected: (targetPage: String, label: String?, icon: String?) -> Unit
 ) {
-    val navigablePages = pageNames.filter { it != "complications" }
+    val navigablePages = pageNames.filter { it != "complications" && it != currentPageUid }
 
     LazyColumn {
         items(navigablePages) { pageName ->
