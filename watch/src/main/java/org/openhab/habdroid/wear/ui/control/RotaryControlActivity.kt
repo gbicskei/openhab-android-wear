@@ -98,7 +98,7 @@ fun RotaryControlScreen(
                     val context = LocalContext.current
                     val logoPainter = rememberAsyncImagePainter(
                         model = ImageRequest.Builder(context)
-                            .data("file:///android_asset/ic_openhab_logo.svg")
+                            .data("file:///android_asset/ic_wearoh_logo.svg")
                             .decoderFactory(SvgDecoder.Factory())
                             .build()
                     )

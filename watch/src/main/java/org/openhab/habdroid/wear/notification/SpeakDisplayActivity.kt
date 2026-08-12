@@ -68,7 +68,7 @@ class SpeakDisplayActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Center
         ) {
             Image(
-                painter = painterResource(R.drawable.ic_openhab_logo),
+                painter = painterResource(R.drawable.ic_wearoh_logo),
                 contentDescription = "openHAB",
                 modifier = Modifier.size(32.dp)
             )

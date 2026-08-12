@@ -23,7 +23,6 @@ import androidx.lifecycle.viewModelScope
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.Icon
-import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.Slider
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
@@ -42,6 +41,7 @@ import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
 import org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
+import org.openhab.habdroid.wear.ui.components.AppLogoHeader
 import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 
@@ -106,15 +106,19 @@ private fun SettingsMainScreen(
 ) {
     val debugMode by viewModel.debugMode.collectAsState()
 
-    ScalingLazyColumn(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item { ListHeader { Text("Settings") } }
+        AppLogoHeader()
 
-        item {
-            Button(
-                onClick = onVoice,
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                Button(
+                    onClick = onVoice,
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Voice") },
                 icon = {
@@ -158,6 +162,7 @@ private fun SettingsMainScreen(
             )
         }
     }
+    }
 }
 
 // ─── Voice Settings (sub-screen) ───
@@ -177,11 +182,16 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
     val hasApiKey = apiKey.isNotBlank()
     val googleTtsAvailable = hasApiKey && serverOnline
 
-    ScalingLazyColumn(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item { ListHeader { Text("Voice") } }
+        AppLogoHeader()
+
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         item {
             SwitchButton(
                 checked = voiceCommands,
@@ -255,6 +265,7 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
             )
         }
     }
+    }
 }
 
 // ─── Voice Picker (sub-sub-screen) ───
@@ -265,11 +276,16 @@ private fun VoicePickerScreen(viewModel: WatchSettingsViewModel, onBack: () -> U
     val loading by viewModel.voicesLoading.collectAsState()
     val currentVoice by viewModel.serverTtsVoice.collectAsState()
 
-    ScalingLazyColumn(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item { ListHeader { Text("Select Voice") } }
+        AppLogoHeader()
+
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
 
         if (loading) {
             item { Text("Loading voices...") }
@@ -294,6 +310,7 @@ private fun VoicePickerScreen(viewModel: WatchSettingsViewModel, onBack: () -> U
             }
         }
     }
+    }
 }
 
 // ─── Notification Settings (sub-screen) ───
@@ -305,20 +322,25 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
     val chime by viewModel.chimeEnabled.collectAsState()
     val notifVolume by viewModel.notificationVolume.collectAsState()
 
-    ScalingLazyColumn(
+    androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        item { ListHeader { Text("Notifications") } }
-        item {
-            SwitchButton(
-                checked = notificationsEnabled,
-                onCheckedChange = { viewModel.toggleNotifications(it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Enabled") }
-            )
-        }
-        item {
+        AppLogoHeader()
+
+        ScalingLazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                SwitchButton(
+                    checked = notificationsEnabled,
+                    onCheckedChange = { viewModel.toggleNotifications(it) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Enabled") }
+                )
+            }
+            item {
             SwitchButton(
                 checked = notifReadAloud,
                 onCheckedChange = { viewModel.toggleNotifReadAloud(it) },
@@ -351,6 +373,7 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
                 enabled = notificationsEnabled
             )
         }
+    }
     }
 }
 

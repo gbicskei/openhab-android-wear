@@ -3,27 +3,24 @@ package org.openhab.habdroid.wear.ui
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
-import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
 import org.openhab.habdroid.wear.BuildConfig
 import org.openhab.habdroid.wear.R
+import org.openhab.habdroid.wear.ui.components.AppLogoHeader
 
 @AndroidEntryPoint
 class AboutActivity : ComponentActivity() {
@@ -46,15 +43,12 @@ fun AboutScreen(
     androidx.compose.foundation.layout.Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Wordmark pinned to top center
-        Image(
-            painter = painterResource(R.drawable.ic_openhab_wordmark),
-            contentDescription = "openHAB",
-            modifier = Modifier
-                .height(64.dp)
-                .align(Alignment.TopCenter)
-                .padding(top = 16.dp)
-        )
+        // Logo pinned to top center
+        Box(
+            modifier = Modifier.align(Alignment.TopCenter)
+        ) {
+            AppLogoHeader()
+        }
 
         // Text vertically centered
         androidx.compose.foundation.layout.Column(

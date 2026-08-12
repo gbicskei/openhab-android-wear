@@ -3,15 +3,105 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-  <group android:scaleX="2.0925"
-      android:scaleY="2.0925"
-      android:translateX="20.52"
-      android:translateY="20.52">
+  <group android:scaleX="1.9"
+      android:scaleY="1.9"
+      android:translateX="23.6"
+      android:translateY="23.6">
+
+    <!-- Watch case (original: 240x240 rect, stroke 11.55, in 510 space) -->
+    <!-- Scaled to 32x32: case width=22.6, stroke=1.09 -->
+    <!-- Inset by half stroke so outer edge at 4.0 and 28.0 -->
     <path
-        android:pathData="m5.242,21.133 l9.39,-9.398 1.368,-1.367 1.367,1.367 6.933,6.933 -0.01,0.035 -0.137,0.402 -0.156,0.394 -0.174,0.383 -0.192,0.374L23.456,20.56 16,13.103 6.24,22.87C5.863,22.317 5.515,21.747 5.242,21.132Z"
-        android:fillColor="#e64a19"/>
+        android:pathData="M7.5,4.55 L24.5,4.55 A3,3 0 0,1 27.45,7.5 L27.45,24.5 A3,3 0 0,1 24.5,27.45 L7.5,27.45 A3,3 0 0,1 4.55,24.5 L4.55,7.5 A3,3 0 0,1 7.5,4.55 Z"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="1.09"
+        android:fillColor="#00000000" />
+
+    <!-- Hour markers (original: stroke 8 in 510 space = 8/240*22.6 = 0.75 in 32 space) -->
+    <!-- Cardinal markers -->
     <path
-        android:pathData="m16,4c6.61,0 12,5.39 12,12 0,6.61 -5.39,12 -12,12 -3.61,0 -6.856,-1.61 -9.059,-4.147L7.365,23.428 7.673,23.12 7.981,22.81 8.29,22.503 8.303,22.49A10.057,10.057 0,0 0,16 26.077C21.55,26.077 26.078,21.551 26.078,16 26.078,10.449 21.55,5.922 16,5.922 10.449,5.922 5.922,10.45 5.922,16c0,0.747 0.083,1.476 0.239,2.178L5.493,18.848 4.6,19.741A11.922,11.922 0,0 1,4 16C4,9.39 9.39,4 16,4Z"
-        android:fillColor="#474747"/>
+        android:pathData="M16,5.8 L16,7.3"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.75"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M26.2,16 L24.7,16"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.75"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M16,26.2 L16,24.7"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.75"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M5.8,16 L7.3,16"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.75"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Minor markers (original: stroke 4 = 0.38 in 32 space) -->
+    <path
+        android:pathData="M21.1,6.1 L20.5,7.2"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M25.2,10.8 L24.1,11.4"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M25.2,21.2 L24.1,20.6"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M21.1,25.9 L20.5,24.8"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M10.9,25.9 L11.5,24.8"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M6.8,21.2 L7.9,20.6"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M6.8,10.8 L7.9,11.4"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M10.9,6.1 L11.5,7.2"
+        android:strokeColor="#1e1e1e"
+        android:strokeWidth="0.38"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Watch hands (original: stroke 18 in 510 space = 18/240*22.6 = 1.7 in 32 space) -->
+    <!-- Hour: center(16,16) to (9.9,22.1), Minute: center to (20.7,20.7) -->
+    <path
+        android:pathData="M9.9,22.1 L16,16 L20.7,20.7"
+        android:strokeColor="#f1350d"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
   </group>
 </vector>
