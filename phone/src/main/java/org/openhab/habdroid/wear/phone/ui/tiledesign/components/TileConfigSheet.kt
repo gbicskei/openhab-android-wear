@@ -228,26 +228,86 @@ fun TileConfigSheet(
 
             // Action item (not relevant for navigation)
             if (action !is SlotAction.Navigate) {
-                OutlinedTextField(
-                    value = actionItem,
-                    onValueChange = { actionItem = it },
-                    label = { Text("Action Item (optional)") },
-                    placeholder = { Text("Item that receives commands") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                var showActionItemPicker by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxWidth().clickable { showActionItemPicker = true }) {
+                    OutlinedTextField(
+                        value = actionItem.ifBlank { "None (same as main)" },
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("Action Item (optional)") },
+                        supportingText = { Text("Item that receives commands") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (actionItem.isNotBlank()) {
+                                IconButton(onClick = { actionItem = "" }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear")
+                                }
+                            } else {
+                                IconButton(onClick = { showActionItemPicker = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                }
+                            }
+                        }
+                    )
+                }
+
+                if (showActionItemPicker) {
+                    ItemPickerDialog(
+                        items = allItems,
+                        pageNames = emptyList(),
+                        currentPageUid = currentPageUid,
+                        onItemSelected = { selected ->
+                            actionItem = selected.name
+                            showActionItemPicker = false
+                        },
+                        onNavigateSelected = { _, _, _ -> },
+                        onDismiss = { showActionItemPicker = false }
+                    )
+                }
             }
 
             // State item (not relevant for navigation with aggregate)
             if (action !is SlotAction.Navigate) {
-                OutlinedTextField(
-                    value = stateItem,
-                    onValueChange = { stateItem = it },
-                    label = { Text("State Item (optional)") },
-                    placeholder = { Text("Item whose state is displayed") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                var showStateItemPicker by remember { mutableStateOf(false) }
+                Box(modifier = Modifier.fillMaxWidth().clickable { showStateItemPicker = true }) {
+                    OutlinedTextField(
+                        value = stateItem.ifBlank { "None (same as main)" },
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("State Item (optional)") },
+                        supportingText = { Text("Item whose state is displayed") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        trailingIcon = {
+                            if (stateItem.isNotBlank()) {
+                                IconButton(onClick = { stateItem = "" }) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Clear")
+                                }
+                            } else {
+                                IconButton(onClick = { showStateItemPicker = true }) {
+                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                }
+                            }
+                        }
+                    )
+                }
+
+                if (showStateItemPicker) {
+                    ItemPickerDialog(
+                        items = allItems,
+                        pageNames = emptyList(),
+                        currentPageUid = currentPageUid,
+                        onItemSelected = { selected ->
+                            stateItem = selected.name
+                            showStateItemPicker = false
+                        },
+                        onNavigateSelected = { _, _, _ -> },
+                        onDismiss = { showStateItemPicker = false }
+                    )
+                }
             }
 
             HorizontalDivider()
