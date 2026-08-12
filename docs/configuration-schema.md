@@ -90,7 +90,7 @@ Each page is a document at `/rest/ui/components/{namespace}/{uid}`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `label` | String | Page display name (shown as title on sub-pages) |
+| `label` | String | Page display name (shown in the phone editor tabs and navigation button labels) |
 | `layout` | Double | Number of button slots (1-7). Determines concentric layout geometry. |
 | `configVersion` | Double | Integer counter, incremented on each phone editor save. Used for sync detection. |
 
