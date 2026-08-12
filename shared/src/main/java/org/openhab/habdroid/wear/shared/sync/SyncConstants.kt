@@ -34,6 +34,12 @@ object SyncConstants {
     /** Message path for watch settings response (watch → phone) */
     const val PATH_SETTINGS_RESPONSE = "/openhab/settings-response"
 
+    /** Message path for requesting the watch app version (phone → watch) */
+    const val PATH_VERSION_REQUEST = "/openhab/version-request"
+
+    /** Message path for watch app version response (watch → phone) */
+    const val PATH_VERSION_RESPONSE = "/openhab/version-response"
+
     /** Default UI components namespace for wear tile config */
     const val DEFAULT_TILE_NAMESPACE = "wear:tile"
 

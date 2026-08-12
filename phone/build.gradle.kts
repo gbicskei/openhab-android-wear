@@ -18,8 +18,8 @@ android {
         applicationId = "org.openhab.habdroid.wear"
         minSdk = 30
         targetSdk = 36
-        versionCode = 54
-        versionName = "1.3.0"
+        versionCode = (project.property("appVersionCodePhone") as String).toInt()
+        versionName = project.property("appVersionName") as String
     }
 
     val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -57,6 +57,7 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            versionNameSuffix = ".dev"
         }
     }
 
@@ -106,6 +107,10 @@ dependencies {
 
     // Wear Data Layer (for sending credentials to watch)
     implementation(libs.play.services.wearable)
+
+    // Play Core In-App Update
+    implementation(libs.play.app.update)
+    implementation(libs.play.app.update.ktx)
 
     // Networking (connection test)
     implementation(libs.okhttp)

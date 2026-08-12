@@ -18,7 +18,9 @@ import org.openhab.habdroid.wear.phone.data.WriteNotAllowedException
 import org.openhab.habdroid.wear.phone.sync.NoNetworkException
 import org.openhab.habdroid.wear.phone.sync.NoWatchConnectedException
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
+import org.openhab.habdroid.wear.phone.sync.WatchVersionHolder
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.VersionCompat
 import javax.inject.Inject
 
 /**
@@ -39,6 +41,7 @@ class SetupViewModel @Inject constructor(
     init {
         loadSavedCredentials()
         observeWatchConnection()
+        observeWatchVersion()
         observeDebugMode()
         checkConfigSync()
     }
@@ -95,11 +98,22 @@ class SetupViewModel @Inject constructor(
                         state.watchStatus == WatchStatus.Synced -> WatchStatus.Synced
                         else -> WatchStatus.Connected
                     }
+                    // Reset version mismatch when watch disconnects
+                    val versionMismatch = if (newStatus == WatchStatus.NotFound || newStatus == WatchStatus.AppNotInstalled) {
+                        false
+                    } else {
+                        state.watchVersionMismatch
+                    }
                     state.copy(
                         watchStatus = newStatus,
                         watchName = info?.displayName,
-                        watchNearby = info?.isNearby ?: false
+                        watchNearby = info?.isNearby ?: false,
+                        watchVersionMismatch = versionMismatch
                     )
+                }
+                // When watch becomes connected, check its version
+                if (info != null && info.watchAppInstalled) {
+                    checkWatchVersion()
                 }
             }
         }
@@ -186,6 +200,43 @@ class SetupViewModel @Inject constructor(
                     watchStatus = if (node != null) WatchStatus.Connected else WatchStatus.NotFound,
                     watchName = node?.displayName
                 )
+            }
+        }
+    }
+
+    // ─── Version Compatibility Check ───
+
+    /**
+     * Requests the watch app's version. The response arrives asynchronously via
+     * PhoneWearListenerService which updates WatchVersionHolder.
+     */
+    fun checkWatchVersion() {
+        viewModelScope.launch {
+            dataLayerSender.requestWatchVersion()
+                .onFailure { e ->
+                    AppLog.w("SetupVM", "Failed to request watch version: ${e.message}")
+                }
+        }
+    }
+
+    /**
+     * Observes the WatchVersionHolder flow. When the watch responds with its version,
+     * this evaluates whether sync should be blocked.
+     */
+    private fun observeWatchVersion() {
+        viewModelScope.launch {
+            WatchVersionHolder.watchVersion.collect { watchVersionName ->
+                if (watchVersionName != null) {
+                    val phoneVersionName = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME
+                    val blocked = VersionCompat.shouldBlockSync(phoneVersionName, watchVersionName)
+                    AppLog.d("SetupVM", "Version check: phone=$phoneVersionName, watch=$watchVersionName, blocked=$blocked")
+                    _uiState.update {
+                        it.copy(
+                            watchVersionName = watchVersionName,
+                            watchVersionMismatch = blocked
+                        )
+                    }
+                }
             }
         }
     }
@@ -508,6 +559,8 @@ data class SetupUiState(
     val watchNearby: Boolean = false,
     val syncResult: SyncResult? = null,
     val configOutOfSync: Boolean = false,
+    val watchVersionName: String? = null,
+    val watchVersionMismatch: Boolean = false,
     // Unsaved changes tracking
     val hasUnsavedChanges: Boolean = false,
     // Debug
@@ -521,7 +574,8 @@ data class SetupUiState(
         watchStatus != WatchStatus.NotFound &&
         watchStatus != WatchStatus.AppNotInstalled &&
         watchStatus != WatchStatus.Unknown &&
-        syncResult != SyncResult.Sending
+        syncResult != SyncResult.Sending &&
+        !watchVersionMismatch
     val connectionTypeLabel: String? get() = when {
         watchStatus == WatchStatus.NotFound || watchStatus == WatchStatus.Unknown || watchStatus == WatchStatus.AppNotInstalled -> null
         watchNearby -> "Bluetooth"

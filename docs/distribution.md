@@ -157,14 +157,16 @@ Note: The Wear OS track is separate from the phone/tablet track. Always upload t
 Follow semantic versioning:
 
 ```
-versionName = "0.1.0"   # Major.Minor.Patch
-versionCode = 2          # Incrementing integer for Play Store
+versionName = "1.3.0"    # Major.Minor.Patch (shared between phone and watch)
+versionCode = 54         # Incrementing integer for Play Store (separate per module)
 ```
 
+- Both modules read `appVersionName` from `gradle.properties`
+- `appVersionCodePhone` and `appVersionCodeWatch` are separate (Play Store requires unique codes per APK)
 - Increment `versionCode` for every Play Store upload
 - Increment `versionName` for user-visible changes
-- Pre-1.0: feature development
-- 1.0.0: first public release
+- Debug builds automatically get `.dev` suffix (e.g., `1.3.0.dev`)
+- **Version enforcement:** The phone blocks sync to the watch when versions mismatch. See [Version Sync](version-sync.md) for details.
 
 ## CI/CD (future)
 
