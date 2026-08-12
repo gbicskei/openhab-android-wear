@@ -135,6 +135,10 @@ class TileActionReceiver : ComponentActivity() {
                 }
             }
 
+            // Refresh all states from server (picks up side effects like mutual exclusion in scenes)
+            kotlinx.coroutines.delay(500) // brief delay for server rule to finish
+            repository.refreshStates()
+
             // Request tile refresh
             TileService.getUpdater(this@TileActionReceiver)
                 .requestUpdate(OpenHabTileService::class.java)
