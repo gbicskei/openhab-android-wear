@@ -79,6 +79,12 @@ android {
         unitTests.isIncludeAndroidResources = true
         unitTests.isReturnDefaultValues = true
     }
+
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("${rootProject.projectDir}/assets", "src/main/assets")
+        }
+    }
 }
 
 dependencies {
