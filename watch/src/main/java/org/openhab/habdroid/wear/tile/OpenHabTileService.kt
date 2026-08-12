@@ -97,29 +97,33 @@ class OpenHabTileService : TileService() {
 
             // Read current page from persistent prefs
             val currentPage = tilePreferenceStore.currentPage.first()
-            AppLog.d("TileNav", "currentPage=$currentPage lastClickableId=${requestParams.currentState.lastClickableId}")
+            val now = System.currentTimeMillis()
+            val sinceLastRequest = now - tileStateEventSource.lastTileRequestMillis
+            tileStateEventSource.lastTileRequestMillis = now
+            AppLog.d("TileNav", "currentPage=$currentPage lastClickableId=${requestParams.currentState.lastClickableId} sinceLastRequest=${sinceLastRequest}ms")
 
-            // Always reset to main when tile is freshly displayed (no user interaction)
+            // Determine which page to show.
+            // If >5s since last onTileRequest with no clickable interaction, the tile was off-screen
+            // and is now freshly displayed → reset to main.
             val effectivePage = if (requestParams.currentState.lastClickableId == "nav_back") {
                 AppLog.d("TileNav", "→ nav_back → main")
-                tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
                 TileItem.PAGE_MAIN
             } else if (requestParams.currentState.lastClickableId?.startsWith("nav_page_") == true) {
                 // Forward navigation via loadAction
                 val targetPage = requestParams.currentState.lastClickableId!!.removePrefix("nav_page_")
                 AppLog.d("TileNav", "→ nav_page → $targetPage")
-                tilePreferenceStore.setCurrentPage(targetPage)
                 targetPage
-            } else if (requestParams.currentState.lastClickableId.isNullOrEmpty()) {
-                // No interaction — tile freshly shown, reset to main
+            } else if (requestParams.currentState.lastClickableId.isNullOrEmpty() && sinceLastRequest > 5000L && !tileStateEventSource.tileVisible) {
+                // Large gap since last request AND tile was not visible — was off-screen, now freshly shown
                 if (currentPage != TileItem.PAGE_MAIN) {
-                    AppLog.d("TileNav", "→ fresh display → resetting to main")
-                    tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
+                    AppLog.d("TileNav", "→ fresh display (${sinceLastRequest}ms gap, tile not visible) → resetting to main")
                 }
                 TileItem.PAGE_MAIN
             } else {
+                // Continuous updates (SSE, state refresh) or user interaction — keep current page
                 currentPage
             }
+            tilePreferenceStore.setCurrentPage(effectivePage)
 
             // Load all items for resources, filter current page for layout
             val t1 = System.currentTimeMillis()
@@ -166,12 +170,17 @@ class OpenHabTileService : TileService() {
             val tile = buildTile(pageItems, pageLayout, effectivePage, requestParams, voiceEnabled)
             AppLog.d("TileNav", "=== onTileRequest done: ${System.currentTimeMillis()-startTime}ms ===")
 
-            // Ensure SSE is running (covers process restart while tile is visible)
+            // Update watched items set and start SSE if tile is (or becomes) visible.
+            // onTileEnterEvent sets tileVisible=true, but the system doesn't guarantee it fires
+            // before the first onTileRequest after a process restart — so we also treat an empty
+            // lastClickableId as an implicit "tile is on screen" signal.
             if (allItems.isNotEmpty()) {
                 val watchSet = buildWatchedItemsSet(allItems)
                 tileStateEventSource.watchedItems = watchSet
-                tileStateEventSource.start {
-                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                if (tileStateEventSource.tileVisible) {
+                    tileStateEventSource.start {
+                        getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                    }
                 }
             }
 
@@ -311,7 +320,7 @@ class OpenHabTileService : TileService() {
                 AppLog.d("TileNav", "Some icons failed — scheduling retry in 5s")
                 serviceScope.launch {
                     kotlinx.coroutines.delay(5000)
-                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                    requestSelfUpdate()
                 }
             }
 
@@ -320,20 +329,21 @@ class OpenHabTileService : TileService() {
 
     override fun onTileEnterEvent(requestParams: EventBuilders.TileEnterEvent) {
         super.onTileEnterEvent(requestParams)
+        tileStateEventSource.tileVisible = true
         AppLog.d("TileNav", "onTileEnterEvent — invalidating states, fetching fresh")
 
         // Invalidate states — tile renders dimmed until fresh states arrive
         itemCache.invalidateStates()
 
         // Request a tile refresh (will render with stale/dimmed state)
-        getUpdater(this).requestUpdate(OpenHabTileService::class.java)
+        requestSelfUpdate()
 
         // Fetch fresh states in background (single batch call), then refresh tile (lit)
         serviceScope.launch {
             repository.refreshStates()
                 .onSuccess {
                     AppLog.d("TileNav", "Fresh states loaded, requesting lit render")
-                    getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
+                    requestSelfUpdate()
                 }
                 .onFailure { e ->
                     AppLog.w("TileNav", "Failed to fetch states: ${e.message}")
@@ -353,8 +363,18 @@ class OpenHabTileService : TileService() {
 
     override fun onTileLeaveEvent(requestParams: EventBuilders.TileLeaveEvent) {
         super.onTileLeaveEvent(requestParams)
+        tileStateEventSource.tileVisible = false
         // Stop SSE/polling when tile is no longer visible
         tileStateEventSource.stop()
+        // Reset to main so next time the user swipes to the tile it opens on the main page
+        serviceScope.launch {
+            tilePreferenceStore.setCurrentPage(TileItem.PAGE_MAIN)
+        }
+    }
+
+    /** Request a tile update for internal refreshes (SSE, state changes, icon retry). */
+    private fun requestSelfUpdate() {
+        getUpdater(this).requestUpdate(OpenHabTileService::class.java)
     }
 
     /**
@@ -550,41 +570,12 @@ class OpenHabTileService : TileService() {
                         .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
                         .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
                         .addContent(
-                            if (currentPage == TileItem.PAGE_MAIN) {
-                                // Wordmark replaces logo+text on main page
-                                LayoutElementBuilders.Image.Builder()
-                                    .setResourceId(RESOURCE_ID_LOGO)
-                                    .setWidth(dp(36f * 37.945313f / 31.791088f))
-                                    .setHeight(dp(36f))
-                                    .build()
-                            } else {
-                                // Sub-pages: plain logo behind the page title text
-                                LayoutElementBuilders.Box.Builder()
-                                    .setWidth(dp(titleBoxW))
-                                    .setHeight(dp(titleBoxH))
-                                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                                    .addContent(
-                                        LayoutElementBuilders.Image.Builder()
-                                            .setResourceId(RESOURCE_ID_PLAIN_LOGO)
-                                            .setWidth(dp(titleBoxH))
-                                            .setHeight(dp(titleBoxH))
-                                            .build()
-                                    )
-                                    .addContent(
-                                        LayoutElementBuilders.Text.Builder()
-                                            .setText(title)
-                                            .setFontStyle(
-                                                LayoutElementBuilders.FontStyle.Builder()
-                                                    .setSize(sp(12f))
-                                                    .setColor(argb(if (isLive) 0xFFFFFFFF.toInt() else 0xFF666666.toInt()))
-                                                    .setWeight(LayoutElementBuilders.FONT_WEIGHT_BOLD)
-                                                    .build()
-                                            )
-                                            .build()
-                                    )
-                                    .build()
-                            }
+                            // Same logo on all pages (no title text)
+                            LayoutElementBuilders.Image.Builder()
+                                .setResourceId(RESOURCE_ID_LOGO)
+                                .setWidth(dp(36f))
+                                .setHeight(dp(36f))
+                                .build()
                         )
                         .build()
                 )
@@ -593,6 +584,52 @@ class OpenHabTileService : TileService() {
 
         // Bottom overlay: mic on main page (if voice enabled), back button on sub-pages
         val showBottomButton = currentPage != TileItem.PAGE_MAIN || voiceEnabled
+
+        // Connection status indicator dot (bottom-right of logo in title area)
+        val dotColor = if (isLive) 0xFF4CAF50.toInt() else 0xFFF44336.toInt()
+        val dotSize = 5f
+        val logoDisplaySize = 36f
+        val dotX = titleCenterX + (logoDisplaySize / 2f) - dotSize  // right edge of logo
+        val dotY = titleCenterY + (logoDisplaySize * 0.25f)  // align with visual bottom of icon content
+        root.addContent(
+            LayoutElementBuilders.Box.Builder()
+                .setWidth(dp(screenW))
+                .setHeight(dp(screenH))
+                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
+                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                .setModifiers(
+                    ModifiersBuilders.Modifiers.Builder()
+                        .setPadding(
+                            ModifiersBuilders.Padding.Builder()
+                                .setStart(dp(dotX))
+                                .setTop(dp(dotY))
+                                .build()
+                        )
+                        .build()
+                )
+                .addContent(
+                    LayoutElementBuilders.Box.Builder()
+                        .setWidth(dp(dotSize))
+                        .setHeight(dp(dotSize))
+                        .setModifiers(
+                            ModifiersBuilders.Modifiers.Builder()
+                                .setBackground(
+                                    ModifiersBuilders.Background.Builder()
+                                        .setColor(argb(dotColor))
+                                        .setCorner(
+                                            ModifiersBuilders.Corner.Builder()
+                                                .setRadius(dp(dotSize / 2f))
+                                                .build()
+                                        )
+                                        .build()
+                                )
+                                .build()
+                        )
+                        .build()
+                )
+                .build()
+        )
+
         if (showBottomButton) {
             root.addContent(
                 LayoutElementBuilders.Box.Builder()
@@ -1273,11 +1310,11 @@ class OpenHabTileService : TileService() {
      */
     private fun loadLogoResource(resources: ResourceBuilders.Resources.Builder) {
         try {
-            val svgBytes = applicationContext.assets.open("ic_openhab_logo_v5.svg").use { it.readBytes() }
+            val svgBytes = applicationContext.assets.open("ic_wearoh_logo_v5.svg").use { it.readBytes() }
             val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
-            // Wordmark aspect ratio ~37.95:31.79 → use height=LOGO_ICON_SIZE, width proportional
+            // Square logo (1:1 aspect ratio)
             val height = LOGO_ICON_SIZE
-            val width = (height * 37.945313f / 31.791088f).toInt()
+            val width = height
             val bitmap = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)
             svg.documentWidth = width.toFloat()
@@ -1309,7 +1346,7 @@ class OpenHabTileService : TileService() {
     private fun loadPlainLogoResource(resources: ResourceBuilders.Resources.Builder) {
         try {
             val size = LOGO_ICON_SIZE
-            val svgBytes = applicationContext.assets.open("ic_openhab_logo.svg").use { it.readBytes() }
+            val svgBytes = applicationContext.assets.open("ic_wearoh_logo.svg").use { it.readBytes() }
             val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)

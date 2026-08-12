@@ -91,7 +91,7 @@ fun RollerShutterScreen(
                 val context = LocalContext.current
                 val logoPainter = rememberAsyncImagePainter(
                     model = coil.request.ImageRequest.Builder(context)
-                        .data("file:///android_asset/ic_openhab_logo.svg")
+                        .data("file:///android_asset/ic_wearoh_logo.svg")
                         .decoderFactory(coil.decode.SvgDecoder.Factory())
                         .build()
                 )

@@ -40,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -88,15 +89,16 @@ fun HomeScreen(
 
             // Logo wordmark
             Image(
-                painter = painterResource(id = R.drawable.ic_openhab_wordmark),
-                contentDescription = "openHAB",
-                modifier = Modifier.height(64.dp)
+                painter = painterResource(id = R.drawable.ic_wearoh_wordmark),
+                contentDescription = "wearOH",
+                modifier = Modifier.height(92.dp)
             )
 
             Text(
-                text = "Wear OS Configurator",
+                text = "wearOH Configurator",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.offset(y = (-12).dp)
             )
 
             Text(

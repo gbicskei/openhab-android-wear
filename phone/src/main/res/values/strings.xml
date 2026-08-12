@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">openHAB Wear Setup</string>
+    <string name="app_name">wearOH</string>
     <string name="setup_title">Connect to openHAB</string>
     <string name="server_url_label">Server URL</string>
     <string name="server_url_placeholder">https://myopenhab.org</string>

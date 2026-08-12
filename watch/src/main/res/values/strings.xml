@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">openHAB</string>
-    <string name="tile_name">openHAB Items</string>
+    <string name="app_name">wearOH</string>
+    <string name="tile_name">wearOH Items</string>
     <string name="voice_command">Voice Command</string>
     <string name="tile_items">Tile Items</string>
     <string name="server_settings">Server Settings</string>
-    <string name="setup_title">openHAB Setup</string>
+    <string name="setup_title">wearOH</string>
     <string name="sync_from_phone">Sync from phone</string>
     <string name="manual_setup">Manual setup</string>
     <string name="connected">Connected!</string>
@@ -21,7 +21,7 @@
     <string name="version_label">Version</string>
 
     <!-- Complications -->
-    <string name="complication_label">openHAB Item</string>
+    <string name="complication_label">wearOH Item</string>
     <string name="complication_config_title">Select Item</string>
     <string name="complication_no_items">No items configured for complications.\nAdd wearTile metadata with complication flag in openHAB.</string>
 </resources>

@@ -94,7 +94,7 @@ fun ColorPickerScreen(
                     val context = androidx.compose.ui.platform.LocalContext.current
                     val logoPainter = coil.compose.rememberAsyncImagePainter(
                         model = coil.request.ImageRequest.Builder(context)
-                            .data("file:///android_asset/ic_openhab_logo.svg")
+                            .data("file:///android_asset/ic_wearoh_logo.svg")
                             .decoderFactory(coil.decode.SvgDecoder.Factory())
                             .build()
                     )

@@ -8,6 +8,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import org.openhab.habdroid.wear.R
+import org.openhab.habdroid.wear.ui.components.AppLogoHeader
 import org.openhab.habdroid.wear.util.AppLog
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -231,10 +232,16 @@ fun VoiceCommandScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        AppLogoHeader(showIndicator = false)
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
         when (val state = uiState) {
             is VoiceUiState.Idle -> {
                 Icon(
@@ -324,6 +331,7 @@ fun VoiceCommandScreen(
             }
         }
     }
+    }
 }
 
 /**
@@ -374,7 +382,7 @@ fun ListeningIndicator(rmsLevel: Float) {
 
         // openHAB logo filling the inner ring area
         Image(
-            painter = painterResource(R.drawable.ic_openhab_logo),
+            painter = painterResource(R.drawable.ic_wearoh_logo),
             contentDescription = "openHAB listening",
             modifier = Modifier.size(56.dp)
         )
