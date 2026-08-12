@@ -58,6 +58,7 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.model.TileSlotState
 fun TileConfigSheet(
     slot: TileSlotState,
     pageNames: List<String>,
+    currentPageUid: String = "",
     layoutCount: Int,
     iconBaseUrl: String?,
     iconAuthHeader: String?,
@@ -220,7 +221,7 @@ fun TileConfigSheet(
             if (action is SlotAction.Navigate) {
                 PageTargetDropdown(
                     targetPage = targetPage,
-                    pageNames = pageNames.filter { it != "complications" },
+                    pageNames = pageNames.filter { it != "complications" && it != currentPageUid },
                     onPageChange = { targetPage = it }
                 )
             }
@@ -312,6 +313,7 @@ fun TileConfigSheet(
                     ItemPickerDialog(
                         items = allItems,
                         pageNames = emptyList(),
+                        currentPageUid = currentPageUid,
                         onItemSelected = { selected ->
                             doubleTapItem = selected.name
                             showDoubleTapItemPicker = false

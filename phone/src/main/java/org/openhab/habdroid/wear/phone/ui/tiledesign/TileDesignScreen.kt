@@ -227,6 +227,7 @@ fun TileDesignScreen(
                     ItemPickerDialog(
                         items = editor.allItems,
                         pageNames = editor.pageNames,
+                        currentPageUid = editor.currentPage.uid,
                         onItemSelected = { viewModel.assignItemToSlot(it) },
                         onNavigateSelected = { targetPage, label, icon ->
                             viewModel.assignNavigationToSlot(targetPage, label, icon)
@@ -246,6 +247,7 @@ fun TileDesignScreen(
                     TileConfigSheet(
                         slot = slot,
                         pageNames = editor.pageNames,
+                        currentPageUid = pageUid,
                         layoutCount = editor.currentPage.layout,
                         iconBaseUrl = state.iconBaseUrl,
                         iconAuthHeader = state.iconAuthHeader,
