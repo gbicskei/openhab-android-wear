@@ -134,6 +134,11 @@ class OpenHabRepository @Inject constructor(
         }
         AppLog.d(TAG, "refreshStates: got ${freshMap.size}/${neededNames.size} items")
 
+        // Debug: log fetched states for all items
+        freshMap.forEach { (name, item) ->
+            AppLog.d(TAG, "refreshStates: $name → state='${item.state}' type=${item.type}")
+        }
+
         // Update cached tile items with fresh states
         val updated = cached.map { tileItem ->
             var result = tileItem
