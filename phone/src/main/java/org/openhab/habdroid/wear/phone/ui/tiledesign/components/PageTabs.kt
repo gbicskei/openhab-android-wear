@@ -97,9 +97,8 @@ fun PageTabs(
 
     if (showAddDialog) {
         AddPageDialog(
-            existingPages = pageNames,
-            onConfirm = { name ->
-                onAddPage(name)
+            onConfirm = { label ->
+                onAddPage(label)
                 showAddDialog = false
             },
             onDismiss = { showAddDialog = false }
@@ -168,35 +167,30 @@ private fun RenamePageDialog(
 
 @Composable
 private fun AddPageDialog(
-    existingPages: List<String>,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
-    var pageName by remember { mutableStateOf("") }
-    val normalized = pageName.trim().lowercase().replace(" ", "_")
-    val isValid = normalized.isNotBlank() && normalized !in existingPages
-    val error = when {
-        pageName.isNotBlank() && normalized.isBlank() -> "Name cannot be empty"
-        normalized in existingPages -> "Page already exists"
-        else -> null
-    }
+    var label by remember { mutableStateOf("") }
+    val isValid = label.trim().isNotBlank()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add Page") },
         text = {
             OutlinedTextField(
-                value = pageName,
-                onValueChange = { pageName = it },
-                label = { Text("Page Name") },
-                placeholder = { Text("e.g. Security, Climate") },
-                isError = error != null,
-                supportingText = error?.let { { Text(it) } },
+                value = label,
+                onValueChange = { label = it },
+                label = { Text("Page Label") },
+                placeholder = { Text("e.g. Living Room, Security") },
+                isError = label.isNotBlank() && !isValid,
+                supportingText = if (label.isNotBlank() && !isValid) {
+                    { Text("Label cannot be empty") }
+                } else null,
                 singleLine = true
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(normalized) }, enabled = isValid) { Text("Add") }
+            TextButton(onClick = { onConfirm(label.trim()) }, enabled = isValid) { Text("Add") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
