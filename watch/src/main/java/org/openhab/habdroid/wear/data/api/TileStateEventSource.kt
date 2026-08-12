@@ -69,6 +69,21 @@ class TileStateEventSource @Inject constructor(
     /** Item names to watch for changes. Updated when tile items are loaded. */
     var watchedItems: Set<String> = emptySet()
 
+    /** Whether the tile is currently visible. Survives TileService instance recreation.
+     *  Set to true by onTileEnterEvent, false by onTileLeaveEvent.
+     *  On a fresh process (no enter/leave yet), defaults to true so that the first
+     *  onTileRequest can start SSE. onTileLeaveEvent will clear it. */
+    @Volatile
+    var tileVisible: Boolean = true
+
+    /**
+     * Timestamp of the last onTileRequest start. Used to detect if a new onTileRequest
+     * arrives long after the previous one (indicating the tile was off-screen and is now
+     * freshly displayed). If gap > 5s, it's a fresh display → reset to main.
+     */
+    @Volatile
+    var lastTileRequestMillis: Long = 0L
+
     private var connectionJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
