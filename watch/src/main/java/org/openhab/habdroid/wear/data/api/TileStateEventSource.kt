@@ -64,10 +64,22 @@ class TileStateEventSource @Inject constructor(
 
         /** Polling interval when SSE is unavailable */
         private const val POLL_INTERVAL_MS = 15_000L
+
+        /** Connection is considered "live" if an event was received within this window */
+        private const val CONNECTION_ALIVE_THRESHOLD_MS = 60_000L
     }
 
     /** Item names to watch for changes. Updated when tile items are loaded. */
     var watchedItems: Set<String> = emptySet()
+
+    /** Timestamp of the last successful SSE event or poll. Used by the tile to show connection status. */
+    @Volatile
+    var lastSuccessMillis: Long = 0L
+
+    /** Whether the connection is currently considered live (event received within threshold). */
+    val isConnected: Boolean
+        get() = lastSuccessMillis > 0L &&
+            (System.currentTimeMillis() - lastSuccessMillis) < CONNECTION_ALIVE_THRESHOLD_MS
 
     /** Whether the tile is currently visible. Survives TileService instance recreation.
      *  Set to true by onTileEnterEvent, false by onTileLeaveEvent.
@@ -198,10 +210,12 @@ class TileStateEventSource @Inject constructor(
         val eventSource = factory.newEventSource(request, object : EventSourceListener() {
             override fun onOpen(eventSource: EventSource, response: Response) {
                 AppLog.d(TAG, "SSE connected")
+                lastSuccessMillis = System.currentTimeMillis()
                 channel.trySend(SseEvent.Connected)
             }
 
             override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                lastSuccessMillis = System.currentTimeMillis()
                 channel.trySend(SseEvent.Data(data))
             }
 
@@ -280,7 +294,10 @@ class TileStateEventSource @Inject constructor(
             val itemsToRefresh = watchedItems.take(4) // max 4 items on a tile page
             if (itemsToRefresh.isEmpty()) {
                 repository.refreshStates()
-                    .onSuccess { onChanged() }
+                    .onSuccess {
+                        lastSuccessMillis = System.currentTimeMillis()
+                        onChanged()
+                    }
                     .onFailure { e -> AppLog.w(TAG, "Reconnect refresh failed: ${e.message}") }
                 return
             }
@@ -300,7 +317,10 @@ class TileStateEventSource @Inject constructor(
                     AppLog.w(TAG, "Refresh item '$name' failed: ${e.message}")
                 }
             }
-            if (anyChanged) onChanged()
+            if (anyChanged) {
+                lastSuccessMillis = System.currentTimeMillis()
+                onChanged()
+            }
         } catch (e: Exception) {
             AppLog.w(TAG, "Reconnect refresh error: ${e.message}")
         }
@@ -320,6 +340,7 @@ class TileStateEventSource @Inject constructor(
                 repository.refreshStates()
                     .onSuccess {
                         AppLog.d(TAG, "Poll: states refreshed — promoting back to SSE")
+                        lastSuccessMillis = System.currentTimeMillis()
                         onChanged()
                         return SseResult.TIMEOUT // signals main loop to retry SSE
                     }
