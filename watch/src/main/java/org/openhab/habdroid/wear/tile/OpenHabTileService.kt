@@ -404,7 +404,7 @@ class OpenHabTileService : TileService() {
         val layout = if (items.isEmpty() && currentPage == TileItem.PAGE_MAIN) {
             buildEmptyState()
         } else {
-            buildPageLayout(items, pageLayout, currentPage, screenW, screenH, itemCache.statesLoaded, voiceEnabled)
+            buildPageLayout(items, pageLayout, currentPage, screenW, screenH, tileStateEventSource.isConnected, voiceEnabled)
         }
 
         val timeline = TimelineBuilders.Timeline.Builder()
