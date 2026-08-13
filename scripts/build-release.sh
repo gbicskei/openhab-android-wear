@@ -21,6 +21,7 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WATCH_BUILD="$PROJECT_DIR/watch/build.gradle.kts"
 PHONE_BUILD="$PROJECT_DIR/phone/build.gradle.kts"
+GRADLE_PROPS="$PROJECT_DIR/gradle.properties"
 WATCH_AAB="$PROJECT_DIR/watch/build/outputs/bundle/release/watch-release.aab"
 PHONE_AAB="$PROJECT_DIR/phone/build/outputs/bundle/release/phone-release.aab"
 
@@ -34,7 +35,7 @@ fi
 
 # Check for uncommitted changes
 if [ "$BUMP" = true ]; then
-    DIRTY=$(git status --porcelain -- ':!watch/build.gradle.kts' ':!phone/build.gradle.kts' | head -1)
+    DIRTY=$(git status --porcelain -- ':!gradle.properties' | head -1)
     if [ -n "$DIRTY" ]; then
         echo "ERROR: You have uncommitted changes. Commit or stash them first."
         echo ""
@@ -43,10 +44,10 @@ if [ "$BUMP" = true ]; then
     fi
 fi
 
-# Read current versions
-WATCH_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' "$WATCH_BUILD")
-PHONE_CODE=$(grep -oP 'versionCode\s*=\s*\K\d+' "$PHONE_BUILD")
-VERSION_NAME=$(grep -oP 'versionName\s*=\s*"\K[^"]+' "$WATCH_BUILD")
+# Read current versions from gradle.properties
+WATCH_CODE=$(grep -oP 'appVersionCodeWatch=\K\d+' "$GRADLE_PROPS")
+PHONE_CODE=$(grep -oP 'appVersionCodePhone=\K\d+' "$GRADLE_PROPS")
+VERSION_NAME=$(grep -oP 'appVersionName=\K.+' "$GRADLE_PROPS")
 
 if [ -z "$WATCH_CODE" ] || [ -z "$PHONE_CODE" ]; then
     echo "ERROR: Could not read versionCode from build files"
@@ -72,8 +73,8 @@ if [ "$BUMP" = true ]; then
     echo "  phone: $PHONE_CODE → $NEW_PHONE_CODE"
     echo ""
 
-    sed -i "s/versionCode = $WATCH_CODE/versionCode = $NEW_WATCH_CODE/" "$WATCH_BUILD"
-    sed -i "s/versionCode = $PHONE_CODE/versionCode = $NEW_PHONE_CODE/" "$PHONE_BUILD"
+    sed -i "s/appVersionCodeWatch=$WATCH_CODE/appVersionCodeWatch=$NEW_WATCH_CODE/" "$GRADLE_PROPS"
+    sed -i "s/appVersionCodePhone=$PHONE_CODE/appVersionCodePhone=$NEW_PHONE_CODE/" "$GRADLE_PROPS"
 else
     NEW_WATCH_CODE=$WATCH_CODE
     NEW_PHONE_CODE=$PHONE_CODE
@@ -107,7 +108,7 @@ if [ "$BUMP" = true ]; then
 
     echo ""
     echo "Committing version bump..."
-    git add "$WATCH_BUILD" "$PHONE_BUILD"
+    git add "$GRADLE_PROPS"
     git commit -m "release: ${VERSION_NAME} (watch=${NEW_WATCH_CODE}, phone=${NEW_PHONE_CODE})"
 
     echo "Tagging: $TAG"
