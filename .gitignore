@@ -22,3 +22,6 @@ keystore.properties
 *.apk
 *.aab
 tmp
+
+# WIP docs
+docs/migration-to-foundation.md
