@@ -131,6 +131,13 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 
+        <!-- Toggle Control Activity (for Switch items from complication tap) -->
+        <activity
+            android:name=".ui.control.ToggleControlActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
+
         <!-- Debug: inject credentials via ADB -->
         <activity
             android:name=".ui.setup.DebugSetupActivity"
@@ -189,27 +196,34 @@
         <service
             android:name=".complication.OpenHabComplicationService"
             android:exported="true"
-            android:directBootAware="true"
             android:icon="@drawable/ic_complication"
             android:label="@string/complication_label"
             android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
             <intent-filter>
                 <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" />
             </intent-filter>
-
             <meta-data
                 android:name="android.support.wearable.complications.SUPPORTED_TYPES"
-                android:value="SHORT_TEXT,LONG_TEXT,RANGED_VALUE" />
-
+                android:value="RANGED_VALUE,SHORT_TEXT,LONG_TEXT,MONOCHROMATIC_IMAGE" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
                 android:value="300" />
+            <meta-data
+                android:name="android.support.wearable.complications.PROVIDER_CONFIG_ACTION"
+                android:value="org.openhab.habdroid.wear.complication.CONFIG" />
         </service>
 
         <!-- Complication Detail Activity (shows fresh value on tap) -->
         <activity
             android:name=".complication.ComplicationDetailActivity"
             android:exported="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault" />
+
+        <!-- Complication Tap Action (routes to control or toggle based on item type) -->
+        <activity
+            android:name=".complication.ComplicationTapActivity"
+            android:exported="false"
             android:taskAffinity=""
             android:theme="@android:style/Theme.DeviceDefault" />
 

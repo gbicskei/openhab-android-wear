@@ -18,17 +18,13 @@ data class RollerShutterState(
     val label: String = "",
     val position: Float = 0f, // 0 = open, 100 = closed (openHAB convention)
     val isMoving: Boolean = false,
-    val themeColor: Long = 0xFFFFB300,
+    val themeColor: Long = ControlStyle.DEFAULT_THEME_COLOR,
     val isLoading: Boolean = true,
     val error: String? = null
 ) {
     /** Display text for position */
     val positionDisplay: String
-        get() = when (position.toInt()) {
-            0 -> "OPEN"
-            100 -> "CLOSED"
-            else -> "${position.toInt()}%"
-        }
+        get() = "${position.toInt()}%"
 }
 
 /**
@@ -39,6 +35,7 @@ data class RollerShutterState(
 class RollerShutterViewModel @Inject constructor(
     private val repository: OpenHabRepository,
     private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
+    private val complicationRefresher: org.openhab.habdroid.wear.complication.ComplicationRefresher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -91,6 +88,7 @@ class RollerShutterViewModel @Inject constructor(
         _state.value = current.copy(isMoving = true, position = 0f)
         viewModelScope.launch {
             repository.sendCommand(itemName, "UP")
+            complicationRefresher.requestUpdate()
             _state.value = _state.value.copy(isMoving = false)
         }
     }
@@ -104,6 +102,7 @@ class RollerShutterViewModel @Inject constructor(
         _state.value = current.copy(isMoving = true, position = 100f)
         viewModelScope.launch {
             repository.sendCommand(itemName, "DOWN")
+            complicationRefresher.requestUpdate()
             _state.value = _state.value.copy(isMoving = false)
         }
     }
@@ -116,6 +115,7 @@ class RollerShutterViewModel @Inject constructor(
         if (current.isLoading || current.error != null) return
         viewModelScope.launch {
             repository.sendCommand(itemName, "STOP")
+            complicationRefresher.requestUpdate()
             _state.value = _state.value.copy(isMoving = false)
             // Refresh position after stop
             delay(500)
@@ -146,6 +146,7 @@ class RollerShutterViewModel @Inject constructor(
 
     private suspend fun sendPosition(position: Int) {
         repository.sendCommand(itemName, position.toString())
+        complicationRefresher.requestUpdate()
     }
 
     private suspend fun refreshPosition() {

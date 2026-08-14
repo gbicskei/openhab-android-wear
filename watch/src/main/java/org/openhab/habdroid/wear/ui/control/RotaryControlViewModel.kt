@@ -10,7 +10,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import org.openhab.habdroid.wear.complication.ComplicationRefresher
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.data.repository.ThemeStore
 import javax.inject.Inject
 
 data class RotaryControlState(
@@ -23,7 +25,7 @@ data class RotaryControlState(
     val step: Double = 1.0,
     val pattern: String? = null,
     val unit: String = "",
-    val themeColor: Long = 0xFFFFB300,
+    val themeColor: Long = ControlStyle.DEFAULT_THEME_COLOR,
     val isLoading: Boolean = true,
     val error: String? = null
 ) {
@@ -61,16 +63,19 @@ data class RotaryControlState(
 @HiltViewModel
 class RotaryControlViewModel @Inject constructor(
     private val repository: OpenHabRepository,
-    private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
+    private val themeStore: ThemeStore,
+    private val complicationRefresher: ComplicationRefresher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val itemName: String = savedStateHandle["item_name"] ?: ""
+    private val passedLabel: String = savedStateHandle["label"] ?: ""
 
-    private val _state = MutableStateFlow(RotaryControlState(itemName = itemName))
+    private val _state = MutableStateFlow(RotaryControlState(itemName = itemName, label = passedLabel))
     val state: StateFlow<RotaryControlState> = _state.asStateFlow()
 
     private var sendJob: Job? = null
+    private var sseJob: Job? = null
 
     init {
         loadCachedMetadata()
@@ -99,7 +104,10 @@ class RotaryControlViewModel @Inject constructor(
                         val stateDesc = item.stateDescription
                         _state.value = _state.value.copy(
                             itemName = item.name,
-                            label = tileItem.effectiveLabel,
+                            label = tileItem.effectiveLabel.takeIf { it.isNotBlank() && it != item.type }
+                                ?: passedLabel.takeIf { it.isNotBlank() && it != item.type }
+                                ?: item.label?.takeIf { it.isNotBlank() }
+                                ?: item.name,
                             icon = tileItem.effectiveIcon,
                             currentValue = item.numericState ?: 0.0,
                             min = stateDesc?.minimum ?: 0.0,
@@ -125,14 +133,20 @@ class RotaryControlViewModel @Inject constructor(
                     val stateDesc = item.stateDescription
                     val current = _state.value
                     _state.value = current.copy(
+                        label = current.label.takeIf { it.isNotBlank() && it != item.type }
+                            ?: item.label?.takeIf { it.isNotBlank() }
+                            ?: passedLabel.takeIf { it.isNotBlank() && it != item.type }
+                            ?: item.name,
                         currentValue = item.numericState ?: current.currentValue,
                         min = stateDesc?.minimum ?: current.min,
                         max = stateDesc?.maximum ?: current.max,
                         step = stateDesc?.step ?: current.step,
                         pattern = stateDesc?.pattern ?: current.pattern,
-                        unit = resolveUnit(item.type, stateDesc?.pattern) .ifEmpty { current.unit },
+                        unit = resolveUnit(item.type, stateDesc?.pattern).ifEmpty { current.unit },
                         isLoading = false
                     )
+                    // Start SSE for live updates
+                    startSseUpdates()
                 }
                 .onFailure { error ->
                     // Only show error if we have nothing cached
@@ -183,6 +197,31 @@ class RotaryControlViewModel @Inject constructor(
             String.format("%.1f", value)
         }
         repository.sendCommand(itemName, command)
+        complicationRefresher.requestUpdate()
+    }
+
+    /**
+     * Subscribe to SSE events for this specific item.
+     * Updates the current value in real-time while the activity is visible.
+     */
+    private fun startSseUpdates() {
+        if (sseJob?.isActive == true) return
+        sseJob = viewModelScope.launch {
+            repository.observeItemState(itemName).collect { newState ->
+                val numericValue = newState.replace(" .*".toRegex(), "").toDoubleOrNull()
+                if (numericValue != null) {
+                    val current = _state.value
+                    _state.value = current.copy(
+                        currentValue = numericValue.coerceIn(current.min, current.max)
+                    )
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        sseJob?.cancel()
     }
 
     /**

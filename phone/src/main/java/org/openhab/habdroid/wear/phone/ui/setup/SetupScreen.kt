@@ -203,12 +203,75 @@ fun SetupScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ─── Save Button ───
+            val saveStatus = uiState.saveStatus
             androidx.compose.material3.Button(
                 onClick = viewModel::saveAll,
                 enabled = uiState.canSave,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Save")
+                when (saveStatus) {
+                    SaveStatus.Testing -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Testing...")
+                    }
+                    SaveStatus.Saving -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Saving...")
+                    }
+                    SaveStatus.Success -> {
+                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.size(8.dp))
+                        Text("Saved")
+                    }
+                    else -> {
+                        Text("Save")
+                    }
+                }
+            }
+
+            // ─── Save Warning Dialog ───
+            if (saveStatus is SaveStatus.Warning) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = viewModel::dismissSaveWarning,
+                    title = { Text("Connection issues") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("Some connections failed:")
+                            saveStatus.errors.forEach { error ->
+                                Text(
+                                    text = "\u2022 $error",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Save anyway?",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = {
+                            viewModel.forceSave()
+                        }) { Text("Save anyway") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = viewModel::dismissSaveWarning) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))

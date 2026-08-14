@@ -173,6 +173,38 @@ User taps item button on tile
     → Request tile refresh
 ```
 
+### Complication Tap (control activity routing)
+```
+User taps complication on watch face
+  → ComplicationTapActivity
+    → Fetch item from REST API (type, state, label, commandDescription)
+    → Route by type:
+      Switch/Group       → ToggleControlActivity
+      Dimmer/Range       → RotaryControlActivity
+      Color              → ColorPickerActivity
+      Rollershutter      → RollerShutterActivity
+      Has commandOptions → ChoicePickerActivity
+      Other              → ComplicationDetailActivity
+    → Control activity:
+      → Displays item with shared ControlScreenComponents styling
+      → Subscribes to SSE for real-time updates
+      → On user action: sendCommand → ComplicationRefresher.requestUpdate()
+```
+
+### Theme Sync (Phone → Server → Watch)
+```
+Phone: TileDesignScreen → ThemeSelector → onThemeSelected(themeName)
+  → credentialStore.saveSelectedTheme(themeName)     [local persistence]
+  → Update main page: page.copy(theme = themeName)
+  → apiService.updateTilePage(config, page.toDto())  [writes to server]
+
+Watch: OpenHabRepository.coldLoad()
+  → Fetch tile components from server
+  → Read mainPage.config.theme
+  → themeStore.setTheme(TileTheme.fromName(themeName))
+  → All control activities read from ThemeStore on launch
+```
+
 ### Voice Command
 ```
 VoiceCommandActivity

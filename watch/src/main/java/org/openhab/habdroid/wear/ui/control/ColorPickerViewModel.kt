@@ -64,6 +64,7 @@ val PRESET_COLORS = listOf(
 @HiltViewModel
 class ColorPickerViewModel @Inject constructor(
     private val repository: OpenHabRepository,
+    private val complicationRefresher: org.openhab.habdroid.wear.complication.ComplicationRefresher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -175,6 +176,7 @@ class ColorPickerViewModel @Inject constructor(
 
     private suspend fun sendCurrentColor() {
         repository.sendCommand(itemName, _state.value.hsbCommand)
+        complicationRefresher.requestUpdate()
     }
 
     /**

@@ -283,6 +283,7 @@ class QuickActionActivity : ComponentActivity() {
         Log.d(TAG, "Opening ${activityClass.simpleName} for '$itemName'")
         startActivity(android.content.Intent(this, activityClass).apply {
             putExtra("item_name", itemName)
+            putExtra("label", item?.displayLabel ?: itemName)
         })
         finish()
         Log.d(TAG, "← openControlActivity() ${System.currentTimeMillis() - _traceStart}ms")
@@ -340,6 +341,7 @@ class QuickActionActivity : ComponentActivity() {
                         Log.d(TAG, "Fetched type=${item.type} for '$itemName', opening ${activityClass.simpleName}")
                         startActivity(android.content.Intent(this@QuickActionActivity, activityClass).apply {
                             putExtra("item_name", itemName)
+                            putExtra("label", item.displayLabel)
                         })
                         finish()
                         Log.d(TAG, "← fetchAndOpenControl() ${System.currentTimeMillis() - _traceStart}ms")
@@ -350,6 +352,7 @@ class QuickActionActivity : ComponentActivity() {
                     kotlinx.coroutines.withContext(Dispatchers.Main) {
                         startActivity(android.content.Intent(this@QuickActionActivity, org.openhab.habdroid.wear.ui.control.RotaryControlActivity::class.java).apply {
                             putExtra("item_name", itemName)
+                            putExtra("label", itemName)
                         })
                         finish()
                         Log.d(TAG, "← fetchAndOpenControl() ${System.currentTimeMillis() - _traceStart}ms")

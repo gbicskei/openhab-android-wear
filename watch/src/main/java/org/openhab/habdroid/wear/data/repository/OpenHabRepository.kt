@@ -3,7 +3,10 @@ package org.openhab.habdroid.wear.data.repository
 import org.openhab.habdroid.wear.util.AppLog
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -589,6 +592,93 @@ class OpenHabRepository @Inject constructor(
             Unit
         } finally {
             AppLog.d(TAG, "← ping() ${System.currentTimeMillis() - _traceStart}ms")
+        }
+    }
+
+    /**
+     * Observe real-time state changes for a specific item via SSE.
+     * Returns a Flow that emits the new state string whenever the item changes.
+     * The SSE connection is automatically closed when the collector is cancelled.
+     *
+     * Battery-safe: connection lives only while the Flow is collected (activity is visible).
+     */
+    fun observeItemState(itemName: String): Flow<String> = callbackFlow {
+            val credentials = credentialStore.credentials.first()
+            if (credentials == null) {
+                close()
+                return@callbackFlow
+            }
+
+            val serverUrl = credentials.serverUrl.trimEnd('/')
+            val topic = "openhab/items/$itemName/statechanged"
+            val url = "$serverUrl/rest/events?topics=$topic"
+
+            AppLog.d(TAG, "observeItemState: connecting SSE for '$itemName' at $url")
+
+            val sseClient = okhttp3.OkHttpClient.Builder()
+                .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val request = chain.request().newBuilder()
+                    if (credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
+                        request.header("Authorization",
+                            okhttp3.Credentials.basic(credentials.username, credentials.password))
+                    }
+                    chain.proceed(request.build())
+                }
+                .build()
+
+            val request = okhttp3.Request.Builder()
+                .url(url)
+                .header("Accept", "text/event-stream")
+                .header("Cache-Control", "no-cache")
+                .build()
+
+            val factory = okhttp3.sse.EventSources.createFactory(sseClient)
+            val eventSource = factory.newEventSource(request, object : okhttp3.sse.EventSourceListener() {
+                override fun onEvent(eventSource: okhttp3.sse.EventSource, id: String?, type: String?, data: String) {
+                    val newState = extractStateFromEvent(data)
+                    if (newState != null) {
+                        AppLog.d(TAG, "observeItemState: $itemName → $newState")
+                        trySend(newState)
+                    }
+                }
+
+                override fun onFailure(eventSource: okhttp3.sse.EventSource, t: Throwable?, response: okhttp3.Response?) {
+                    AppLog.w(TAG, "observeItemState SSE failed for '$itemName': ${t?.message}")
+                }
+            })
+
+            awaitClose {
+                AppLog.d(TAG, "observeItemState: closing SSE for '$itemName'")
+                eventSource.cancel()
+                sseClient.dispatcher.executorService.shutdown()
+            }
+        }
+
+    /**
+     * Extract new state value from an SSE statechanged event payload.
+     */
+    private fun extractStateFromEvent(data: String): String? {
+        return try {
+            // Payload is escaped JSON: "value\":\"ON\"
+            val escapedKey = "\\\"value\\\":\\\""
+            val idx = data.indexOf(escapedKey)
+            if (idx >= 0) {
+                val start = idx + escapedKey.length
+                val end = data.indexOf("\\\"", start)
+                if (end > start) return data.substring(start, end)
+            }
+            // Fallback: unescaped
+            val plainKey = "\"value\":\""
+            val plainIdx = data.indexOf(plainKey)
+            if (plainIdx >= 0) {
+                val start = plainIdx + plainKey.length
+                val end = data.indexOf("\"", start)
+                if (end > start) return data.substring(start, end)
+            }
+            null
+        } catch (_: Exception) {
+            null
         }
     }
 }

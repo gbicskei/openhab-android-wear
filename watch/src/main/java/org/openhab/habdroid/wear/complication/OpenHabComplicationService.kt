@@ -33,7 +33,7 @@ import javax.inject.Inject
  * Supports: SHORT_TEXT, LONG_TEXT, RANGED_VALUE, MONOCHROMATIC_IMAGE.
  */
 @AndroidEntryPoint
-class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
+open class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
 
     @Inject
     lateinit var repository: OpenHabRepository
@@ -220,29 +220,44 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
     /**
      * Format item state value using a pattern or smart defaults.
      * Pattern uses Java String.format syntax (e.g. "%.0f°C", "%.1f kWh").
-     * If pattern is blank, uses transformedState or auto-formatting.
+     * If pattern is blank, uses transformedState, options lookup, or auto-formatting.
      */
     private fun formatValue(item: Item, pattern: String?): String {
-        // If a pattern is provided, try to format the numeric value with it
+        // First: always try transformedState (server-formatted)
+        val transformed = item.transformedState
+        if (transformed != null && transformed !in listOf("NULL", "UNDEF")) {
+            return transformed.take(12)
+        }
+
+        // Second: look up display label from stateDescription options or commandDescription
+        val optionLabel = item.stateDescription?.options
+            ?.find { it.value == item.state }
+            ?.label
+            ?: item.commandDescription?.commandOptions
+                ?.find { it.command == item.state }
+                ?.label
+            ?: BUILT_IN_STATE_LABELS[item.state]
+        if (optionLabel != null) {
+            return optionLabel.take(12)
+        }
+
+        // Third: if a pattern is provided, format with it
         if (!pattern.isNullOrBlank()) {
             val numericValue = item.numericState
             if (numericValue != null) {
                 return try {
-                    // %d requires integer — convert if needed
                     if (pattern.contains("%d")) {
                         String.format(pattern, numericValue.toLong())
                     } else {
                         String.format(pattern, numericValue)
                     }
                 } catch (_: Exception) {
-                    // Last resort: substitute value directly
                     numericValue.let {
                         if (it == it.toLong().toDouble()) it.toLong().toString()
                         else String.format("%.1f", it)
                     }
                 }
             }
-            // For non-numeric items, try formatting with the state string
             return try {
                 String.format(pattern, item.state)
             } catch (_: Exception) {
@@ -250,12 +265,7 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
             }
         }
 
-        // No pattern — use smart defaults
-        val transformed = item.transformedState
-        if (transformed != null && transformed !in listOf("NULL", "UNDEF")) {
-            return transformed.take(12)
-        }
-
+        // Fourth: numeric auto-formatting
         val numericValue = item.numericState
         return when {
             item.state in listOf("NULL", "UNDEF") -> "\u2014"
@@ -391,8 +401,8 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
     }
 
     private fun createDetailTapAction(complicationId: Int): PendingIntent {
-        val intent = Intent(this, ComplicationDetailActivity::class.java).apply {
-            putExtra(ComplicationDetailActivity.EXTRA_COMPLICATION_ID, complicationId)
+        val intent = Intent(this, ComplicationTapActivity::class.java).apply {
+            putExtra(ComplicationTapActivity.EXTRA_COMPLICATION_ID, complicationId)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         return PendingIntent.getActivity(
@@ -476,5 +486,13 @@ class OpenHabComplicationService : SuspendingComplicationDataSourceService() {
 
     companion object {
         private const val TAG = "ComplicationService"
+
+        /** Built-in display labels for common raw state values without stateDescription options. */
+        private val BUILT_IN_STATE_LABELS = mapOf(
+            "ON" to "On",
+            "OFF" to "Off",
+            "OPEN" to "Open",
+            "CLOSED" to "Closed"
+        )
     }
 }

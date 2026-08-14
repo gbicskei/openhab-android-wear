@@ -382,55 +382,146 @@ class SetupViewModel @Inject constructor(
 
     fun saveAll() {
         val state = _uiState.value
+        _uiState.update { it.copy(saveStatus = SaveStatus.Testing) }
 
         viewModelScope.launch {
-            // Save user key
-            credentialStore.saveUserKey(state.userKey)
+            val errors = mutableListOf<String>()
 
-            // Save main server credentials
+            // Test main server connection if credentials are configured
             val effectivePassword = getEffectivePassword()
             if (state.serverUrl.isNotBlank()) {
-                credentialStore.saveCredentials(
-                    ServerCredentials(
-                        serverUrl = state.serverUrl.trim(),
-                        username = state.username.trim(),
-                        password = effectivePassword,
-                        userKey = state.userKey
-                    )
-                )
+                connectionTester.testConnection(
+                    serverUrl = state.serverUrl.trim(),
+                    username = state.username.trim(),
+                    password = effectivePassword
+                ).onSuccess {
+                    _uiState.update { it.copy(connectionStatus = ConnectionStatus.Success, errorMessage = null) }
+                }.onFailure { error ->
+                    val message = when (error) {
+                        is InvalidCredentialsException -> "Main Server: Invalid username or password"
+                        else -> "Main Server: ${error.message ?: "Connection failed"}"
+                    }
+                    errors.add(message)
+                    _uiState.update { it.copy(connectionStatus = ConnectionStatus.Failed, errorMessage = message) }
+                }
             }
 
-            // Save config server credentials
+            // Test config server connection if configured
             val effectiveConfigPassword = getEffectiveConfigPassword()
             if (state.configServerUrl.isNotBlank()) {
-                credentialStore.saveLocalConfig(
-                    LocalServerConfig(
-                        serverUrl = state.configServerUrl.trim(),
-                        username = state.configUsername.trim(),
-                        password = effectiveConfigPassword,
-                        apiToken = state.configApiToken.trim()
-                    )
-                )
+                connectionTester.testConfigConnection(
+                    serverUrl = state.configServerUrl.trim(),
+                    username = state.configUsername.trim(),
+                    password = effectiveConfigPassword,
+                    apiToken = state.configApiToken.trim(),
+                    namespace = credentialStore.tileNamespace
+                ).onSuccess {
+                    _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Success, configErrorMessage = null) }
+                }.onFailure { error ->
+                    val message = when (error) {
+                        is InvalidCredentialsException -> "Config Server: Invalid username or password"
+                        is WriteNotAllowedException -> "Config Server: Write access denied"
+                        else -> "Config Server: ${error.message ?: "Connection failed"}"
+                    }
+                    errors.add(message)
+                    _uiState.update { it.copy(configConnectionStatus = ConnectionStatus.Failed, configErrorMessage = message) }
+                }
             }
 
-            // Save Google Cloud TTS API key
-            if (state.googleTtsApiKeyModifiedThisSession) {
-                credentialStore.saveGoogleTtsApiKey(state.googleTtsApiKey.trim())
+            // Test Google TTS API key if configured
+            val googleTtsKey = if (state.googleTtsApiKeyModifiedThisSession) state.googleTtsApiKey.trim()
+            else credentialStore.getGoogleTtsApiKey()
+            if (googleTtsKey.isNotBlank()) {
+                connectionTester.testGoogleTts(googleTtsKey)
+                    .onSuccess {
+                        _uiState.update { it.copy(googleTtsTestStatus = ConnectionStatus.Success, googleTtsTestError = null) }
+                    }
+                    .onFailure { error ->
+                        errors.add("Google TTS: ${error.message ?: "Test failed"}")
+                        _uiState.update { it.copy(googleTtsTestStatus = ConnectionStatus.Failed, googleTtsTestError = error.message) }
+                    }
             }
 
-            _uiState.update {
-                it.copy(
-                    hasUnsavedChanges = false,
-                    hasStoredPassword = effectivePassword.isNotBlank(),
-                    configHasStoredPassword = effectiveConfigPassword.isNotBlank(),
-                    hasStoredGoogleTtsApiKey = credentialStore.hasGoogleTtsApiKey
-                )
+            // If any test failed, show warning and stop
+            if (errors.isNotEmpty()) {
+                _uiState.update { it.copy(saveStatus = SaveStatus.Warning(errors)) }
+                return@launch
             }
-            AppLog.d("SetupVM", "All settings saved")
 
-            // Auto-sync credentials to watch if connected
-            syncCredentialsToWatch(state)
+            // All tests passed (or nothing to test) — proceed with saving
+            performSave(state, effectivePassword, effectiveConfigPassword)
         }
+    }
+
+    /**
+     * Force-save even when there are connection warnings.
+     * Called from the UI when the user dismisses the warning and chooses to save anyway.
+     */
+    fun forceSave() {
+        val state = _uiState.value
+        viewModelScope.launch {
+            val effectivePassword = getEffectivePassword()
+            val effectiveConfigPassword = getEffectiveConfigPassword()
+            performSave(state, effectivePassword, effectiveConfigPassword)
+        }
+    }
+
+    fun dismissSaveWarning() {
+        _uiState.update { it.copy(saveStatus = SaveStatus.Idle) }
+    }
+
+    private suspend fun performSave(state: SetupUiState, effectivePassword: String, effectiveConfigPassword: String) {
+        _uiState.update { it.copy(saveStatus = SaveStatus.Saving) }
+
+        // Save user key
+        credentialStore.saveUserKey(state.userKey)
+
+        // Save main server credentials
+        if (state.serverUrl.isNotBlank()) {
+            credentialStore.saveCredentials(
+                ServerCredentials(
+                    serverUrl = state.serverUrl.trim(),
+                    username = state.username.trim(),
+                    password = effectivePassword,
+                    userKey = state.userKey
+                )
+            )
+        }
+
+        // Save config server credentials
+        if (state.configServerUrl.isNotBlank()) {
+            credentialStore.saveLocalConfig(
+                LocalServerConfig(
+                    serverUrl = state.configServerUrl.trim(),
+                    username = state.configUsername.trim(),
+                    password = effectiveConfigPassword,
+                    apiToken = state.configApiToken.trim()
+                )
+            )
+        }
+
+        // Save Google Cloud TTS API key
+        if (state.googleTtsApiKeyModifiedThisSession) {
+            credentialStore.saveGoogleTtsApiKey(state.googleTtsApiKey.trim())
+        }
+
+        _uiState.update {
+            it.copy(
+                hasUnsavedChanges = false,
+                hasStoredPassword = effectivePassword.isNotBlank(),
+                configHasStoredPassword = effectiveConfigPassword.isNotBlank(),
+                hasStoredGoogleTtsApiKey = credentialStore.hasGoogleTtsApiKey,
+                saveStatus = SaveStatus.Success
+            )
+        }
+        AppLog.d("SetupVM", "All settings saved")
+
+        // Auto-sync credentials to watch if connected
+        syncCredentialsToWatch(state)
+
+        // Reset save status after a short delay
+        kotlinx.coroutines.delay(2000)
+        _uiState.update { it.copy(saveStatus = SaveStatus.Idle) }
     }
 
     /**
@@ -448,7 +539,8 @@ class SetupViewModel @Inject constructor(
                 userKey = state.userKey,
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode)
+            val localUrl = credentialStore.localConfig.first()?.serverUrl ?: ""
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
                 .onSuccess {
                     AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
                 }
@@ -481,7 +573,8 @@ class SetupViewModel @Inject constructor(
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
 
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode)
+            val localUrl = credentialStore.localConfig.first()?.serverUrl ?: ""
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
                 .onSuccess {
                     // Send reload signal so the watch refreshes tile config (includes theme)
                     try {
@@ -563,13 +656,14 @@ data class SetupUiState(
     val watchVersionMismatch: Boolean = false,
     // Unsaved changes tracking
     val hasUnsavedChanges: Boolean = false,
+    // Save flow
+    val saveStatus: SaveStatus = SaveStatus.Idle,
     // Debug
     val debugMode: Boolean = false
 ) {
     val canTest: Boolean get() = serverUrl.isNotBlank() && connectionStatus != ConnectionStatus.Testing
     val canTestConfig: Boolean get() = configServerUrl.isNotBlank() && configConnectionStatus != ConnectionStatus.Testing
-    val canSave: Boolean get() = serverUrl.isNotBlank() && hasUnsavedChanges &&
-        connectionStatus == ConnectionStatus.Success
+    val canSave: Boolean get() = hasUnsavedChanges && saveStatus != SaveStatus.Testing && saveStatus != SaveStatus.Saving
     val canSendToWatch: Boolean get() = (connectionStatus == ConnectionStatus.Success || hasStoredPassword) &&
         watchStatus != WatchStatus.NotFound &&
         watchStatus != WatchStatus.AppNotInstalled &&
@@ -593,4 +687,12 @@ sealed interface SyncResult {
     data object Sending : SyncResult
     data object Success : SyncResult
     data class Error(val message: String) : SyncResult
+}
+
+sealed interface SaveStatus {
+    data object Idle : SaveStatus
+    data object Testing : SaveStatus
+    data object Saving : SaveStatus
+    data object Success : SaveStatus
+    data class Warning(val errors: List<String>) : SaveStatus
 }

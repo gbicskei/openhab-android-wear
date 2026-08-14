@@ -18,7 +18,7 @@ data class ChoicePickerState(
     val label: String = "",
     val options: List<ChoiceOption> = emptyList(),
     val currentValue: String = "",
-    val themeColor: Long = 0xFFFFB300,
+    val themeColor: Long = ControlStyle.DEFAULT_THEME_COLOR,
     val isSending: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null
@@ -40,6 +40,7 @@ data class ChoiceOption(
 class ChoicePickerViewModel @Inject constructor(
     private val repository: OpenHabRepository,
     private val themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore,
+    private val complicationRefresher: org.openhab.habdroid.wear.complication.ComplicationRefresher,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -69,7 +70,7 @@ class ChoicePickerViewModel @Inject constructor(
             repository.getItem(itemName)
                 .onSuccess { item ->
                     val options = buildOptionList(item.commandDescription?.commandOptions, item.stateDescription?.options)
-                    _state.value = ChoicePickerState(
+                    _state.value = _state.value.copy(
                         itemName = itemName,
                         label = item.displayLabel,
                         options = options,
@@ -97,6 +98,7 @@ class ChoicePickerViewModel @Inject constructor(
         _state.value = current.copy(isSending = true, currentValue = option.command)
         viewModelScope.launch {
             repository.sendCommand(itemName, option.command)
+            complicationRefresher.requestUpdate()
             _state.value = _state.value.copy(isSending = false)
         }
     }
