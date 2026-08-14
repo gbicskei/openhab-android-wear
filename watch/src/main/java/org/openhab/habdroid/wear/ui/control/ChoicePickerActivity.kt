@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -87,24 +86,8 @@ fun ChoicePickerScreen(
                         androidx.compose.foundation.layout.Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            val context = androidx.compose.ui.platform.LocalContext.current
-                            val logoPainter = coil.compose.rememberAsyncImagePainter(
-                                model = coil.request.ImageRequest.Builder(context)
-                                    .data("file:///android_asset/ic_wearoh_logo.svg")
-                                    .decoderFactory(coil.decode.SvgDecoder.Factory())
-                                    .build()
-                            )
-                            androidx.compose.foundation.Image(
-                                painter = logoPainter,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Text(
-                                text = state.label,
-                                fontSize = 14.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            ControlLogo()
+                            ControlLabel(text = state.label)
                         }
                     }
                 }
@@ -130,7 +113,7 @@ private fun OptionCard(
     option: ChoiceOption,
     isActive: Boolean,
     isSending: Boolean,
-    themeColor: Color = Color(0xFFFFB300),
+    themeColor: Color = Color(ControlStyle.DEFAULT_THEME_COLOR),
     onClick: () -> Unit
 ) {
     TitleCard(

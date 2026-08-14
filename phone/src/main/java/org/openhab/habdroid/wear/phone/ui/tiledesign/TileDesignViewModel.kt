@@ -255,6 +255,12 @@ class TileDesignViewModel @Inject constructor(
         _selectedTheme.value = themeName
         viewModelScope.launch {
             credentialStore.saveSelectedTheme(themeName)
+            // Update the main page's theme in the editor state and save to server
+            val state = (_uiState.value as? TileDesignUiState.Success) ?: return@launch
+            val mainPage = state.editor.pages.find { it.uid == "main" } ?: return@launch
+            val updatedMain = mainPage.copy(theme = themeName)
+            updatePageInState(updatedMain)
+            savePage(updatedMain)
         }
     }
 

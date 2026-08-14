@@ -30,7 +30,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.rotary.onRotaryScrollEvent
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,26 +90,10 @@ fun ColorPickerScreen(
                     modifier = Modifier.padding(28.dp)
                 ) {
                     // openHAB logo
-                    val context = androidx.compose.ui.platform.LocalContext.current
-                    val logoPainter = coil.compose.rememberAsyncImagePainter(
-                        model = coil.request.ImageRequest.Builder(context)
-                            .data("file:///android_asset/ic_wearoh_logo.svg")
-                            .decoderFactory(coil.decode.SvgDecoder.Factory())
-                            .build()
-                    )
-                    androidx.compose.foundation.Image(
-                        painter = logoPainter,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    ControlLogo()
 
                     // Item label
-                    Text(
-                        text = state.label,
-                        fontSize = 12.sp,
-                        color = Color(0xFFAAAAAA),
-                        maxLines = 1
-                    )
+                    ControlLabel(text = state.label)
 
                     // Preset color grid (2 rows of 5)
                     val presets = PRESET_COLORS
@@ -122,16 +105,11 @@ fun ColorPickerScreen(
                     )
 
                     // Brightness display
-                    Text(
-                        text = state.brightnessDisplay,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
+                    ControlValue(text = state.brightnessDisplay)
 
                     // On/Off label
                     Text(
-                        text = if (state.isOn) "ON" else "OFF",
+                        text = if (state.isOn) "On" else "Off",
                         fontSize = 11.sp,
                         color = if (state.isOn) hsbToColor(state.hue, state.saturation, state.brightness)
                             else Color(0xFF666666),
@@ -231,7 +209,7 @@ private fun BrightnessArc(brightness: Float, hue: Float) {
 
         // Track
         drawArc(
-            color = Color(0xFF333333),
+            color = Color(ControlStyle.ARC_TRACK_COLOR),
             startAngle = 0f,
             sweepAngle = 360f,
             useCenter = false,

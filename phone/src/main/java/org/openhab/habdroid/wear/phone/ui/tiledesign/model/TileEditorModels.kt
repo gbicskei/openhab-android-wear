@@ -210,7 +210,8 @@ data class TilePageState(
     val label: String = "",
     val layout: Int = 6,
     val slots: List<TileSlotState> = emptyList(),
-    val configVersion: Int = 0
+    val configVersion: Int = 0,
+    val theme: String = ""
 ) {
     val isMain: Boolean get() = uid == "main"
     val filledSlotCount: Int get() = slots.count { !it.isEmpty }
@@ -218,7 +219,7 @@ data class TilePageState(
     fun toDto(): WearTilePageDto = WearTilePageDto(
         uid = uid,
         component = WearTilePageDto.COMPONENT_TILE_PAGE,
-        config = PageConfig(label = label, layout = layout.toDouble(), configVersion = configVersion.toDouble()),
+        config = PageConfig(label = label, layout = layout.toDouble(), configVersion = configVersion.toDouble(), theme = theme),
         slots = Slots(default = slots.filter { !it.isEmpty }.map { it.toSlotDto() })
     )
 
@@ -230,7 +231,8 @@ data class TilePageState(
                 label = dto.config.label,
                 layout = dto.config.layoutInt,
                 slots = slotStates,
-                configVersion = dto.config.configVersionInt
+                configVersion = dto.config.configVersionInt,
+                theme = dto.config.theme
             )
         }
     }
