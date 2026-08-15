@@ -18,7 +18,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ComplicationConfigViewModel @Inject constructor(
     private val repository: OpenHabRepository,
-    private val complicationPreferenceStore: ComplicationPreferenceStore
+    private val complicationPreferenceStore: ComplicationPreferenceStore,
+    val iconResolver: org.openhab.habdroid.wear.data.icon.IconResolver
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ComplicationConfigUiState>(ComplicationConfigUiState.Loading)
@@ -32,12 +33,14 @@ class ComplicationConfigViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = ComplicationConfigUiState.Loading
 
+            val configs = repository.getComplicationConfigs().getOrDefault(emptyList())
+
             repository.getComplicationItems()
                 .onSuccess { items ->
                     if (items.isEmpty()) {
                         _uiState.value = ComplicationConfigUiState.Empty
                     } else {
-                        _uiState.value = ComplicationConfigUiState.Success(items)
+                        _uiState.value = ComplicationConfigUiState.Success(items, configs)
                     }
                 }
                 .onFailure { error ->
@@ -65,7 +68,10 @@ class ComplicationConfigViewModel @Inject constructor(
  */
 sealed interface ComplicationConfigUiState {
     data object Loading : ComplicationConfigUiState
-    data class Success(val items: List<Item>) : ComplicationConfigUiState
+    data class Success(
+        val items: List<Item>,
+        val configs: List<org.openhab.habdroid.wear.data.model.WearComplicationConfig> = emptyList()
+    ) : ComplicationConfigUiState
     data object Empty : ComplicationConfigUiState
     data class Error(val message: String) : ComplicationConfigUiState
 }

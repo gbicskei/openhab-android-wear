@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -22,6 +24,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -41,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationState
+import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationType
 import org.openhab.habdroid.wear.phone.ui.complications.model.LongTextConfig
 import org.openhab.habdroid.wear.phone.ui.complications.model.MonochromaticImageConfig
 import org.openhab.habdroid.wear.phone.ui.complications.model.RangedValueConfig
@@ -54,8 +58,10 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.components.IconPickerDialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ComplicationConfigSheet(
+    slotNumber: Int,
     complication: ComplicationState,
     itemType: String,
+    itemState: String,
     iconBaseUrl: String?,
     iconAuthHeader: String?,
     onSave: (ComplicationState) -> Unit,
@@ -117,7 +123,7 @@ fun ComplicationConfigSheet(
         ) {
             // Header
             Text(
-                text = "Configure Complication",
+                text = "Slot $slotNumber — Configure",
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
@@ -157,58 +163,64 @@ fun ComplicationConfigSheet(
 
             // ─── SHORT_TEXT Section ───
 
-            SectionHeader(
-                title = "SHORT_TEXT",
-                subtitle = "text max 7 chars, title max 7 chars",
-                expanded = expandShortText,
-                onToggle = { expandShortText = !expandShortText }
-            )
-            AnimatedVisibility(visible = expandShortText) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = shortTextTitle,
-                        onValueChange = { if (it.length <= ShortTextConfig.MAX_TITLE_LENGTH) shortTextTitle = it },
-                        label = { Text("title") },
-                        placeholder = { Text("Label") },
-                        supportingText = { Text("${shortTextTitle.length}/${ShortTextConfig.MAX_TITLE_LENGTH}") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    PatternTextField(
-                        value = shortTextText,
-                        onValueChange = { if (it.length <= ShortTextConfig.MAX_TEXT_LENGTH) shortTextText = it },
-                        label = "text",
-                        maxLength = ShortTextConfig.MAX_TEXT_LENGTH,
-                        placeholder = "%.0f°C"
-                    )
+            if (ComplicationType.SHORT_TEXT in ComplicationType.defaultsForItemType(itemType)) {
+                SectionHeader(
+                    title = "SHORT_TEXT",
+                    subtitle = "text max 7 chars, title max 7 chars",
+                    expanded = expandShortText,
+                    onToggle = { expandShortText = !expandShortText }
+                )
+                AnimatedVisibility(visible = expandShortText) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = shortTextTitle,
+                            onValueChange = { if (it.length <= ShortTextConfig.MAX_TITLE_LENGTH) shortTextTitle = it },
+                            label = { Text("title") },
+                            placeholder = { Text("Label") },
+                            supportingText = { Text("${shortTextTitle.length}/${ShortTextConfig.MAX_TITLE_LENGTH}") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        PatternTextField(
+                            value = shortTextText,
+                            onValueChange = { if (it.length <= ShortTextConfig.MAX_TEXT_LENGTH) shortTextText = it },
+                            label = "text",
+                            maxLength = ShortTextConfig.MAX_TEXT_LENGTH,
+                            placeholder = "%.0f°C",
+                            itemState = itemState
+                        )
+                    }
                 }
             }
 
             // ─── LONG_TEXT Section ───
 
-            SectionHeader(
-                title = "LONG_TEXT",
-                subtitle = "no strict char limit",
-                expanded = expandLongText,
-                onToggle = { expandLongText = !expandLongText }
-            )
-            AnimatedVisibility(visible = expandLongText) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = longTextTitle,
-                        onValueChange = { longTextTitle = it },
-                        label = { Text("title") },
-                        placeholder = { Text("Label") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    PatternTextField(
-                        value = longTextText,
-                        onValueChange = { longTextText = it },
-                        label = "text",
-                        maxLength = null,
-                        placeholder = "Temperature: %.1f °C"
-                    )
+            if (ComplicationType.LONG_TEXT in ComplicationType.defaultsForItemType(itemType)) {
+                SectionHeader(
+                    title = "LONG_TEXT",
+                    subtitle = "no strict char limit",
+                    expanded = expandLongText,
+                    onToggle = { expandLongText = !expandLongText }
+                )
+                AnimatedVisibility(visible = expandLongText) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = longTextTitle,
+                            onValueChange = { longTextTitle = it },
+                            label = { Text("title") },
+                            placeholder = { Text("Label") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        PatternTextField(
+                            value = longTextText,
+                            onValueChange = { longTextText = it },
+                            label = "text",
+                            maxLength = null,
+                            placeholder = "Temperature: %.1f °C",
+                            itemState = itemState
+                        )
+                    }
                 }
             }
 
@@ -237,7 +249,8 @@ fun ComplicationConfigSheet(
                             onValueChange = { if (it.length <= RangedValueConfig.MAX_TEXT_LENGTH) rangedText = it },
                             label = "text",
                             maxLength = RangedValueConfig.MAX_TEXT_LENGTH,
-                            placeholder = "%.0f%%"
+                            placeholder = "%.0f%%",
+                            itemState = itemState
                         )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -334,7 +347,7 @@ fun ComplicationConfigSheet(
                     )
                 ) {
                     Icon(Icons.Default.Delete, contentDescription = null)
-                    Text("Remove", modifier = Modifier.padding(start = 4.dp))
+                    Text("Clear slot", modifier = Modifier.padding(start = 4.dp))
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
@@ -434,6 +447,7 @@ private fun SectionHeader(
 
 /**
  * Text field for format patterns with live validation preview and expandable help.
+ * Uses the item's current state for realistic previews.
  */
 @Composable
 private fun PatternTextField(
@@ -441,10 +455,11 @@ private fun PatternTextField(
     onValueChange: (String) -> Unit,
     label: String,
     maxLength: Int?,
-    placeholder: String
+    placeholder: String,
+    itemState: String = ""
 ) {
     var showHelp by remember { mutableStateOf(false) }
-    val validation = validatePattern(value)
+    val validation = validatePattern(value, itemState)
 
     Column {
         OutlinedTextField(
@@ -558,20 +573,32 @@ private sealed interface PatternValidation {
 }
 
 /**
- * Validates a format pattern by attempting to format a sample value.
- * Returns a preview string or an error message.
+ * Validates a format pattern by attempting to format using the item's current state.
+ * Falls back to sample values if the state is unavailable or incompatible.
  */
-private fun validatePattern(pattern: String): PatternValidation {
+private fun validatePattern(pattern: String, itemState: String): PatternValidation {
     if (pattern.isBlank()) return PatternValidation.Empty
 
+    // Try to parse numeric value from item state
+    val numericValue = itemState
+        .replace(Regex("[^\\d.\\-]"), "") // Strip units like "22.5 °C" → "22.5"
+        .toDoubleOrNull()
+
     return try {
-        // Try formatting with a numeric value (most common case)
-        val result = String.format(pattern, 22.5)
-        PatternValidation.Valid(result)
+        if (numericValue != null) {
+            // Use the real numeric state
+            val result = String.format(pattern, numericValue)
+            PatternValidation.Valid(result)
+        } else {
+            // Try as number first (pattern might expect %f)
+            val result = String.format(pattern, 0.0)
+            PatternValidation.Valid(result)
+        }
     } catch (_: java.util.IllegalFormatConversionException) {
-        // Pattern expects a string, not a number — try with a string
+        // Pattern expects a string — use the raw state
         try {
-            val result = String.format(pattern, "ON")
+            val stateStr = itemState.ifBlank { "NULL" }
+            val result = String.format(pattern, stateStr)
             PatternValidation.Valid(result)
         } catch (e: Exception) {
             PatternValidation.Error("Invalid pattern: ${e.message?.take(30)}")

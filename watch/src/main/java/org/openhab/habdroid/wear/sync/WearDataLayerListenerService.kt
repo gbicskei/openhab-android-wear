@@ -1,6 +1,7 @@
 package org.openhab.habdroid.wear.sync
 
 import org.openhab.habdroid.wear.util.AppLog
+import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
@@ -68,6 +69,9 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var tileStateEventSource: org.openhab.habdroid.wear.data.api.TileStateEventSource
 
+    @Inject
+    lateinit var serverSelector: org.openhab.habdroid.wear.data.api.ServerSelector
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -103,6 +107,15 @@ class WearDataLayerListenerService : WearableListenerService() {
                 )
                 credentialStore.saveCredentials(credentials)
                 AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
+
+                // Save local server URL for Happy Eyeballs racing
+                credentialStore.saveLocalServerUrl(configData.localServerUrl)
+                if (configData.localServerUrl.isNotBlank()) {
+                    AppLog.d(TAG, "Local server URL saved: ${configData.localServerUrl}")
+                }
+
+                // Reset ServerSelector so next request re-races with new URLs
+                serverSelector.reset()
 
                 // Seed DNS cache with phone-resolved IPs
                 if (configData.resolvedIps.isNotEmpty()) {
@@ -156,6 +169,12 @@ class WearDataLayerListenerService : WearableListenerService() {
                 }
             TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(OpenHabTileService::class.java)
+
+            // Also refresh complications
+            ComplicationDataSourceUpdateRequester.create(
+                this@WearDataLayerListenerService,
+                android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
+            ).requestUpdateAll()
         }
     }
 

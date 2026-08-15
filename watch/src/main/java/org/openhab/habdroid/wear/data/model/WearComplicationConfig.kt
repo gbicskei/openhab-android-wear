@@ -3,6 +3,7 @@ package org.openhab.habdroid.wear.data.model
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
@@ -14,6 +15,8 @@ data class WearComplicationConfig(
     val item: String,
     val label: String = "",
     val icon: String = "",
+    val slotNumber: Int = 0,
+    val supportedTypes: Set<String> = emptySet(),
     val shortText: ShortTextTypeConfig = ShortTextTypeConfig(),
     val longText: LongTextTypeConfig = LongTextTypeConfig(),
     val rangedValue: RangedValueTypeConfig = RangedValueTypeConfig(),
@@ -21,10 +24,23 @@ data class WearComplicationConfig(
 ) {
     companion object {
         fun fromJson(config: JsonObject): WearComplicationConfig {
+            val supportedTypes = config["supportedTypes"]?.let { element ->
+                try {
+                    kotlinx.serialization.json.Json.parseToJsonElement(element.toString())
+                        .let { it as? kotlinx.serialization.json.JsonArray }
+                        ?.mapNotNull { it.jsonPrimitive.content }
+                        ?.toSet()
+                } catch (_: Exception) { null }
+            } ?: emptySet()
+
             return WearComplicationConfig(
                 item = config.stringOrEmpty("item"),
                 label = config.stringOrEmpty("label"),
                 icon = config.stringOrEmpty("icon"),
+                slotNumber = config["slotNumber"]?.jsonPrimitive?.doubleOrNull?.toInt()
+                    ?: config["slotNumber"]?.jsonPrimitive?.content?.toIntOrNull()
+                    ?: 0,
+                supportedTypes = supportedTypes,
                 shortText = config["shortText"]?.jsonObject?.let { obj ->
                     ShortTextTypeConfig(
                         text = obj.stringOrEmpty("text"),
