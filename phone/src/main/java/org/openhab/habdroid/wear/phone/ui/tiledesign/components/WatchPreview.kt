@@ -142,7 +142,7 @@ fun WatchPreview(
                 val logoWidth = (36f * 37.945313f / 31.791088f * scale).dp
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
-                        .data("file:///android_asset/ic_wearoh_logo_v5.svg")
+                        .data("file:///android_asset/app_logo_gray.svg")
                         .decoderFactory(SvgDecoder.Factory())
                         .build(),
                     contentDescription = "openHAB",
