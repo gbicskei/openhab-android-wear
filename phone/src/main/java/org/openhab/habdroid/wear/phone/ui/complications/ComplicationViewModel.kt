@@ -15,6 +15,7 @@ import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationEditor
 import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationItem
 import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationListDto
 import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationState
+import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationType
 import org.openhab.habdroid.wear.phone.ui.tiledesign.data.TileApiService
 import javax.inject.Inject
 
@@ -30,8 +31,9 @@ sealed interface ComplicationUiState {
 }
 
 /**
- * Manages the complication editor — loads, saves, and deletes complication configurations
- * via the wear:complication-list REST API endpoint. Supports import from legacy wearTile metadata.
+ * Manages the complication editor with fixed 10-slot model.
+ * Each slot (1–10) maps to a dedicated ComplicationDataSourceService on the watch.
+ * Loads, saves, and manages slot configurations via the wear:complication-list REST endpoint.
  */
 @HiltViewModel
 class ComplicationViewModel @Inject constructor(
@@ -42,11 +44,17 @@ class ComplicationViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<ComplicationUiState>(ComplicationUiState.Loading)
     val uiState: StateFlow<ComplicationUiState> = _uiState.asStateFlow()
 
-    private val _showItemPicker = MutableStateFlow(false)
-    val showItemPicker: StateFlow<Boolean> = _showItemPicker.asStateFlow()
+    /** Slot number being assigned an item (shows item picker). Null when picker is closed. */
+    private val _assigningSlot = MutableStateFlow<Int?>(null)
+    val assigningSlot: StateFlow<Int?> = _assigningSlot.asStateFlow()
 
-    private val _editingIndex = MutableStateFlow<Int?>(null)
-    val editingIndex: StateFlow<Int?> = _editingIndex.asStateFlow()
+    /** Slot number being edited (shows config sheet). Null when editor is closed. */
+    private val _editingSlot = MutableStateFlow<Int?>(null)
+    val editingSlot: StateFlow<Int?> = _editingSlot.asStateFlow()
+
+    /** Slot number pending deletion confirmation. Null when no delete pending. */
+    private val _confirmingDelete = MutableStateFlow<Int?>(null)
+    val confirmingDelete: StateFlow<Int?> = _confirmingDelete.asStateFlow()
 
     private val _snackbarMessage = MutableStateFlow<String?>(null)
     val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
@@ -55,6 +63,7 @@ class ComplicationViewModel @Inject constructor(
     val isSaving: StateFlow<Boolean> = _isSaving.asStateFlow()
 
     private var localConfig: LocalServerConfig? = null
+    private var remoteCredentials: org.openhab.habdroid.wear.shared.model.ServerCredentials? = null
     private var existsOnServer: Boolean = false
 
     init {
@@ -68,6 +77,7 @@ class ComplicationViewModel @Inject constructor(
             val remote = credentialStore.credentials.first()
             val local = credentialStore.localConfig.first()
             localConfig = local
+            remoteCredentials = remote
 
             val serverUrl: String
             val authHeader: String?
@@ -116,10 +126,10 @@ class ComplicationViewModel @Inject constructor(
             val editorState = if (dto != null) {
                 ComplicationEditorState.fromDto(dto, items)
             } else {
-                ComplicationEditorState(complications = emptyList(), allItems = items)
+                ComplicationEditorState(allItems = items)
             }
 
-            val isReadOnly = localConfig == null
+            val isReadOnly = false
             _uiState.value = ComplicationUiState.Success(
                 editor = editorState,
                 isReadOnly = isReadOnly,
@@ -129,73 +139,131 @@ class ComplicationViewModel @Inject constructor(
         }
     }
 
-    fun showAddComplication() {
-        _showItemPicker.value = true
+    // ─── Slot Assignment (empty slot tapped → pick item) ───
+
+    /** Open the item picker to assign an item to the next available empty slot. */
+    fun addComplication() {
+        val state = (_uiState.value as? ComplicationUiState.Success) ?: return
+        val firstEmpty = (1..ComplicationListDto.MAX_SLOTS).firstOrNull { state.editor.slots[it] == null }
+        if (firstEmpty != null) {
+            _assigningSlot.value = firstEmpty
+        }
+    }
+
+    /** Open the item picker to assign an item to the given slot number. */
+    fun assignSlot(slotNumber: Int) {
+        _assigningSlot.value = slotNumber
     }
 
     fun dismissItemPicker() {
-        _showItemPicker.value = false
+        _assigningSlot.value = null
     }
 
-    fun addComplication(item: ComplicationItem) {
-        _showItemPicker.value = false
+    /** Item selected from picker — assign it to the slot and open editor immediately. */
+    fun confirmAssignment(item: ComplicationItem) {
+        val slotNumber = _assigningSlot.value ?: return
+        _assigningSlot.value = null
+
         val state = (_uiState.value as? ComplicationUiState.Success) ?: return
 
         val newComplication = ComplicationState(
             item = item.name,
             label = item.displayLabel,
-            icon = item.category ?: ""
+            icon = item.category ?: "",
+            supportedTypes = ComplicationType.defaultsForItemType(item.type)
         )
 
-        val updated = state.editor.copy(
-            complications = state.editor.complications + newComplication
-        )
+        val updatedSlots = state.editor.slots.toMutableMap()
+        updatedSlots[slotNumber] = newComplication
+
+        val updated = state.editor.copy(slots = updatedSlots)
         _uiState.value = state.copy(editor = updated)
         save(updated)
+
+        // Open the config sheet for the newly assigned slot
+        _editingSlot.value = slotNumber
     }
 
-    fun editComplication(index: Int) {
-        _editingIndex.value = index
+    // ─── Slot Editing (configured slot tapped → edit config) ───
+
+    /** Open the config sheet for an already-configured slot. */
+    fun editSlot(slotNumber: Int) {
+        _editingSlot.value = slotNumber
     }
 
     fun dismissEditor() {
-        _editingIndex.value = null
+        _editingSlot.value = null
     }
 
-    fun updateComplication(index: Int, complication: ComplicationState) {
-        _editingIndex.value = null
+    /** Save updated configuration for the slot being edited. */
+    fun updateSlot(slotNumber: Int, complication: ComplicationState) {
+        _editingSlot.value = null
         val state = (_uiState.value as? ComplicationUiState.Success) ?: return
 
-        val updated = state.editor.copy(
-            complications = state.editor.complications.toMutableList().also {
-                it[index] = complication
-            }
-        )
+        val updatedSlots = state.editor.slots.toMutableMap()
+        updatedSlots[slotNumber] = complication
+
+        val updated = state.editor.copy(slots = updatedSlots)
         _uiState.value = state.copy(editor = updated)
         save(updated)
     }
 
-    fun removeComplication(index: Int) {
-        _editingIndex.value = null
+    /** Request deletion of a slot — shows confirmation dialog. */
+    fun clearSlot(slotNumber: Int) {
+        _editingSlot.value = null
+        _confirmingDelete.value = slotNumber
+    }
+
+    /** Cancel the pending deletion. */
+    fun cancelDelete() {
+        _confirmingDelete.value = null
+    }
+
+    /** Confirm deletion: remove the slot and renumber remaining slots to close the gap. */
+    fun confirmDelete() {
+        val slotNumber = _confirmingDelete.value ?: return
+        _confirmingDelete.value = null
+
         val state = (_uiState.value as? ComplicationUiState.Success) ?: return
 
-        val updated = state.editor.copy(
-            complications = state.editor.complications.toMutableList().also {
-                it.removeAt(index)
-            }
-        )
+        // Get all configured slots sorted by number, remove the target
+        val configuredSlots = state.editor.slots.entries
+            .filter { it.value != null }
+            .sortedBy { it.key }
+            .map { it.value!! }
+            .toMutableList()
+
+        // Find and remove the slot by its current number
+        val indexToRemove = state.editor.slots.entries
+            .filter { it.value != null }
+            .sortedBy { it.key }
+            .indexOfFirst { it.key == slotNumber }
+
+        if (indexToRemove >= 0) {
+            configuredSlots.removeAt(indexToRemove)
+        }
+
+        // Renumber: assign sequential slot numbers 1, 2, 3...
+        val renumbered = (1..ComplicationListDto.MAX_SLOTS).associateWith { idx ->
+            configuredSlots.getOrNull(idx - 1)
+        }
+
+        val updated = state.editor.copy(slots = renumbered)
         _uiState.value = state.copy(editor = updated)
         save(updated)
     }
+
+    // ─── Snackbar ───
 
     fun dismissSnackbar() {
         _snackbarMessage.value = null
     }
 
+    // ─── Import from legacy metadata ───
+
     /**
      * Import complication items from old wearTile metadata.
-     * Maps: item name, icon (from config or item category), label (from item).
-     * No per-type config exists in the old format — defaults are used.
+     * Assigns imported items to the first available empty slots.
      */
     fun importFromMetadata() {
         viewModelScope.launch {
@@ -232,61 +300,105 @@ class ComplicationViewModel @Inject constructor(
                 return@launch
             }
 
-            // Convert to ComplicationState
-            val imported = complicationItems.map { item ->
-                val meta = item.metadata?.get("wearTile")
-                val metaIcon = meta?.config?.get("icon")
-                ComplicationState(
-                    item = item.name,
-                    label = item.label ?: item.name,
-                    icon = metaIcon ?: item.category ?: ""
-                )
-            }
-
-            // Merge with existing (don't duplicate items already configured)
             val state = (_uiState.value as? ComplicationUiState.Success) ?: return@launch
-            val existingItemNames = state.editor.complications.map { it.item }.toSet()
-            val newOnes = imported.filter { it.item !in existingItemNames }
 
-            if (newOnes.isEmpty()) {
+            // Find already-configured item names
+            val existingItemNames = state.editor.slots.values
+                .filterNotNull()
+                .map { it.item }
+                .toSet()
+
+            // Filter out items already configured
+            val newItems = complicationItems.filter { it.name !in existingItemNames }
+
+            if (newItems.isEmpty()) {
                 _snackbarMessage.value = "All ${complicationItems.size} items already configured"
                 _isSaving.value = false
                 return@launch
             }
 
-            val updated = state.editor.copy(
-                complications = state.editor.complications + newOnes
-            )
+            // Find empty slots and assign items
+            val emptySlots = (1..ComplicationListDto.MAX_SLOTS)
+                .filter { state.editor.slots[it] == null }
+                .iterator()
+
+            val updatedSlots = state.editor.slots.toMutableMap()
+            var assignedCount = 0
+
+            for (item in newItems) {
+                if (!emptySlots.hasNext()) break
+                val slotNumber = emptySlots.next()
+                val meta = item.metadata?.get("wearTile")
+                val metaIcon = meta?.config?.get("icon")
+                updatedSlots[slotNumber] = ComplicationState(
+                    item = item.name,
+                    label = item.label ?: item.name,
+                    icon = metaIcon ?: item.category ?: ""
+                )
+                assignedCount++
+            }
+
+            val skipped = newItems.size - assignedCount
+            val updated = state.editor.copy(slots = updatedSlots)
             _uiState.value = state.copy(editor = updated)
             save(updated)
 
-            _snackbarMessage.value = "Imported ${newOnes.size} complications"
+            val message = buildString {
+                append("Imported $assignedCount complications")
+                if (skipped > 0) append(" ($skipped skipped — no empty slots)")
+            }
+            _snackbarMessage.value = message
             _isSaving.value = false
         }
     }
 
-    private fun save(editor: ComplicationEditorState) {
-        val config = localConfig ?: run {
-            _snackbarMessage.value = "Read-only: no local server configured"
-            return
-        }
+    // ─── Persistence ───
 
+    private fun save(editor: ComplicationEditorState) {
         viewModelScope.launch {
             _isSaving.value = true
             val dto = editor.toDto()
             val namespace = credentialStore.tileNamespace
 
+            val local = localConfig
+            val remote = remoteCredentials
+
             val result = if (existsOnServer) {
-                apiService.updateComplicationList(config, dto, namespace)
+                if (local != null && local.serverUrl.isNotBlank()) {
+                    apiService.updateComplicationList(local, dto, namespace)
+                } else if (remote != null) {
+                    apiService.updateComplicationList(
+                        LocalServerConfig(serverUrl = remote.serverUrl, username = remote.username, password = remote.password),
+                        dto, namespace
+                    )
+                } else {
+                    Result.failure(Exception("No server configured"))
+                }
             } else {
-                apiService.createComplicationList(config, dto, namespace).also {
-                    if (it.isSuccess) existsOnServer = true
+                // Try PUT first (document may exist from previous version), then POST
+                val writeConfig = if (local != null && local.serverUrl.isNotBlank()) {
+                    local
+                } else if (remote != null) {
+                    LocalServerConfig(serverUrl = remote.serverUrl, username = remote.username, password = remote.password)
+                } else {
+                    _snackbarMessage.value = "No server configured"
+                    _isSaving.value = false
+                    return@launch
+                }
+                val putResult = apiService.updateComplicationList(writeConfig, dto, namespace)
+                if (putResult.isSuccess) {
+                    existsOnServer = true
+                    putResult
+                } else {
+                    apiService.createComplicationList(writeConfig, dto, namespace).also {
+                        if (it.isSuccess) existsOnServer = true
+                    }
                 }
             }
 
             result
                 .onSuccess {
-                    AppLog.d(TAG, "Complications saved (${editor.complications.size} items)")
+                    AppLog.d(TAG, "Complications saved (${editor.configuredCount}/${ComplicationListDto.MAX_SLOTS} slots)")
                 }
                 .onFailure { e ->
                     AppLog.w(TAG, "Failed to save complications", e)

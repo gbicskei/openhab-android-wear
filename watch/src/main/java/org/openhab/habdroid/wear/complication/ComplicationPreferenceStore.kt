@@ -10,14 +10,47 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 /**
- * Stores the mapping between complication slot IDs and openHAB item names.
- * Each complication instance on the watch face has a unique ID assigned by the system.
- * We persist which item the user selected for each slot.
+ * Stores complication slot labels (cached from server config during sync)
+ * and the legacy mapping between complication slot IDs and openHAB item names.
  */
 @Singleton
 class ComplicationPreferenceStore @Inject constructor(
     @Named("complications") private val dataStore: DataStore<Preferences>
 ) {
+    // ─── Slot Labels (cached from server config for preview data) ───
+
+    /**
+     * Store the display label for a slot (cached during sync).
+     * Used by getPreviewData() to show the item name in the complication picker.
+     */
+    suspend fun setSlotLabel(slotNumber: Int, label: String) {
+        val key = stringPreferencesKey("slot_${slotNumber}_label")
+        dataStore.edit { it[key] = label }
+    }
+
+    /**
+     * Read the cached label for a slot synchronously (blocking).
+     * Only used in getPreviewData() which must return immediately.
+     */
+    fun getSlotLabelSync(slotNumber: Int): String? {
+        val key = stringPreferencesKey("slot_${slotNumber}_label")
+        return kotlinx.coroutines.runBlocking {
+            dataStore.data.first()[key]
+        }
+    }
+
+    /**
+     * Clear all slot labels (called before re-syncing).
+     */
+    suspend fun clearSlotLabels() {
+        dataStore.edit { prefs ->
+            prefs.asMap().keys
+                .filter { it.name.startsWith("slot_") && it.name.endsWith("_label") }
+                .forEach { prefs.remove(it) }
+        }
+    }
+
+    // ─── Legacy: slot ID to item mapping (kept for old ComplicationService compatibility) ───
     /**
      * Get the item name configured for a given complication slot.
      * Returns null if no item has been configured for this slot.

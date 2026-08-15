@@ -5,18 +5,27 @@ import android.content.ComponentName
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -68,10 +77,10 @@ class ComplicationConfigActivity : ComponentActivity() {
             ComplicationConfigScreen(
                 complicationId = complicationId,
                 onItemSelected = {
-                    // Request complication data refresh after selection
-                    val component = ComponentName(this, OpenHabComplicationService::class.java)
-                    ComplicationDataSourceUpdateRequester.create(this, component)
-                        .requestUpdateAll()
+                    // Request complication data refresh
+                    ComplicationDataSourceUpdateRequester.create(
+                        this, ComponentName(this, OpenHabComplicationService::class.java)
+                    ).requestUpdateAll()
                     setResult(Activity.RESULT_OK)
                     finish()
                 },
@@ -97,6 +106,7 @@ private fun ComplicationConfigScreen(
         is ComplicationConfigUiState.Loading -> LoadingContent()
         is ComplicationConfigUiState.Success -> ItemPickerContent(
             items = state.items,
+            iconResolver = viewModel.iconResolver,
             onItemSelected = { item ->
                 scope.launch {
                     viewModel.selectItem(complicationId, item.name)
@@ -125,6 +135,7 @@ private fun LoadingContent() {
 @Composable
 private fun ItemPickerContent(
     items: List<Item>,
+    iconResolver: org.openhab.habdroid.wear.data.icon.IconResolver,
     onItemSelected: (Item) -> Unit
 ) {
     val listState = rememberScalingLazyListState()
@@ -146,6 +157,7 @@ private fun ItemPickerContent(
         items(items, key = { it.name }) { item ->
             ComplicationItemCard(
                 item = item,
+                iconResolver = iconResolver,
                 onClick = { onItemSelected(item) }
             )
         }
@@ -155,16 +167,54 @@ private fun ItemPickerContent(
 @Composable
 private fun ComplicationItemCard(
     item: Item,
+    iconResolver: org.openhab.habdroid.wear.data.icon.IconResolver,
     onClick: () -> Unit
 ) {
+    // Resolve icon asynchronously
+    val iconBitmap by produceState<ImageBitmap?>(initialValue = null, item.iconName) {
+        val iconRef = item.iconName
+        if (iconRef.isNotBlank()) {
+            val bytes = iconResolver.resolve(iconRef, item.state)
+            if (bytes != null) {
+                val format = iconResolver.detectFormat(bytes)
+                val bitmap = when (format) {
+                    org.openhab.habdroid.wear.data.icon.IconFormat.SVG -> {
+                        val bmp = android.graphics.Bitmap.createBitmap(32, 32, android.graphics.Bitmap.Config.ARGB_8888)
+                        val canvas = android.graphics.Canvas(bmp)
+                        val svg = com.caverock.androidsvg.SVG.getFromString(String(bytes, Charsets.UTF_8))
+                        svg.documentWidth = 32f
+                        svg.documentHeight = 32f
+                        svg.renderToCanvas(canvas)
+                        bmp
+                    }
+                    org.openhab.habdroid.wear.data.icon.IconFormat.PNG -> {
+                        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                    }
+                    else -> null
+                }
+                value = bitmap?.asImageBitmap()
+            }
+        }
+    }
+
     TitleCard(
         onClick = onClick,
         title = {
-            Text(
-                text = item.displayLabel,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                iconBitmap?.let { bmp ->
+                    Image(
+                        bitmap = bmp,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = item.displayLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         },
         modifier = Modifier.fillMaxWidth()
     ) {

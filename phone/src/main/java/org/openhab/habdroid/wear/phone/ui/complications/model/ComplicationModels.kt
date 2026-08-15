@@ -1,12 +1,12 @@
 package org.openhab.habdroid.wear.phone.ui.complications.model
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.double
 import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -15,6 +15,11 @@ import kotlinx.serialization.json.put
 
 /**
  * The wear:complication-list document as stored in /rest/ui/components/wear:tile.
+ *
+ * Uses fixed numbered slots (slot1–slot10) instead of a dynamic list.
+ * Each slot is either a configured ComplicationSlotDto or null (empty).
+ * The watch registers 10 ComplicationDataSourceServices, one per slot,
+ * and enables/disables them based on which slots are configured here.
  */
 @Serializable
 data class ComplicationListDto(
@@ -24,11 +29,12 @@ data class ComplicationListDto(
     val timestamp: String? = null,
     val component: String = COMPONENT,
     val config: JsonObject = JsonObject(emptyMap()),
-    val slots: ComplicationSlots = ComplicationSlots()
+    val slots: ComplicationSlotsDto = ComplicationSlotsDto()
 ) {
     companion object {
         const val UID = "complications"
         const val COMPONENT = "wear:complication-list"
+        const val MAX_SLOTS = 10
     }
 }
 
@@ -38,27 +44,104 @@ data class ComplicationProps(
     val parameterGroups: List<String> = emptyList()
 )
 
+/**
+ * Fixed slot container using the server's required format: slots.default is an array.
+ * Each entry in the array has a `slotNumber` field in its config to identify which
+ * of the 10 fixed slots it belongs to. Slots not in the array are empty/disabled.
+ */
 @Serializable
-data class ComplicationSlots(
+data class ComplicationSlotsDto(
     val default: List<ComplicationSlotDto> = emptyList()
-)
+) {
+    /** Get slot config by 1-based slot number, or null if not configured. */
+    operator fun get(slotNumber: Int): ComplicationSlotDto? =
+        default.find { it.slotNumber == slotNumber }
+
+    /** Returns all configured slots as a map of slotNumber → dto. */
+    fun toMap(): Map<Int, ComplicationSlotDto> =
+        default.filter { it.slotNumber in 1..ComplicationListDto.MAX_SLOTS }
+            .associateBy { it.slotNumber }
+
+    /** Number of configured slots. */
+    val configuredCount: Int get() = default.size
+
+    companion object {
+        /** Build from a map of slotNumber → dto (null entries are omitted). */
+        fun fromMap(map: Map<Int, ComplicationSlotDto?>): ComplicationSlotsDto {
+            val entries = map.entries
+                .filter { it.value != null && it.key in 1..ComplicationListDto.MAX_SLOTS }
+                .sortedBy { it.key }
+                .map { (slotNum, dto) -> dto!!.withSlotNumber(slotNum) }
+            return ComplicationSlotsDto(default = entries)
+        }
+    }
+}
 
 @Serializable
 data class ComplicationSlotDto(
     val component: String = "wear:complication-slot",
     val config: JsonObject = JsonObject(emptyMap())
-)
+) {
+    /** Extract the slot number from config, defaulting to 0 if not present. */
+    val slotNumber: Int get() =
+        config["slotNumber"]?.jsonPrimitive?.content?.toDoubleOrNull()?.toInt()
+            ?: config["slotNumber"]?.jsonPrimitive?.content?.toIntOrNull()
+            ?: 0
+
+    /** Return a copy with slotNumber set in config. */
+    fun withSlotNumber(slot: Int): ComplicationSlotDto {
+        val updatedConfig = JsonObject(config.toMutableMap().apply {
+            put("slotNumber", JsonPrimitive(slot))
+        })
+        return copy(config = updatedConfig)
+    }
+}
 
 // ─── Editor State Models ───
 
 /**
+ * Supported complication display types.
+ * Maps to Wear OS ComplicationType constants.
+ */
+enum class ComplicationType(val displayName: String) {
+    SHORT_TEXT("Short Text"),
+    LONG_TEXT("Long Text"),
+    RANGED_VALUE("Ranged Value"),
+    MONOCHROMATIC_IMAGE("Icon");
+
+    companion object {
+        /** All types suitable for numeric items (Number, Dimmer, etc.) */
+        fun forNumericItem(): Set<ComplicationType> = entries.toSet()
+
+        /** Types suitable for non-numeric items (String, Switch, Contact, etc.) */
+        fun forNonNumericItem(): Set<ComplicationType> =
+            setOf(SHORT_TEXT, LONG_TEXT, MONOCHROMATIC_IMAGE)
+
+        /** Determine default supported types based on item type string. */
+        fun defaultsForItemType(itemType: String): Set<ComplicationType> {
+            val isNumeric = itemType.startsWith("Number") ||
+                itemType == "Dimmer" ||
+                itemType == "Color" ||
+                (itemType.startsWith("Group") && itemType.contains(":"))
+            return if (isNumeric) forNumericItem() else forNonNumericItem()
+        }
+    }
+}
+
+/**
  * Editor state for a single complication slot.
- * Contains per-type configuration blocks.
+ * Contains per-type configuration blocks and explicit supported types.
  */
 data class ComplicationState(
     val item: String,
     val label: String = "",
     val icon: String = "",
+    /** Which complication types this slot advertises. The watch only responds to these types. */
+    val supportedTypes: Set<ComplicationType> = setOf(
+        ComplicationType.SHORT_TEXT,
+        ComplicationType.LONG_TEXT,
+        ComplicationType.MONOCHROMATIC_IMAGE
+    ),
     val shortText: ShortTextConfig = ShortTextConfig(),
     val longText: LongTextConfig = LongTextConfig(),
     val rangedValue: RangedValueConfig = RangedValueConfig(),
@@ -72,6 +155,9 @@ data class ComplicationState(
             put("item", item)
             if (label.isNotBlank()) put("label", label)
             if (icon.isNotBlank()) put("icon", icon)
+
+            // Supported types — always persisted so the watch knows what to advertise
+            put("supportedTypes", JsonArray(supportedTypes.map { JsonPrimitive(it.name) }))
 
             // Short text config
             if (shortText.isConfigured) {
@@ -118,10 +204,22 @@ data class ComplicationState(
     companion object {
         fun fromDto(dto: ComplicationSlotDto): ComplicationState {
             val config = dto.config
+
+            // Parse supportedTypes array; default to SHORT_TEXT + LONG_TEXT + MONOCHROMATIC_IMAGE
+            val typesArray = config["supportedTypes"]?.jsonArray
+            val supportedTypes = if (typesArray != null) {
+                typesArray.mapNotNull { element ->
+                    try { ComplicationType.valueOf(element.jsonPrimitive.content) } catch (_: Exception) { null }
+                }.toSet()
+            } else {
+                setOf(ComplicationType.SHORT_TEXT, ComplicationType.LONG_TEXT, ComplicationType.MONOCHROMATIC_IMAGE)
+            }
+
             return ComplicationState(
                 item = config.stringOrEmpty("item"),
                 label = config.stringOrEmpty("label"),
                 icon = config.stringOrEmpty("icon"),
+                supportedTypes = supportedTypes,
                 shortText = config["shortText"]?.jsonObject?.let { obj ->
                     ShortTextConfig(
                         text = obj.stringOrEmpty("text"),
@@ -237,22 +335,49 @@ data class MonochromaticImageConfig(
 }
 
 /**
- * Overall complication editor state.
+ * Overall complication editor state with fixed 10 slots.
+ * Slots are indexed 1–10. A null value means the slot is empty.
  */
 data class ComplicationEditorState(
-    val complications: List<ComplicationState> = emptyList(),
+    val slots: Map<Int, ComplicationState?> = (1..ComplicationListDto.MAX_SLOTS).associateWith { null },
     val allItems: List<ComplicationItem> = emptyList()
 ) {
-    fun toDto(): ComplicationListDto = ComplicationListDto(
-        slots = ComplicationSlots(
-            default = complications.map { it.toDto() }
+    /** Number of configured slots. */
+    val configuredCount: Int get() = slots.count { it.value != null }
+
+    fun toDto(): ComplicationListDto {
+        val slotDtos = slots.mapValues { (_, state) -> state?.toDto() }
+        return ComplicationListDto(
+            slots = ComplicationSlotsDto.fromMap(slotDtos)
         )
-    )
+    }
 
     companion object {
         fun fromDto(dto: ComplicationListDto, items: List<ComplicationItem> = emptyList()): ComplicationEditorState {
+            val configuredSlots = dto.slots.toMap()
+
+            val slotMap: Map<Int, ComplicationState?> = if (configuredSlots.isNotEmpty()) {
+                // Entries have slotNumber — use it
+                val map = (1..ComplicationListDto.MAX_SLOTS).associateWith { slotNum ->
+                    configuredSlots[slotNum]?.let { ComplicationState.fromDto(it) }
+                }
+                map
+            } else if (dto.slots.default.isNotEmpty()) {
+                // Legacy format: entries without slotNumber — assign sequentially
+                val map = mutableMapOf<Int, ComplicationState?>()
+                dto.slots.default.forEachIndexed { index, slotDto ->
+                    val slotNum = index + 1
+                    if (slotNum <= ComplicationListDto.MAX_SLOTS) {
+                        map[slotNum] = ComplicationState.fromDto(slotDto)
+                    }
+                }
+                (1..ComplicationListDto.MAX_SLOTS).associateWith { map[it] }
+            } else {
+                (1..ComplicationListDto.MAX_SLOTS).associateWith { null }
+            }
+
             return ComplicationEditorState(
-                complications = dto.slots.default.map { ComplicationState.fromDto(it) },
+                slots = slotMap,
                 allItems = items
             )
         }

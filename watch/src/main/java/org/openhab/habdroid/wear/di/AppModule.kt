@@ -145,6 +145,18 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Named("probeClient")
+    fun provideProbeClient(cachingDns: CachingDns): OkHttpClient {
+        return OkHttpClient.Builder()
+            .dns(cachingDns)
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(authInterceptor: AuthInterceptor, cachingDns: CachingDns): OkHttpClient {
         return OkHttpClient.Builder()
             .dns(cachingDns)

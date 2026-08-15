@@ -43,7 +43,8 @@ class TileStateEventSource @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val credentialStore: CredentialStore,
     private val repository: OpenHabRepository,
-    private val itemCache: ItemCache
+    private val itemCache: ItemCache,
+    private val serverSelector: ServerSelector
 ) {
     companion object {
         private const val TAG = "TileStateSSE"
@@ -120,7 +121,8 @@ class TileStateEventSource @Inject constructor(
                     AppLog.w(TAG, "No credentials, cannot connect SSE")
                     return@launch
                 }
-                val baseUrl = credentials.serverUrl.trimEnd('/')
+                val baseUrl = (serverSelector.getActiveUrlOrDefault()
+                    ?: credentials.serverUrl).trimEnd('/')
 
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
                     AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")

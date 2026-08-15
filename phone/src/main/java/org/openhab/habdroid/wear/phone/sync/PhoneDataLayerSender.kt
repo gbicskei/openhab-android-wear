@@ -105,7 +105,11 @@ class PhoneDataLayerSender @Inject constructor(
     /**
      * Send credentials to the connected watch.
      */
-    suspend fun sendCredentials(credentials: ServerCredentials, debugMode: Boolean = false): Result<Unit> = runCatching {
+    suspend fun sendCredentials(
+        credentials: ServerCredentials,
+        debugMode: Boolean = false,
+        localServerUrl: String = ""
+    ): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
             throw NoNetworkException()
         }
@@ -126,7 +130,8 @@ class PhoneDataLayerSender @Inject constructor(
                 userKey = credentials.userKey,
                 googleTtsApiKey = credentials.googleTtsApiKey,
                 debugMode = debugMode,
-                resolvedIps = resolvedIps
+                resolvedIps = resolvedIps,
+                localServerUrl = localServerUrl
             )
         )
 

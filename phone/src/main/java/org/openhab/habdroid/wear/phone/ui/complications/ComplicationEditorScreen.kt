@@ -13,12 +13,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ShortText
+import androidx.compose.material.icons.automirrored.outlined.Subject
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.DataUsage
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -41,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -49,9 +54,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
-import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationItem
+import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationListDto
 import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationState
-import org.openhab.habdroid.wear.phone.ui.tiledesign.components.IconPickerDialog
+import org.openhab.habdroid.wear.phone.ui.complications.model.ComplicationType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,8 +65,9 @@ fun ComplicationEditorScreen(
     viewModel: ComplicationViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val showItemPicker by viewModel.showItemPicker.collectAsState()
-    val editingIndex by viewModel.editingIndex.collectAsState()
+    val assigningSlot by viewModel.assigningSlot.collectAsState()
+    val editingSlot by viewModel.editingSlot.collectAsState()
+    val confirmingDelete by viewModel.confirmingDelete.collectAsState()
     val snackbarMessage by viewModel.snackbarMessage.collectAsState()
     val isSaving by viewModel.isSaving.collectAsState()
 
@@ -77,7 +83,19 @@ fun ComplicationEditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Complications") },
+                title = {
+                    Column {
+                        Text("Complications")
+                        val state = uiState
+                        if (state is ComplicationUiState.Success) {
+                            Text(
+                                text = "${state.editor.configuredCount}/${ComplicationListDto.MAX_SLOTS} slots",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -106,8 +124,24 @@ fun ComplicationEditorScreen(
         floatingActionButton = {
             val state = uiState
             if (state is ComplicationUiState.Success && !state.isReadOnly) {
-                FloatingActionButton(onClick = { viewModel.showAddComplication() }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add complication")
+                val isFull = state.editor.configuredCount >= ComplicationListDto.MAX_SLOTS
+                FloatingActionButton(
+                    onClick = { if (!isFull) viewModel.addComplication() },
+                    containerColor = if (isFull) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add complication",
+                        tint = if (isFull) {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        } else {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        }
+                    )
                 }
             }
         }
@@ -136,7 +170,11 @@ fun ComplicationEditorScreen(
             }
 
             is ComplicationUiState.Success -> {
-                if (state.editor.complications.isEmpty()) {
+                val configuredSlots = state.editor.slots.entries
+                    .filter { it.value != null }
+                    .sortedBy { it.key }
+
+                if (configuredSlots.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize().padding(padding),
                         contentAlignment = Alignment.Center
@@ -149,7 +187,7 @@ fun ComplicationEditorScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "Tap + to add items for the watch face",
+                                "Tap + to add an item for the watch face",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -165,12 +203,13 @@ fun ComplicationEditorScreen(
                     ) {
                         item { Spacer(modifier = Modifier.height(8.dp)) }
 
-                        itemsIndexed(state.editor.complications) { index, complication ->
-                            ComplicationCard(
-                                complication = complication,
+                        items(configuredSlots, key = { it.key }) { (slotNumber, complication) ->
+                            ConfiguredSlotCard(
+                                slotNumber = slotNumber,
+                                complication = complication!!,
                                 iconBaseUrl = state.iconBaseUrl,
                                 iconAuthHeader = state.iconAuthHeader,
-                                onClick = { viewModel.editComplication(index) }
+                                onClick = { viewModel.editSlot(slotNumber) }
                             )
                         }
 
@@ -178,28 +217,53 @@ fun ComplicationEditorScreen(
                     }
                 }
 
-                // Item picker dialog
-                if (showItemPicker) {
+                // Item picker dialog (assigning an item to a slot)
+                assigningSlot?.let {
                     ComplicationItemPickerDialog(
                         items = state.editor.allItems,
-                        onItemSelected = { viewModel.addComplication(it) },
+                        onItemSelected = { viewModel.confirmAssignment(it) },
                         onDismiss = { viewModel.dismissItemPicker() }
                     )
                 }
 
-                // Config sheet for editing
-                editingIndex?.let { index ->
-                    val complication = state.editor.complications.getOrNull(index) ?: return@let
-                    val itemType = state.editor.allItems
-                        .find { it.name == complication.item }?.type ?: ""
+                // Config sheet for editing an existing slot
+                editingSlot?.let { slotNum ->
+                    val complication = state.editor.slots[slotNum] ?: return@let
+                    val matchingItem = state.editor.allItems
+                        .find { it.name == complication.item }
+                    val itemType = matchingItem?.type ?: ""
+                    val itemState = matchingItem?.state ?: ""
                     ComplicationConfigSheet(
+                        slotNumber = slotNum,
                         complication = complication,
                         itemType = itemType,
+                        itemState = itemState,
                         iconBaseUrl = state.iconBaseUrl,
                         iconAuthHeader = state.iconAuthHeader,
-                        onSave = { viewModel.updateComplication(index, it) },
-                        onDelete = { viewModel.removeComplication(index) },
+                        onSave = { viewModel.updateSlot(slotNum, it) },
+                        onDelete = { viewModel.clearSlot(slotNum) },
                         onDismiss = { viewModel.dismissEditor() }
+                    )
+                }
+
+                // Delete confirmation dialog
+                confirmingDelete?.let { slotNum ->
+                    val state2 = state // avoid shadowing
+                    val itemLabel = state2.editor.slots[slotNum]?.let { it.label.ifBlank { it.item } } ?: "Slot $slotNum"
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { viewModel.cancelDelete() },
+                        title = { Text("Remove complication?") },
+                        text = { Text("Remove \"$itemLabel\" from Slot $slotNum? Remaining slots will be renumbered.") },
+                        confirmButton = {
+                            androidx.compose.material3.TextButton(onClick = { viewModel.confirmDelete() }) {
+                                Text("Remove", color = MaterialTheme.colorScheme.error)
+                            }
+                        },
+                        dismissButton = {
+                            androidx.compose.material3.TextButton(onClick = { viewModel.cancelDelete() }) {
+                                Text("Cancel")
+                            }
+                        }
                     )
                 }
             }
@@ -208,7 +272,8 @@ fun ComplicationEditorScreen(
 }
 
 @Composable
-private fun ComplicationCard(
+private fun ConfiguredSlotCard(
+    slotNumber: Int,
     complication: ComplicationState,
     iconBaseUrl: String?,
     iconAuthHeader: String?,
@@ -228,6 +293,11 @@ private fun ComplicationCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Slot number badge
+            SlotBadge(slotNumber)
+
+            Spacer(modifier = Modifier.width(12.dp))
+
             // Icon preview
             val iconRef = complication.icon.ifBlank { null }
             if (iconRef != null) {
@@ -245,24 +315,12 @@ private fun ComplicationCard(
                             }
                             .build(),
                         contentDescription = null,
-                        modifier = Modifier.size(40.dp),
+                        modifier = Modifier.size(36.dp),
                         colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.primary)
                     )
-                }
-            } else {
-                Box(
-                    modifier = Modifier.size(40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = complication.label.firstOrNull()?.uppercase() ?: "?",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
             }
-
-            Spacer(modifier = Modifier.width(16.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -279,22 +337,29 @@ private fun ComplicationCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // Show configured types
-                val types = buildList {
-                    if (complication.shortText.isConfigured) add("Short")
-                    if (complication.longText.isConfigured) add("Long")
-                    if (complication.rangedValue.isConfigured) add("Range")
-                    if (complication.monochromaticImage.isConfigured) add("Icon")
-                }
-                if (types.isNotEmpty()) {
-                    Text(
-                        text = types.joinToString(" · "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
             }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // 2x2 type indicator grid
+            TypeIndicatorGrid(complication.supportedTypes)
         }
+    }
+}
+
+@Composable
+private fun SlotBadge(slotNumber: Int, dimmed: Boolean = false) {
+    val alpha = if (dimmed) 0.4f else 1f
+    Box(
+        modifier = Modifier.size(28.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = slotNumber.toString(),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = alpha)
+        )
     }
 }
 
@@ -313,4 +378,48 @@ private fun resolveIconUrl(iconRef: String, iconBaseUrl: String?): String? {
         }
         else -> null
     }
+}
+
+/**
+ * 2x2 grid showing small icons for each ComplicationType.
+ * Enabled types are tinted with primary color, disabled ones are very faint.
+ * Layout:
+ *   [ShortText]  [LongText]
+ *   [RangedVal]  [MonoImage]
+ */
+@Composable
+private fun TypeIndicatorGrid(supportedTypes: Set<ComplicationType>) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            TypeIcon(ComplicationType.SHORT_TEXT, supportedTypes)
+            TypeIcon(ComplicationType.LONG_TEXT, supportedTypes)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            TypeIcon(ComplicationType.RANGED_VALUE, supportedTypes)
+            TypeIcon(ComplicationType.MONOCHROMATIC_IMAGE, supportedTypes)
+        }
+    }
+}
+
+@Composable
+private fun TypeIcon(type: ComplicationType, enabledTypes: Set<ComplicationType>) {
+    val enabled = type in enabledTypes
+    val icon: ImageVector = when (type) {
+        ComplicationType.SHORT_TEXT -> Icons.AutoMirrored.Outlined.ShortText
+        ComplicationType.LONG_TEXT -> Icons.AutoMirrored.Outlined.Subject
+        ComplicationType.RANGED_VALUE -> Icons.Outlined.DataUsage
+        ComplicationType.MONOCHROMATIC_IMAGE -> Icons.Outlined.Image
+    }
+    Icon(
+        imageVector = icon,
+        contentDescription = type.displayName,
+        modifier = Modifier.size(16.dp),
+        tint = if (enabled) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f)
+        }
+    )
 }

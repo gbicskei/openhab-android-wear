@@ -21,6 +21,7 @@ class CredentialStore @Inject constructor(
 ) {
     private companion object {
         val KEY_SERVER_URL = stringPreferencesKey("server_url")
+        val KEY_LOCAL_SERVER_URL = stringPreferencesKey("local_server_url")
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
         val KEY_USER_KEY = stringPreferencesKey("user_key")
@@ -36,6 +37,11 @@ class CredentialStore @Inject constructor(
             password = prefs[KEY_PASSWORD] ?: "",
             userKey = prefs[KEY_USER_KEY] ?: ""
         )
+    }
+
+    /** Flow of local (direct/LAN) server URL for Happy Eyeballs racing. Empty = cloud-only. */
+    val localServerUrl: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_LOCAL_SERVER_URL] ?: ""
     }
 
     /** Whether credentials have been configured */
@@ -55,6 +61,13 @@ class CredentialStore @Inject constructor(
             prefs[KEY_USERNAME] = credentials.username
             prefs[KEY_PASSWORD] = credentials.password
             prefs[KEY_USER_KEY] = credentials.userKey
+        }
+    }
+
+    /** Save local (direct/LAN) server URL for Happy Eyeballs racing */
+    suspend fun saveLocalServerUrl(url: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LOCAL_SERVER_URL] = url
         }
     }
 

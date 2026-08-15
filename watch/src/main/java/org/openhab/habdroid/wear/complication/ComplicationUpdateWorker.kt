@@ -34,14 +34,13 @@ class ComplicationUpdateWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         AppLog.d(TAG, "ComplicationUpdateWorker running — requesting update for all complications")
 
-        val requester = ComplicationDataSourceUpdateRequester.create(
+        ComplicationDataSourceUpdateRequester.create(
             context = applicationContext,
             complicationDataSourceComponent = ComponentName(
                 applicationContext,
                 OpenHabComplicationService::class.java
             )
-        )
-        requester.requestUpdateAll()
+        ).requestUpdateAll()
 
         return Result.success()
     }

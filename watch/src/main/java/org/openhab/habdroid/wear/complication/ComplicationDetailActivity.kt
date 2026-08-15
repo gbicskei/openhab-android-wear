@@ -27,7 +27,6 @@ import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
-import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import javax.inject.Inject
@@ -141,14 +140,20 @@ private fun ItemDetailView(item: Item) {
             )
         }
 
-        // openHAB icon at top center (drawn last = on top)
+        // openHAB icon at top center (gray)
+        val logoPainter = coil.compose.rememberAsyncImagePainter(
+            model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                .data("file:///android_asset/ic_wearoh_logo.svg")
+                .decoderFactory(coil.decode.SvgDecoder.Factory())
+                .build()
+        )
         Image(
-            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            painter = logoPainter,
             contentDescription = null,
             modifier = Modifier
-                .size(96.dp)
+                .size(24.dp)
                 .align(Alignment.TopCenter)
-                .offset(y = (-12).dp)
+                .offset(y = 12.dp)
         )
     }
 }

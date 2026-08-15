@@ -24,7 +24,9 @@ data class SyncConfigPayload(
     val googleTtsApiKey: String = "",
     val debugMode: Boolean = false,
     /** Pre-resolved IP addresses for the server hostname (seeded by phone DNS). */
-    val resolvedIps: List<String> = emptyList()
+    val resolvedIps: List<String> = emptyList(),
+    /** Local/direct server URL for Happy Eyeballs racing (empty = cloud-only). */
+    val localServerUrl: String = ""
 ) {
     /**
      * The UI components namespace derived from the user key.
