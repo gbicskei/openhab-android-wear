@@ -27,6 +27,9 @@ class DebugLogViewModel @Inject constructor(
     private val _entries = MutableStateFlow<List<DebugLogEntry>>(emptyList())
     val entries: StateFlow<List<DebugLogEntry>> = _entries.asStateFlow()
 
+    private val _paused = MutableStateFlow(false)
+    val paused: StateFlow<Boolean> = _paused.asStateFlow()
+
     /** How many entries to show initially and per page */
     private val pageSize = 50
     private var loadedCount = pageSize
@@ -41,14 +44,27 @@ class DebugLogViewModel @Inject constructor(
         // Auto-refresh when watch pushes new entries
         viewModelScope.launch {
             debugLogReader.watchEntries.collect {
-                refreshAll()
+                if (!_paused.value) {
+                    refreshAll()
+                }
             }
+        }
+    }
+
+    fun togglePaused() {
+        val wasPaused = _paused.value
+        _paused.value = !wasPaused
+        if (wasPaused) {
+            // Unpausing — refresh to show everything that arrived while paused
+            refreshAll()
         }
     }
 
     fun startListening() {
         debugLogReader.startListening()
-        refreshAll()
+        if (!_paused.value) {
+            refreshAll()
+        }
     }
 
     fun stopListening() {

@@ -52,6 +52,7 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_TTS_PITCH = "tts_pitch"
         const val KEY_SETTINGS_NEED_SYNC = "settings_need_sync"
         const val KEY_BACKUP_ENABLED = "backup_enabled"
+        const val KEY_WATCH_USE_LOCAL_SERVER = "watch_use_local_server"
         const val KEY_NOTIFICATION_READ_ALOUD = "notification_read_aloud"
         const val KEY_NOTIFICATION_CHIME = "notification_chime"
         const val KEY_NOTIFICATION_VOLUME = "notification_volume"
@@ -255,6 +256,22 @@ class PhoneCredentialStore @Inject constructor(
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
                 .putBoolean(KEY_BACKUP_ENABLED, enabled)
+                .apply()
+        }
+    }
+
+    // ─── Watch Local Server Toggle ───
+
+    /** Whether the watch is allowed to use the config (local) server connection. Default: false. */
+    val isWatchUseLocalServer: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_WATCH_USE_LOCAL_SERVER, false)
+    } catch (_: Exception) { false }
+
+    /** Set whether the watch should use the config (local) server. */
+    suspend fun setWatchUseLocalServer(enabled: Boolean) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_WATCH_USE_LOCAL_SERVER, enabled)
                 .apply()
         }
     }
