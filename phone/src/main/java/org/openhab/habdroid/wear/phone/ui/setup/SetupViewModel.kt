@@ -114,7 +114,7 @@ class SetupViewModel @Inject constructor(
                 }
                 // When watch becomes connected, check its version
                 if (info != null && info.watchAppInstalled) {
-                    checkWatchVersion()
+                    loadWatchVersionFromDataItem()
                 }
             }
         }
@@ -208,11 +208,31 @@ class SetupViewModel @Inject constructor(
     // ─── Version Compatibility Check ───
 
     /**
-     * Requests the watch app's version. The response arrives asynchronously via
-     * PhoneWearListenerService which updates WatchVersionHolder.
+     * Loads the watch app version from the DataItem (written by the watch on startup).
+     * Falls back to a one-shot message request if the DataItem doesn't contain a version yet.
+     * Skipped entirely for dev builds (version mismatch never blocks in dev).
      */
-    fun checkWatchVersion() {
+    private fun loadWatchVersionFromDataItem() {
+        val phoneVersionName = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME
+        if (VersionCompat.isDevBuild(phoneVersionName)) {
+            AppLog.d("SetupVM", "Dev build — skipping version check")
+            return
+        }
+
+        // Don't re-request if we already have the version
+        if (WatchVersionHolder.watchVersion.value != null) return
+
         viewModelScope.launch {
+            // Try reading from the persistent DataItem first
+            val status = watchStatusReader.readStatus()
+            val dataItemVersion = status?.appVersion
+            if (!dataItemVersion.isNullOrBlank()) {
+                WatchVersionHolder.update(dataItemVersion)
+                AppLog.d("SetupVM", "Watch version from DataItem: $dataItemVersion")
+                return@launch
+            }
+
+            // Fallback: one-shot message request (older watch app without DataItem version)
             dataLayerSender.requestWatchVersion()
                 .onFailure { e ->
                     AppLog.w("SetupVM", "Failed to request watch version: ${e.message}")
@@ -221,14 +241,24 @@ class SetupViewModel @Inject constructor(
     }
 
     /**
+     * @deprecated Use [loadWatchVersionFromDataItem] instead. Kept for external callers.
+     */
+    fun checkWatchVersion() {
+        loadWatchVersionFromDataItem()
+    }
+
+    /**
      * Observes the WatchVersionHolder flow. When the watch responds with its version,
      * this evaluates whether sync should be blocked.
+     * No-op for dev builds (never blocks).
      */
     private fun observeWatchVersion() {
+        val phoneVersionName = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME
+        if (VersionCompat.isDevBuild(phoneVersionName)) return
+
         viewModelScope.launch {
             WatchVersionHolder.watchVersion.collect { watchVersionName ->
                 if (watchVersionName != null) {
-                    val phoneVersionName = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME
                     val blocked = VersionCompat.shouldBlockSync(phoneVersionName, watchVersionName)
                     AppLog.d("SetupVM", "Version check: phone=$phoneVersionName, watch=$watchVersionName, blocked=$blocked")
                     _uiState.update {

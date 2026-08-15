@@ -1,15 +1,19 @@
 package org.openhab.habdroid.wear.phone.sync
 
 import android.content.Intent
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import org.openhab.habdroid.wear.phone.ui.MainActivity
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
 
 /**
- * Listens for messages from the watch via Data Layer.
+ * Listens for messages and data changes from the watch via Data Layer.
  * Handles the "open app" request from the watch's "Setup on Phone" button,
- * and the version response for the version compatibility handshake.
+ * version response for the version compatibility handshake,
+ * and DataItem changes (watch status including app version).
  */
 class PhoneWearListenerService : WearableListenerService() {
 
@@ -36,9 +40,25 @@ class PhoneWearListenerService : WearableListenerService() {
         }
     }
 
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
+        for (event in dataEvents) {
+            if (event.type == DataEvent.TYPE_CHANGED &&
+                event.dataItem.uri.path == PATH_STATUS
+            ) {
+                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                val appVersion = dataMap.getString(KEY_APP_VERSION)
+                if (!appVersion.isNullOrBlank()) {
+                    WatchVersionHolder.update(appVersion)
+                }
+            }
+        }
+    }
+
     companion object {
         const val PATH_OPEN_APP = "/openhab/open-app"
         const val PATH_OPEN_TILE_EDITOR = "/openhab/open-tile-editor"
         const val EXTRA_NAVIGATE_TO = "navigate_to"
+        private const val PATH_STATUS = "/openhab/status"
+        private const val KEY_APP_VERSION = "appVersion"
     }
 }

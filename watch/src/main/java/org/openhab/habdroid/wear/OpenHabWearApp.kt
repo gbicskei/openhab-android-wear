@@ -29,6 +29,9 @@ class OpenHabWearApp : Application(), Configuration.Provider {
     @Inject
     lateinit var credentialStore: CredentialStore
 
+    @Inject
+    lateinit var watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -47,6 +50,11 @@ class OpenHabWearApp : Application(), Configuration.Provider {
         // Restore persisted debug mode
         appScope.launch {
             AppLog.debugMode = credentialStore.getDebugMode()
+        }
+
+        // Publish app version to DataItem so the phone can read it without polling
+        appScope.launch {
+            watchStatusWriter.writeAppVersion(BuildConfig.VERSION_NAME)
         }
 
         // Re-register as assistant on every launch (survives reinstalls)

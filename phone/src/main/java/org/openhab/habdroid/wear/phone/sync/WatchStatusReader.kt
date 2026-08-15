@@ -32,6 +32,7 @@ class WatchStatusReader @Inject constructor(
         private const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
         private const val KEY_THEME = "theme"
         private const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
+        private const val KEY_APP_VERSION = "appVersion"
     }
 
     private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
@@ -51,7 +52,8 @@ class WatchStatusReader @Inject constructor(
                 WatchStatus(
                     configTimestamp = dataMap.getString(KEY_CONFIG_TIMESTAMP),
                     theme = dataMap.getString(KEY_THEME),
-                    screenWidthDp = dataMap.getInt(KEY_SCREEN_WIDTH_DP, 0).takeIf { it > 0 }
+                    screenWidthDp = dataMap.getInt(KEY_SCREEN_WIDTH_DP, 0).takeIf { it > 0 },
+                    appVersion = dataMap.getString(KEY_APP_VERSION)
                 )
             }
 
@@ -92,5 +94,6 @@ class WatchStatusReader @Inject constructor(
 data class WatchStatus(
     val configTimestamp: String?,
     val theme: String?,
-    val screenWidthDp: Int? = null
+    val screenWidthDp: Int? = null,
+    val appVersion: String? = null
 )
