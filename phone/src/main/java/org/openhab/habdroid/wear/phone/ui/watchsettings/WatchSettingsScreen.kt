@@ -163,7 +163,7 @@ private fun WatchSettingsContent(
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Voice", style = MaterialTheme.typography.titleMedium)
+                Text("Voice", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 SettingSwitch(
@@ -233,7 +233,11 @@ private fun WatchSettingsContent(
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Notifications", style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Notifications", style = MaterialTheme.typography.titleLarge)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("(Experimental)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
 
                 SettingSwitch(
@@ -272,7 +276,7 @@ private fun WatchSettingsContent(
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Debug", style = MaterialTheme.typography.titleMedium)
+                Text("Debug", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 SettingSwitch(
@@ -291,7 +295,7 @@ private fun WatchSettingsContent(
             elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Server Backup", style = MaterialTheme.typography.titleMedium)
+                Text("Server Backup", style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(8.dp))
 
                 SettingSwitch(

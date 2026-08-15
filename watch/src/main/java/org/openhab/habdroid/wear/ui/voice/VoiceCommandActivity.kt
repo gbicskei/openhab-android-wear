@@ -372,19 +372,14 @@ fun ListeningIndicator(rmsLevel: Float) {
                 center = center,
                 style = Stroke(width = 4.dp.toPx())
             )
-            drawCircle(
-                color = surfaceColor,
-                radius = 36f,
-                center = center,
-                style = Stroke(width = 2.dp.toPx())
-            )
         }
 
-        // openHAB logo filling the inner ring area
-        Image(
-            painter = painterResource(R.drawable.ic_wearoh_logo),
-            contentDescription = "openHAB listening",
-            modifier = Modifier.size(56.dp)
+        // Microphone icon in the center of the pulsating ring
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = "Listening",
+            modifier = Modifier.size(32.dp),
+            tint = surfaceColor
         )
     }
 }
