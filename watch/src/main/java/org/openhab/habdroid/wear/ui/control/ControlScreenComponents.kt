@@ -45,7 +45,7 @@ fun ControlLogo(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val logoPainter = rememberAsyncImagePainter(
         model = ImageRequest.Builder(context)
-            .data("file:///android_asset/ic_wearoh_logo.svg")
+            .data("file:///android_asset/app_logo_gray.svg")
             .decoderFactory(SvgDecoder.Factory())
             .build()
     )

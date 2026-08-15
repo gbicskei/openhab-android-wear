@@ -143,7 +143,7 @@ private fun ItemDetailView(item: Item) {
         // openHAB icon at top center (gray)
         val logoPainter = coil.compose.rememberAsyncImagePainter(
             model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                .data("file:///android_asset/ic_wearoh_logo.svg")
+                .data("file:///android_asset/app_logo_gray.svg")
                 .decoderFactory(coil.decode.SvgDecoder.Factory())
                 .build()
         )

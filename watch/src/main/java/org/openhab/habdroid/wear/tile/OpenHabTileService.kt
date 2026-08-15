@@ -1310,7 +1310,7 @@ class OpenHabTileService : TileService() {
      */
     private fun loadLogoResource(resources: ResourceBuilders.Resources.Builder) {
         try {
-            val svgBytes = applicationContext.assets.open("ic_wearoh_logo_v5.svg").use { it.readBytes() }
+            val svgBytes = applicationContext.assets.open("app_logo_gray.svg").use { it.readBytes() }
             val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
             // Square logo (1:1 aspect ratio)
             val height = LOGO_ICON_SIZE
@@ -1346,7 +1346,7 @@ class OpenHabTileService : TileService() {
     private fun loadPlainLogoResource(resources: ResourceBuilders.Resources.Builder) {
         try {
             val size = LOGO_ICON_SIZE
-            val svgBytes = applicationContext.assets.open("ic_wearoh_logo.svg").use { it.readBytes() }
+            val svgBytes = applicationContext.assets.open("app_logo_gray.svg").use { it.readBytes() }
             val svg = com.caverock.androidsvg.SVG.getFromString(String(svgBytes, Charsets.UTF_8))
             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)

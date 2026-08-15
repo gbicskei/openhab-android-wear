@@ -78,11 +78,11 @@
     <!-- Square watch case with rounded corners -->
     <path
        id="rect-case"
-       style="fill:none;stroke:#5b5b5b;stroke-width:11.5457"
+       style="fill:none;stroke:#5b5b5b;stroke-width:17.31858287;stroke-dasharray:none"
        d="m 159.32719,135.32719 h 192 c 13.296,0 24,10.704 24,24 v 192 c 0,13.296 -10.704,24 -24,24 h -192 c -13.296,0 -24,-10.704 -24,-24 v -192 c 0,-13.296 10.704,-24 24,-24 z" />
     <!-- Hour markers inside square case -->
     <path
-       style="fill:none;fill-opacity:1;stroke:#f1350d;stroke-width:18;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
+       style="fill:none;fill-opacity:1;stroke:#f1350d;stroke-width:17.31858287;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1"
        d="m 189.93948,320.05456 65.05754,-65.05754 49.95277,49.95277"
        id="path11"
        sodipodi:nodetypes="ccc" />
