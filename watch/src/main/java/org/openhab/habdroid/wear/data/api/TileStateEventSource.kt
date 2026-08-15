@@ -121,8 +121,11 @@ class TileStateEventSource @Inject constructor(
                     AppLog.w(TAG, "No credentials, cannot connect SSE")
                     return@launch
                 }
-                val baseUrl = (serverSelector.getActiveUrlOrDefault()
-                    ?: credentials.serverUrl).trimEnd('/')
+
+                // Re-race local vs cloud on each reconnect attempt so the watch
+                // adapts when entering/leaving the home network.
+                serverSelector.reset()
+                val baseUrl = (serverSelector.resolveUrl()).trimEnd('/')
 
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
                     AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")

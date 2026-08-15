@@ -19,6 +19,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material.icons.filled.PhoneAndroid
@@ -59,6 +61,7 @@ fun DebugLogScreen(
     viewModel: DebugLogViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
+    val paused by viewModel.paused.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
 
     DisposableEffect(Unit) {
@@ -76,6 +79,12 @@ fun DebugLogScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.togglePaused() }) {
+                        Icon(
+                            if (paused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                            contentDescription = if (paused) "Resume" else "Pause"
+                        )
+                    }
                     IconButton(
                         onClick = { exportDebugLog(context, entries) },
                         enabled = entries.isNotEmpty()
@@ -116,7 +125,14 @@ fun DebugLogScreen(
 
             // Auto-scroll to bottom only if user is already following
             LaunchedEffect(entries.size) {
-                if (entries.isNotEmpty() && isAtBottom.value) {
+                if (entries.isNotEmpty() && isAtBottom.value && !paused) {
+                    listState.animateScrollToItem(entries.size - 1)
+                }
+            }
+
+            // Scroll to bottom when unpausing
+            LaunchedEffect(paused) {
+                if (!paused && entries.isNotEmpty()) {
                     listState.animateScrollToItem(entries.size - 1)
                 }
             }

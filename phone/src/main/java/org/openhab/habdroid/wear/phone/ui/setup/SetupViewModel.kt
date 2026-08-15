@@ -82,6 +82,7 @@ class SetupViewModel @Inject constructor(
                     userKey = userKey,
                     hasStoredGoogleTtsApiKey = hasGoogleTtsKey,
                     debugMode = credentialStore.isDebugMode,
+                    watchUseLocalServer = credentialStore.isWatchUseLocalServer,
                     hasUnsavedChanges = false
                 )
             }
@@ -378,6 +379,15 @@ class SetupViewModel @Inject constructor(
         }
     }
 
+    // ─── Watch Local Server Toggle ───
+
+    fun setWatchUseLocalServer(enabled: Boolean) {
+        _uiState.update { it.copy(watchUseLocalServer = enabled, hasUnsavedChanges = true) }
+        viewModelScope.launch {
+            credentialStore.setWatchUseLocalServer(enabled)
+        }
+    }
+
     // ─── Save All ───
 
     fun saveAll() {
@@ -539,7 +549,11 @@ class SetupViewModel @Inject constructor(
                 userKey = state.userKey,
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
-            val localUrl = credentialStore.localConfig.first()?.serverUrl ?: ""
+            val localUrl = if (credentialStore.isWatchUseLocalServer) {
+                credentialStore.localConfig.first()?.serverUrl ?: ""
+            } else {
+                ""
+            }
             dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
                 .onSuccess {
                     AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
@@ -573,7 +587,11 @@ class SetupViewModel @Inject constructor(
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
 
-            val localUrl = credentialStore.localConfig.first()?.serverUrl ?: ""
+            val localUrl = if (credentialStore.isWatchUseLocalServer) {
+                credentialStore.localConfig.first()?.serverUrl ?: ""
+            } else {
+                ""
+            }
             dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
                 .onSuccess {
                     // Send reload signal so the watch refreshes tile config (includes theme)
@@ -656,6 +674,8 @@ data class SetupUiState(
     val watchVersionMismatch: Boolean = false,
     // Unsaved changes tracking
     val hasUnsavedChanges: Boolean = false,
+    // Watch use local server toggle
+    val watchUseLocalServer: Boolean = false,
     // Save flow
     val saveStatus: SaveStatus = SaveStatus.Idle,
     // Debug

@@ -32,6 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -180,6 +181,24 @@ fun SetupScreen(
                 onTest = viewModel::testConfigConnection
             )
 
+            if (uiState.configServerUrl.isNotBlank()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Allow watch to use this server",
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = uiState.watchUseLocalServer,
+                        onCheckedChange = viewModel::setWatchUseLocalServer
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
@@ -202,15 +221,16 @@ fun SetupScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ─── Save Button ───
+            // ─── Save & Sync Button ───
             val saveStatus = uiState.saveStatus
+            val syncResult = uiState.syncResult
             androidx.compose.material3.Button(
-                onClick = viewModel::saveAll,
-                enabled = uiState.canSave,
+                onClick = viewModel::sendToWatch,
+                enabled = saveStatus != SaveStatus.Testing && saveStatus != SaveStatus.Saving && syncResult != SyncResult.Sending,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                when (saveStatus) {
-                    SaveStatus.Testing -> {
+                when {
+                    saveStatus == SaveStatus.Testing -> {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
@@ -219,22 +239,22 @@ fun SetupScreen(
                         Spacer(modifier = Modifier.size(8.dp))
                         Text("Testing...")
                     }
-                    SaveStatus.Saving -> {
+                    saveStatus == SaveStatus.Saving || syncResult == SyncResult.Sending -> {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text("Saving...")
+                        Text("Syncing...")
                     }
-                    SaveStatus.Success -> {
+                    saveStatus == SaveStatus.Success || syncResult == SyncResult.Success -> {
                         Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(8.dp))
-                        Text("Saved")
+                        Text("Synced")
                     }
                     else -> {
-                        Text("Save")
+                        Text("Save & Sync")
                     }
                 }
             }
