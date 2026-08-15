@@ -20,11 +20,46 @@ Items are configured for complications via the **Phone Companion App**, which wr
 
 ### Phone Companion App
 
+The phone companion's **Complications** section manages which items appear in the watch's complication picker:
+
 1. Open the phone companion → **Complications**
-2. Tap "+" to add an item
-3. Configure per-type display options (title, text pattern, range, icon)
-4. Save — the config is written to a `wear:complication-list` document on the server
-5. The watch reads this document to populate the complication picker
+2. Tap "+" to add an item from the server's item list
+3. Configure display options per complication type:
+   - **SHORT_TEXT** — title (7 chars max), value pattern (e.g., `"%.0f°C"`)
+   - **LONG_TEXT** — title, value pattern
+   - **RANGED_VALUE** — title, value pattern, min/max overrides
+   - **MONOCHROMATIC_IMAGE** — icon, active/inactive icon variants
+4. Save — writes a `wear:complication-list` document to the server at `{namespace}/complications`
+5. The watch reads this document when the user opens the complication picker
+
+The editor uses the **Config Server** connection (local openHAB with write access) to persist the document. The watch reads it via the **Main Server** connection.
+
+### Server Document Structure
+
+The `wear:complication-list` document stored at `/rest/ui/components/{namespace}/complications`:
+
+```json
+{
+  "uid": "complications",
+  "component": "wear:complication-list",
+  "slots": {
+    "default": [
+      {
+        "component": "wear:complication-slot",
+        "config": {
+          "slotNumber": 1,
+          "item": "Temp_Outside",
+          "label": "Outside",
+          "icon": "temperature",
+          "supportedTypes": ["SHORT_TEXT", "RANGED_VALUE"],
+          "shortText": { "title": "Out", "text": "%.0f°C" },
+          "rangedValue": { "min": -20, "max": 50 }
+        }
+      }
+    ]
+  }
+}
+```
 
 ### Legacy fallback
 
