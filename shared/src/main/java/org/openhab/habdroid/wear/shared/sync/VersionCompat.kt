@@ -13,11 +13,12 @@ object VersionCompat {
      *
      * Rules:
      * - If either version ends with ".dev", never block (development builds).
-     * - If both are production versions, block when they differ.
+     * - Only the first two version segments (major.minor) must match.
+     *   Patch/bugfix differences are allowed (e.g., 1.5.0 phone + 1.5.1 watch = OK).
      */
     fun shouldBlockSync(phoneVersion: String, watchVersion: String): Boolean {
         if (isDevBuild(phoneVersion) || isDevBuild(watchVersion)) return false
-        return phoneVersion != watchVersion
+        return majorMinor(phoneVersion) != majorMinor(watchVersion)
     }
 
     /**
@@ -33,5 +34,14 @@ object VersionCompat {
      */
     fun baseVersion(versionName: String): String {
         return versionName.removeSuffix(DEV_SUFFIX)
+    }
+
+    /**
+     * Extracts the first two version segments (major.minor).
+     * e.g., "1.5.2" → "1.5", "1.5.0.dev" → "1.5"
+     */
+    private fun majorMinor(versionName: String): String {
+        val parts = baseVersion(versionName).split(".")
+        return if (parts.size >= 2) "${parts[0]}.${parts[1]}" else versionName
     }
 }
