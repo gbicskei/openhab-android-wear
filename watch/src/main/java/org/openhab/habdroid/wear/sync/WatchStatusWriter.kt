@@ -34,6 +34,7 @@ class WatchStatusWriter @Inject constructor(
         private const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
         private const val KEY_THEME = "theme"
         private const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
+        private const val KEY_APP_VERSION = "appVersion"
     }
 
     private val dataClient by lazy { Wearable.getDataClient(context) }
@@ -42,6 +43,15 @@ class WatchStatusWriter @Inject constructor(
     private var currentConfigTimestamp: String = ""
     private var currentTheme: String = ""
     private var currentScreenWidthDp: Int = 0
+    private var currentAppVersion: String = ""
+
+    /**
+     * Write the app version. Called once on app startup.
+     */
+    suspend fun writeAppVersion(version: String) {
+        currentAppVersion = version
+        writeFullStatus()
+    }
 
     /**
      * Write the config timestamp after a successful cold load.
@@ -92,6 +102,9 @@ class WatchStatusWriter @Inject constructor(
                 dataMap.putString(KEY_THEME, currentTheme)
                 if (currentScreenWidthDp > 0) {
                     dataMap.putInt(KEY_SCREEN_WIDTH_DP, currentScreenWidthDp)
+                }
+                if (currentAppVersion.isNotBlank()) {
+                    dataMap.putString(KEY_APP_VERSION, currentAppVersion)
                 }
             }.asPutDataRequest().setUrgent()
             dataClient.putDataItem(request).await()
