@@ -154,6 +154,7 @@ private fun SettingsMainScreen(
                 onCheckedChange = { viewModel.toggleDebugMode(it) },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Debug Mode") },
+                enabled = false,
                 icon = {
                     Icon(
                         Icons.Default.BugReport,
