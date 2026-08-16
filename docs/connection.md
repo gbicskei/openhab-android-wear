@@ -50,8 +50,9 @@ The phone setup screen has three sections:
 | Field | Description |
 |-------|-------------|
 | User Key | Namespace identifier for multi-user setups. Empty = shared `wear:tile` namespace. Allowed: `[a-z0-9_-]`. |
+| Watch Device Name | Friendly name for the watch (e.g. "Gabor's Watch"). Used by the Mobile Audio binding as a stable identifier — survives app reinstalls and Android ID changes. The binding uses this as the Thing label and derives the Thing UID from it. |
 
-When set, tile config is scoped to `wear:tile:{userKey}` — multiple users sharing one openHAB instance get independent tile layouts.
+When User Key is set, tile config is scoped to `wear:tile:{userKey}` — multiple users sharing one openHAB instance get independent tile layouts.
 
 ### Main Server (synced to watch)
 
@@ -119,9 +120,28 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
   "serverUrl": "https://myopenhab.org",
   "username": "user@email.com",
   "password": "secret",
-  "userKey": "joe"
+  "userKey": "joe",
+  "deviceName": "Joe's Watch",
+  "googleTtsApiKey": "",
+  "debugMode": false,
+  "bindingInstalled": true,
+  "resolvedIps": ["1.2.3.4"],
+  "localServerUrl": "http://192.168.1.100:8080"
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `serverUrl` | Main server URL for the watch |
+| `username` | Basic Auth username |
+| `password` | Basic Auth password |
+| `userKey` | Tile namespace (empty = shared) |
+| `deviceName` | Friendly watch name for audio sink binding registration |
+| `googleTtsApiKey` | Google Cloud TTS API key (optional) |
+| `debugMode` | Enable verbose logging on the watch |
+| `bindingInstalled` | Whether the Mobile Audio binding is installed on the server (controls notification UI visibility and FCM registration) |
+| `resolvedIps` | Pre-resolved DNS addresses (seeded by phone) |
+| `localServerUrl` | Direct/LAN server URL for Happy Eyeballs racing (empty = cloud-only) |
 
 ### Sync process
 
@@ -130,8 +150,9 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
 3. Phone sends `SyncConfigPayload` via MessageClient to `/openhab/config`
 4. Watch `WearDataLayerListenerService` receives the message
 5. Watch deserializes payload and saves to `CredentialStore` (DataStore)
-6. Phone sends `/openhab/reload` — watch clears item cache and refreshes tile
-7. Phone sends `/openhab/theme` — watch updates tile theme color
+6. Watch saves `deviceName`, `bindingInstalled`, `localServerUrl`, debug mode
+7. Watch schedules FCM registration (if `bindingInstalled=true`)
+8. Phone sends `/openhab/reload` — watch clears item cache and refreshes tile
 
 ### Requirements
 
@@ -200,3 +221,28 @@ The phone tracks whether the watch's tile config is up to date:
 4. User syncs to watch, which reloads config and writes the new version to DataClient
 
 This ensures the watch always reflects the latest tile editor changes.
+
+## Mobile Audio Binding Detection
+
+The phone detects whether the Mobile Audio binding is installed on the openHAB server:
+
+1. On Watch Settings screen open, phone calls `GET {configServerUrl}/rest/thing-types/mobileaudio:device`
+2. HTTP 200 → binding installed; HTTP 404 → not installed
+3. Result is persisted in `PhoneCredentialStore` and included in `SyncConfigPayload`
+4. Watch stores `bindingInstalled` in its `CredentialStore`
+
+**Effect on UI:**
+- Phone Watch Settings: notification controls hidden when binding not installed (info message shown instead)
+- Watch Settings: Notifications button disabled when binding not installed
+
+**Effect on behavior:**
+- Watch `FcmRegistrationWorker` skips registration entirely when `bindingInstalled=false` (no network call, no 404 errors)
+
+**FCM Registration (when binding is installed):**
+
+The watch registers its FCM token with the binding's servlet:
+```
+GET {localServerUrl}/mobileaudio/register?regId={token}&deviceId={androidId}&deviceModel={model}&deviceName={name}
+```
+
+The worker prefers the local server URL (the servlet is not proxied by myopenhab.org). The `deviceName` parameter enables stable Thing matching across app reinstalls.
