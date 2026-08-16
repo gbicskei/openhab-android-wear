@@ -220,11 +220,8 @@ class SetupViewModel @Inject constructor(
             return
         }
 
-        // Don't re-request if we already have the version
-        if (WatchVersionHolder.watchVersion.value != null) return
-
         viewModelScope.launch {
-            // Try reading from the persistent DataItem first
+            // Always read the persistent DataItem for the freshest version
             val status = watchStatusReader.readStatus()
             val dataItemVersion = status?.appVersion
             if (!dataItemVersion.isNullOrBlank()) {
