@@ -63,6 +63,15 @@ fun DebugLogScreen(
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val paused by viewModel.paused.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
+
+    val filteredEntries = remember(entries, searchQuery) {
+        if (searchQuery.isBlank()) entries
+        else entries.filter { entry ->
+            entry.tag.contains(searchQuery, ignoreCase = true) ||
+                entry.message.contains(searchQuery, ignoreCase = true)
+        }
+    }
 
     DisposableEffect(Unit) {
         viewModel.startListening()
@@ -86,8 +95,8 @@ fun DebugLogScreen(
                         )
                     }
                     IconButton(
-                        onClick = { exportDebugLog(context, entries) },
-                        enabled = entries.isNotEmpty()
+                        onClick = { exportDebugLog(context, filteredEntries) },
+                        enabled = filteredEntries.isNotEmpty()
                     ) {
                         Icon(Icons.Filled.Share, contentDescription = "Export")
                     }
@@ -98,73 +107,94 @@ fun DebugLogScreen(
             )
         }
     ) { padding ->
-        if (entries.isEmpty()) {
-            Column(
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Search bar
+            androidx.compose.material3.OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Filter by tag or message...") },
+                singleLine = true,
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "No errors logged",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        } else {
-            val listState = rememberLazyListState()
-
-            // Track if user is "following" the tail (at or near bottom)
-            val isAtBottom = remember {
-                derivedStateOf {
-                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-                    lastVisible >= entries.size - 3
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Filled.Delete, contentDescription = "Clear filter", modifier = Modifier.size(18.dp))
+                        }
+                    }
                 }
-            }
+            )
 
-            // Auto-scroll to bottom only if user is already following
-            LaunchedEffect(entries.size) {
-                if (entries.isNotEmpty() && isAtBottom.value && !paused) {
-                    listState.animateScrollToItem(entries.size - 1)
+            if (filteredEntries.isEmpty()) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = if (searchQuery.isBlank()) "No errors logged" else "No matches",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            }
+            } else {
+                val listState = rememberLazyListState()
 
-            // Scroll to bottom when unpausing
-            LaunchedEffect(paused) {
-                if (!paused && entries.isNotEmpty()) {
-                    listState.animateScrollToItem(entries.size - 1)
+                // Track if user is "following" the tail (at or near bottom)
+                val isAtBottom = remember {
+                    derivedStateOf {
+                        val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        lastVisible >= filteredEntries.size - 3
+                    }
                 }
-            }
 
-            // Initial scroll to bottom
-            LaunchedEffect(Unit) {
-                if (entries.isNotEmpty()) {
-                    listState.scrollToItem(entries.size - 1)
+                // Auto-scroll to bottom only if user is already following
+                LaunchedEffect(filteredEntries.size) {
+                    if (filteredEntries.isNotEmpty() && isAtBottom.value && !paused) {
+                        listState.animateScrollToItem(filteredEntries.size - 1)
+                    }
                 }
-            }
 
-            // Load more when scrolled near the top
-            LaunchedEffect(listState.firstVisibleItemIndex) {
-                if (listState.firstVisibleItemIndex < 3) {
-                    viewModel.loadMore()
+                // Scroll to bottom when unpausing
+                LaunchedEffect(paused) {
+                    if (!paused && filteredEntries.isNotEmpty()) {
+                        listState.animateScrollToItem(filteredEntries.size - 1)
+                    }
                 }
-            }
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 8.dp)
-            ) {
-                items(entries.size, key = { index ->
-                    val entry = entries[index]
-                    "${entry.timestamp}_${entry.tag}_${entry.message.hashCode()}_$index"
-                }) { index ->
-                    val entry = entries[index]
-                    DebugLogEntryCard(entry)
-                    Spacer(modifier = Modifier.height(4.dp))
+                // Initial scroll to bottom
+                LaunchedEffect(Unit) {
+                    if (filteredEntries.isNotEmpty()) {
+                        listState.scrollToItem(filteredEntries.size - 1)
+                    }
+                }
+
+                // Load more when scrolled near the top
+                LaunchedEffect(listState.firstVisibleItemIndex) {
+                    if (listState.firstVisibleItemIndex < 3) {
+                        viewModel.loadMore()
+                    }
+                }
+
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    items(filteredEntries.size, key = { index ->
+                        val entry = filteredEntries[index]
+                        "${entry.timestamp}_${entry.tag}_${entry.message.hashCode()}_$index"
+                    }) { index ->
+                        val entry = filteredEntries[index]
+                        DebugLogEntryCard(entry)
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
                 }
             }
         }
