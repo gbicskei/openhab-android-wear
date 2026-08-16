@@ -108,7 +108,9 @@ class PhoneDataLayerSender @Inject constructor(
     suspend fun sendCredentials(
         credentials: ServerCredentials,
         debugMode: Boolean = false,
-        localServerUrl: String = ""
+        localServerUrl: String = "",
+        deviceName: String = "",
+        bindingInstalled: Boolean = false
     ): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
             throw NoNetworkException()
@@ -128,8 +130,10 @@ class PhoneDataLayerSender @Inject constructor(
                 username = credentials.username,
                 password = credentials.password,
                 userKey = credentials.userKey,
+                deviceName = deviceName,
                 googleTtsApiKey = credentials.googleTtsApiKey,
                 debugMode = debugMode,
+                bindingInstalled = bindingInstalled,
                 resolvedIps = resolvedIps,
                 localServerUrl = localServerUrl
             )

@@ -53,9 +53,11 @@ class PhoneCredentialStore @Inject constructor(
         const val KEY_SETTINGS_NEED_SYNC = "settings_need_sync"
         const val KEY_BACKUP_ENABLED = "backup_enabled"
         const val KEY_WATCH_USE_LOCAL_SERVER = "watch_use_local_server"
+        const val KEY_DEVICE_NAME = "device_name"
         const val KEY_NOTIFICATION_READ_ALOUD = "notification_read_aloud"
         const val KEY_NOTIFICATION_CHIME = "notification_chime"
         const val KEY_NOTIFICATION_VOLUME = "notification_volume"
+        const val KEY_BINDING_INSTALLED = "binding_installed"
         const val DEFAULT_THEME = "AMBER"
     }
 
@@ -179,6 +181,34 @@ class PhoneCredentialStore @Inject constructor(
                 .apply()
         }
         _userKey.value = key
+    }
+
+    /** Get the watch device name (stable identifier for audio sink). */
+    val deviceName: String get() = try {
+        encryptedPrefs.getString(KEY_DEVICE_NAME, "") ?: ""
+    } catch (_: Exception) { "" }
+
+    /** Save the watch device name. */
+    suspend fun saveDeviceName(name: String) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putString(KEY_DEVICE_NAME, name)
+                .apply()
+        }
+    }
+
+    /** Whether the Mobile Audio binding is installed on the server. Default: false. */
+    val isBindingInstalled: Boolean get() = try {
+        encryptedPrefs.getBoolean(KEY_BINDING_INSTALLED, false)
+    } catch (_: Exception) { false }
+
+    /** Save binding installed status. */
+    suspend fun saveBindingInstalled(installed: Boolean) {
+        withContext(Dispatchers.IO) {
+            encryptedPrefs.edit()
+                .putBoolean(KEY_BINDING_INSTALLED, installed)
+                .apply()
+        }
     }
 
     /** Clear all stored credentials. */

@@ -80,6 +80,7 @@ class SetupViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     userKey = userKey,
+                    deviceName = credentialStore.deviceName,
                     hasStoredGoogleTtsApiKey = hasGoogleTtsKey,
                     debugMode = credentialStore.isDebugMode,
                     watchUseLocalServer = credentialStore.isWatchUseLocalServer,
@@ -320,6 +321,10 @@ class SetupViewModel @Inject constructor(
         _uiState.update { it.copy(userKey = sanitized, hasUnsavedChanges = true) }
     }
 
+    fun onDeviceNameChanged(name: String) {
+        _uiState.update { it.copy(deviceName = name, hasUnsavedChanges = true) }
+    }
+
     // ─── Config (Local) Connection ───
 
     fun onConfigServerUrlChanged(url: String) {
@@ -516,6 +521,9 @@ class SetupViewModel @Inject constructor(
         // Save user key
         credentialStore.saveUserKey(state.userKey)
 
+        // Save device name
+        credentialStore.saveDeviceName(state.deviceName)
+
         // Save main server credentials
         if (state.serverUrl.isNotBlank()) {
             credentialStore.saveCredentials(
@@ -584,7 +592,7 @@ class SetupViewModel @Inject constructor(
             } else {
                 ""
             }
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl, deviceName = credentialStore.deviceName, bindingInstalled = credentialStore.isBindingInstalled)
                 .onSuccess {
                     AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
                 }
@@ -622,7 +630,7 @@ class SetupViewModel @Inject constructor(
             } else {
                 ""
             }
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl)
+            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl, deviceName = credentialStore.deviceName, bindingInstalled = credentialStore.isBindingInstalled)
                 .onSuccess {
                     // Send reload signal so the watch refreshes tile config (includes theme)
                     try {
@@ -678,6 +686,8 @@ data class SetupUiState(
     val errorMessage: String? = null,
     // User key (namespace for multi-user config)
     val userKey: String = "",
+    // Watch device name (stable identifier for audio sink binding)
+    val deviceName: String = "",
     // Config (Local) connection
     val configServerUrl: String = "",
     val configUsername: String = "",

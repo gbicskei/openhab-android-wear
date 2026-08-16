@@ -25,6 +25,8 @@ class CredentialStore @Inject constructor(
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
         val KEY_USER_KEY = stringPreferencesKey("user_key")
+        val KEY_DEVICE_NAME = stringPreferencesKey("device_name")
+        val KEY_BINDING_INSTALLED = booleanPreferencesKey("binding_installed")
         val KEY_DEBUG_MODE = booleanPreferencesKey("debug_mode")
     }
 
@@ -54,6 +56,16 @@ class CredentialStore @Inject constructor(
         prefs[KEY_DEBUG_MODE] ?: false
     }
 
+    /** Flow of device name (stable identifier for audio sink binding) */
+    val deviceName: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_DEVICE_NAME] ?: ""
+    }
+
+    /** Flow of binding installed status (synced from phone) */
+    val bindingInstalled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_BINDING_INSTALLED] ?: false
+    }
+
     /** Save server credentials */
     suspend fun saveCredentials(credentials: ServerCredentials) {
         dataStore.edit { prefs ->
@@ -68,6 +80,20 @@ class CredentialStore @Inject constructor(
     suspend fun saveLocalServerUrl(url: String) {
         dataStore.edit { prefs ->
             prefs[KEY_LOCAL_SERVER_URL] = url
+        }
+    }
+
+    /** Save device name (stable identifier for audio sink binding) */
+    suspend fun saveDeviceName(name: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_DEVICE_NAME] = name
+        }
+    }
+
+    /** Save binding installed status (synced from phone) */
+    suspend fun saveBindingInstalled(installed: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_BINDING_INSTALLED] = installed
         }
     }
 

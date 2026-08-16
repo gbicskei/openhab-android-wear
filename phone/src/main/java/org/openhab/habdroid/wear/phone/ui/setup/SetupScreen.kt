@@ -131,6 +131,20 @@ fun SetupScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
+            OutlinedTextField(
+                value = uiState.deviceName,
+                onValueChange = viewModel::onDeviceNameChanged,
+                label = { Text("Watch Device Name") },
+                placeholder = { Text("e.g. Gabor's Watch") },
+                supportingText = { Text("A friendly name for this watch. Used by the audio sink to identify the device.") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             // ─── Main Server (Remote) ───

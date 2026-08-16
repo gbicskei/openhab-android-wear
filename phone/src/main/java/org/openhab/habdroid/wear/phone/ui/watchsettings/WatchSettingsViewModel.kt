@@ -40,6 +40,7 @@ data class WatchSettingsUiState(
     val snapshot: WatchSettingsSnapshot = WatchSettingsSnapshot(),
     val watchConnected: Boolean = true,
     val backupEnabled: Boolean = false,
+    val bindingInstalled: Boolean = false,
     val googleTtsAvailable: Boolean = false,
     val availableVoices: List<String> = emptyList(),
     val voicesLoading: Boolean = false,
@@ -99,7 +100,31 @@ class WatchSettingsViewModel @Inject constructor(
         loadSettingsFromWatch()
         observeWatchConnection()
         checkGoogleTtsAvailability()
+        checkBindingInstalled()
         _uiState.update { it.copy(backupEnabled = credentialStore.isBackupEnabled) }
+    }
+
+    /**
+     * Check if the Mobile Audio binding is installed on the config server.
+     * Updates UI state and persists the result for sync to watch.
+     */
+    private fun checkBindingInstalled() {
+        viewModelScope.launch {
+            val localConfig = credentialStore.localConfig.first()
+            if (localConfig == null || !localConfig.isConfigured) {
+                _uiState.update { it.copy(bindingInstalled = false) }
+                return@launch
+            }
+            val installed = connectionTester.checkBindingInstalled(
+                serverUrl = localConfig.serverUrl,
+                username = localConfig.username,
+                password = localConfig.password,
+                apiToken = localConfig.apiToken
+            )
+            credentialStore.saveBindingInstalled(installed)
+            _uiState.update { it.copy(bindingInstalled = installed) }
+            AppLog.d(TAG, "Binding installed check: $installed")
+        }
     }
 
     /**
@@ -144,7 +169,9 @@ class WatchSettingsViewModel @Inject constructor(
                                     val snapshot = json.decodeFromString<WatchSettingsSnapshot>(
                                         String(event.data, Charsets.UTF_8)
                                     )
-                                    cont.resume(snapshot)
+                                    if (cont.isActive) {
+                                        cont.resume(snapshot)
+                                    }
                                 } catch (e: Exception) {
                                     AppLog.e(TAG, "Failed to parse settings response", e)
                                 }

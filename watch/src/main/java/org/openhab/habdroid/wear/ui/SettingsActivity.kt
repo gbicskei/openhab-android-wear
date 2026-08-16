@@ -105,6 +105,7 @@ private fun SettingsMainScreen(
     onNotifications: () -> Unit
 ) {
     val debugMode by viewModel.debugMode.collectAsState()
+    val bindingInstalled by viewModel.bindingInstalled.collectAsState()
 
     androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
@@ -142,7 +143,8 @@ private fun SettingsMainScreen(
                         contentDescription = null,
                         modifier = Modifier.size(24.dp)
                     )
-                }
+                },
+                enabled = bindingInstalled
             )
         }
 
@@ -436,6 +438,10 @@ class WatchSettingsViewModel @Inject constructor(
     // ─── Server connectivity (for Google TTS gate) ───
     private val _serverOnline = MutableStateFlow(false)
     val serverOnline: StateFlow<Boolean> = _serverOnline.asStateFlow()
+
+    // ─── Binding installed (synced from phone) ───
+    val bindingInstalled = credentialStore.bindingInstalled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     init {
         viewModelScope.launch {

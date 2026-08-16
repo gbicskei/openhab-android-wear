@@ -237,6 +237,37 @@ class ConnectionTester @Inject constructor(
     }
 
     /**
+     * Checks if the Mobile Audio binding is installed on the openHAB server.
+     * Queries the thing-types endpoint — returns true if the binding's thing type exists.
+     */
+    suspend fun checkBindingInstalled(
+        serverUrl: String,
+        username: String,
+        password: String,
+        apiToken: String = ""
+    ): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val url = "${serverUrl.trimEnd('/')}/rest/thing-types/mobileaudio:device"
+            val auth = when {
+                apiToken.isNotBlank() -> "Bearer $apiToken"
+                username.isNotBlank() && password.isNotBlank() -> Credentials.basic(username, password)
+                else -> null
+            }
+
+            val request = Request.Builder()
+                .url(url)
+                .apply { auth?.let { header("Authorization", it) } }
+                .header("Accept", "application/json")
+                .build()
+
+            val response = okHttpClient.newCall(request).execute()
+            response.isSuccessful
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
      * Fetch the configVersion from the server's main tile page.
      * Returns the integer version, or null on failure.
      */
