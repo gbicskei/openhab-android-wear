@@ -108,6 +108,12 @@ class WearDataLayerListenerService : WearableListenerService() {
                 credentialStore.saveCredentials(credentials)
                 AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
 
+                // Save device name for FCM registration
+                credentialStore.saveDeviceName(configData.deviceName)
+
+                // Save binding installed status
+                credentialStore.saveBindingInstalled(configData.bindingInstalled)
+
                 // Save local server URL for Happy Eyeballs racing
                 credentialStore.saveLocalServerUrl(configData.localServerUrl)
                 if (configData.localServerUrl.isNotBlank()) {

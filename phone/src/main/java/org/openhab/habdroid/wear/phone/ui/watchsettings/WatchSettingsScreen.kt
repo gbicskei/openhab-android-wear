@@ -240,31 +240,39 @@ private fun WatchSettingsContent(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                SettingSwitch(
-                    label = "Enabled",
-                    checked = snapshot.notificationsEnabled,
-                    onCheckedChange = viewModel::setNotificationsEnabled
-                )
-                SettingSwitch(
-                    label = "Read Aloud",
-                    checked = snapshot.notificationReadAloud,
-                    enabled = snapshot.notificationsEnabled,
-                    onCheckedChange = viewModel::setNotificationReadAloud
-                )
-                SettingSwitch(
-                    label = "Alert Sound",
-                    checked = snapshot.chimeEnabled,
-                    enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
-                    onCheckedChange = viewModel::setChimeEnabled
-                )
-                SettingSlider(
-                    label = "Volume",
-                    value = snapshot.notificationVolume,
-                    onValueChange = viewModel::setNotificationVolume,
-                    valueRange = 0f..1f,
-                    enabled = snapshot.notificationsEnabled,
-                    valueLabel = "${(snapshot.notificationVolume * 100).toInt()}%"
-                )
+                if (!state.bindingInstalled) {
+                    Text(
+                        "Install the Mobile Audio binding on your openHAB server to enable push notifications to the watch.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    SettingSwitch(
+                        label = "Enabled",
+                        checked = snapshot.notificationsEnabled,
+                        onCheckedChange = viewModel::setNotificationsEnabled
+                    )
+                    SettingSwitch(
+                        label = "Read Aloud",
+                        checked = snapshot.notificationReadAloud,
+                        enabled = snapshot.notificationsEnabled,
+                        onCheckedChange = viewModel::setNotificationReadAloud
+                    )
+                    SettingSwitch(
+                        label = "Alert Sound",
+                        checked = snapshot.chimeEnabled,
+                        enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
+                        onCheckedChange = viewModel::setChimeEnabled
+                    )
+                    SettingSlider(
+                        label = "Volume",
+                        value = snapshot.notificationVolume,
+                        onValueChange = viewModel::setNotificationVolume,
+                        valueRange = 0f..1f,
+                        enabled = snapshot.notificationsEnabled,
+                        valueLabel = "${(snapshot.notificationVolume * 100).toInt()}%"
+                    )
+                }
             }
         }
 

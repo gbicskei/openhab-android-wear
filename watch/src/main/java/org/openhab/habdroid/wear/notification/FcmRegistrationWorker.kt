@@ -44,13 +44,23 @@ class FcmRegistrationWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         AppLog.d(TAG, "FcmRegistrationWorker starting")
 
+        // Check if binding is installed (synced from phone)
+        val bindingInstalled = credentialStore.bindingInstalled.first()
+        if (!bindingInstalled) {
+            AppLog.d(TAG, "Mobile Audio binding not installed — skipping FCM registration")
+            return Result.success()
+        }
+
         val credentials = credentialStore.credentials.first()
         if (credentials == null) {
             AppLog.w(TAG, "No credentials configured — skipping FCM registration")
             return Result.failure()
         }
 
-        val serverUrl = credentials.serverUrl.trimEnd('/')
+        // Prefer local server URL for registration (the servlet is not proxied by myopenhab.org)
+        val localUrl = credentialStore.localServerUrl.first()
+        val serverUrl = localUrl.takeIf { it.isNotBlank() }?.trimEnd('/')
+            ?: credentials.serverUrl.trimEnd('/')
         if (serverUrl.isBlank()) {
             AppLog.w(TAG, "Server URL is blank — skipping FCM registration")
             return Result.failure()
@@ -77,12 +87,14 @@ class FcmRegistrationWorker @AssistedInject constructor(
             Settings.Secure.ANDROID_ID
         ) ?: "unknown"
         val deviceModel = Build.MODEL ?: "Wear OS"
+        val deviceName = credentialStore.deviceName.first()
 
         // Register with the MobileAudio binding on the openHAB server
         val registrationUrl = "$serverUrl/mobileaudio/register" +
             "?regId=${java.net.URLEncoder.encode(fcmToken, "UTF-8")}" +
             "&deviceId=${java.net.URLEncoder.encode(deviceId, "UTF-8")}" +
-            "&deviceModel=${java.net.URLEncoder.encode(deviceModel, "UTF-8")}"
+            "&deviceModel=${java.net.URLEncoder.encode(deviceModel, "UTF-8")}" +
+            if (deviceName.isNotBlank()) "&deviceName=${java.net.URLEncoder.encode(deviceName, "UTF-8")}" else ""
 
         // Use a plain OkHttpClient without the AuthInterceptor (which rewrites URLs)
         val plainClient = OkHttpClient.Builder()
@@ -98,7 +110,7 @@ class FcmRegistrationWorker @AssistedInject constructor(
         return try {
             val response = plainClient.newCall(request).execute()
             if (response.isSuccessful) {
-                AppLog.d(TAG, "FCM registration successful (device=$deviceId, model=$deviceModel)")
+                AppLog.d(TAG, "FCM registration successful (device=$deviceId, model=$deviceModel, name=$deviceName)")
                 Result.success()
             } else {
                 AppLog.w(TAG, "FCM registration failed: HTTP ${response.code}")

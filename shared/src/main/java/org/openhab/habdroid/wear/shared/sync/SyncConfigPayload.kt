@@ -23,6 +23,7 @@ data class SyncConfigPayload(
     val deviceName: String = "",
     val googleTtsApiKey: String = "",
     val debugMode: Boolean = false,
+    val bindingInstalled: Boolean = false,
     /** Pre-resolved IP addresses for the server hostname (seeded by phone DNS). */
     val resolvedIps: List<String> = emptyList(),
     /** Local/direct server URL for Happy Eyeballs racing (empty = cloud-only). */
