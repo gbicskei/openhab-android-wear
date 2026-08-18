@@ -92,7 +92,7 @@ class SetupViewModel @Inject constructor(
 
     private fun observeWatchConnection() {
         viewModelScope.launch {
-            dataLayerSender.watchConnectionState().collect { info ->
+            dataLayerSender.watchConnectionState.collect { info ->
                 _uiState.update { state ->
                     val newStatus = when {
                         info == null -> WatchStatus.NotFound
