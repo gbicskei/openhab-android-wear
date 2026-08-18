@@ -27,7 +27,15 @@ data class SyncConfigPayload(
     /** Pre-resolved IP addresses for the server hostname (seeded by phone DNS). */
     val resolvedIps: List<String> = emptyList(),
     /** Local/direct server URL for Happy Eyeballs racing (empty = cloud-only). */
-    val localServerUrl: String = ""
+    val localServerUrl: String = "",
+    /** Local server username (Basic Auth). Empty = no basic auth for local. */
+    val localUsername: String = "",
+    /** Local server password (Basic Auth). Empty = no basic auth for local. */
+    val localPassword: String = "",
+    /** Local server API token (Bearer auth). Takes precedence over Basic Auth if set. */
+    val localApiToken: String = "",
+    /** When true, the watch should clear its cache and reload after applying this config. */
+    val triggerReload: Boolean = false
 ) {
     /**
      * The UI components namespace derived from the user key.
