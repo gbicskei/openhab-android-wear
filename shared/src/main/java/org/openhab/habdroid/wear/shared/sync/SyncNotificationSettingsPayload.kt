@@ -11,5 +11,6 @@ data class SyncNotificationSettingsPayload(
     val readAloudEnabled: Boolean = false,
     val chimeEnabled: Boolean = true,
     val chimeSound: String = "default",
-    val notificationVolume: Float = 1.0f
+    val notificationVolume: Float = 1.0f,
+    val minReadAloudPriority: String = "normal"
 )

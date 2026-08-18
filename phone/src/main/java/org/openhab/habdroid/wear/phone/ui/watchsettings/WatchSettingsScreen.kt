@@ -264,6 +264,12 @@ private fun WatchSettingsContent(
                         enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
                         onCheckedChange = viewModel::setChimeEnabled
                     )
+                    PriorityDropdown(
+                        label = "Read Priority",
+                        selected = snapshot.minReadAloudPriority,
+                        enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
+                        onSelected = viewModel::setMinReadAloudPriority
+                    )
                     SettingSlider(
                         label = "Volume",
                         value = snapshot.notificationVolume,
@@ -382,6 +388,63 @@ private fun SettingSlider(
             enabled = enabled,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PriorityDropdown(
+    label: String,
+    selected: String,
+    enabled: Boolean,
+    onSelected: (String) -> Unit
+) {
+    val options = listOf("low", "normal", "high")
+    val displayLabels = mapOf("low" to "Low", "normal" to "Normal", "high" to "High")
+    var expanded by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = if (enabled) MaterialTheme.colorScheme.onSurface
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        )
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { if (enabled) expanded = it }
+        ) {
+            OutlinedTextField(
+                value = displayLabels[selected] ?: "Normal",
+                onValueChange = {},
+                readOnly = true,
+                enabled = enabled,
+                modifier = Modifier
+                    .width(140.dp)
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                singleLine = true
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(displayLabels[option] ?: option) },
+                        onClick = {
+                            onSelected(option)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 

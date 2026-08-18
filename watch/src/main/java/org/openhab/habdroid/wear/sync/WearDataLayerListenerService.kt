@@ -219,6 +219,7 @@ class WearDataLayerListenerService : WearableListenerService() {
                 notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
                 notificationPreferenceStore.setChimeSound(settings.chimeSound)
                 notificationPreferenceStore.setNotificationVolume(settings.notificationVolume)
+                notificationPreferenceStore.setMinReadAloudPriority(settings.minReadAloudPriority)
                 AppLog.d(TAG, "Notification settings saved from phone sync")
             }
         } catch (e: Exception) {
@@ -297,7 +298,8 @@ class WearDataLayerListenerService : WearableListenerService() {
                     notificationReadAloud = notificationPreferenceStore.readAloudEnabled.first(),
                     chimeEnabled = notificationPreferenceStore.chimeEnabled.first(),
                     chimeSound = notificationPreferenceStore.chimeSound.first(),
-                    notificationVolume = notificationPreferenceStore.notificationVolume.first()
+                    notificationVolume = notificationPreferenceStore.notificationVolume.first(),
+                    minReadAloudPriority = notificationPreferenceStore.minReadAloudPriority.first()
                 )
 
                 val responseJson = json.encodeToString(WatchSettingsSnapshot.serializer(), snapshot)

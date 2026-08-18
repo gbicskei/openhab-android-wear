@@ -64,7 +64,8 @@ class NotificationHandler @Inject constructor(
         referenceId: String?,
         timestamp: Long,
         mediaAttachmentUrl: String?,
-        actions: String?
+        actions: String?,
+        priority: String? = null
     ) {
         AppLog.d(TAG, "handleNotification: title='$title', message='$message', tag=$tag")
 
@@ -74,10 +75,12 @@ class NotificationHandler @Inject constructor(
             return
         }
 
-        // Show system notification
-        showNotification(title, message, tag, referenceId, timestamp)
+        // Don't show visual notification for audio sink/TTS messages (they just play audio)
+        if (tag != TAG_AUDIO_SINK && tag != TAG_AUDIO_TTS) {
+            showNotification(title, message, tag, referenceId, timestamp, priority)
+        }
 
-        // Branch by tag: audio-sink plays a URL, audio-tts speaks text
+        // Branch by tag: audio-sink plays a URL, audio-tts speaks text, others are user notifications
         when (tag) {
             TAG_AUDIO_SINK -> {
                 val audioUrl = mediaAttachmentUrl ?: message
@@ -88,11 +91,21 @@ class NotificationHandler @Inject constructor(
                     AppLog.w(TAG, "audio-sink: no URL in mediaAttachmentUrl or message")
                 }
             }
+            TAG_AUDIO_TTS -> {
+                // Direct TTS from binding's speak() action — always speak, ignore readAloud setting
+                if (message.isNotBlank()) {
+                    AppLog.d(TAG, "audio-tts: speaking '$message'")
+                    playTtsWithUnmute(title, message)
+                }
+            }
             else -> {
-                // audio-tts or any other tag: speak text via TTS
+                // Regular notification: speak text via TTS if read-aloud is enabled and priority meets threshold
                 val readAloud = notificationPrefs.readAloudEnabled.first()
-                AppLog.d(TAG, "readAloudEnabled=$readAloud, message.isNotBlank=${message.isNotBlank()}")
-                if (readAloud && message.isNotBlank()) {
+                val minPriority = notificationPrefs.minReadAloudPriority.first()
+                val msgPriority = priority ?: "normal"
+                val meetsThreshold = priorityLevel(msgPriority) >= priorityLevel(minPriority)
+                AppLog.d(TAG, "readAloud=$readAloud, priority=$msgPriority, minPriority=$minPriority, meetsThreshold=$meetsThreshold")
+                if (readAloud && message.isNotBlank() && meetsThreshold) {
                     playTtsWithUnmute(title, message)
                 }
             }
@@ -187,9 +200,16 @@ class NotificationHandler @Inject constructor(
         message: String,
         tag: String?,
         referenceId: String?,
-        timestamp: Long
+        timestamp: Long,
+        priority: String? = null
     ) {
         val notifId = (referenceId ?: tag ?: message)?.hashCode() ?: System.currentTimeMillis().toInt()
+
+        val notifPriority = when (priority?.lowercase()) {
+            "high" -> NotificationCompat.PRIORITY_HIGH
+            "low" -> NotificationCompat.PRIORITY_LOW
+            else -> NotificationCompat.PRIORITY_DEFAULT
+        }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
@@ -198,12 +218,12 @@ class NotificationHandler @Inject constructor(
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setWhen(timestamp)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(notifPriority)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .build()
 
         notificationManager.notify(notifId, notification)
-        AppLog.d(TAG, "Showing notification id=$notifId")
+        AppLog.d(TAG, "Showing notification id=$notifId priority=$priority")
     }
 
     /**
@@ -343,9 +363,21 @@ class NotificationHandler @Inject constructor(
         }
     }
 
+    /**
+     * Map a priority string to a numeric level for comparison.
+     * high=3, normal=2, low=1.
+     */
+    private fun priorityLevel(priority: String): Int = when (priority.lowercase()) {
+        "high" -> 3
+        "normal" -> 2
+        "low" -> 1
+        else -> 2
+    }
+
     companion object {
         private const val TAG = "NotificationHandler"
         private const val CHANNEL_ID = "openhab_cloud_notifications"
         private const val TAG_AUDIO_SINK = "audio-sink"
+        private const val TAG_AUDIO_TTS = "audio-tts"
     }
 }

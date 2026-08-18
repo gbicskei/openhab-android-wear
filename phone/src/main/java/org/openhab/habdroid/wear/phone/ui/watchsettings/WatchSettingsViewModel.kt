@@ -346,6 +346,10 @@ class WatchSettingsViewModel @Inject constructor(
         updateAndSyncNotifications { it.copy(notificationVolume = volume) }
     }
 
+    fun setMinReadAloudPriority(priority: String) {
+        updateAndSyncNotifications { it.copy(minReadAloudPriority = priority) }
+    }
+
     private fun updateAndSyncNotifications(transform: (WatchSettingsSnapshot) -> WatchSettingsSnapshot) {
         val newSnapshot = transform(_uiState.value.snapshot)
         _uiState.update { it.copy(snapshot = newSnapshot) }
@@ -360,7 +364,8 @@ class WatchSettingsViewModel @Inject constructor(
                 readAloudEnabled = snapshot.notificationReadAloud,
                 chimeEnabled = snapshot.chimeEnabled,
                 chimeSound = snapshot.chimeSound,
-                notificationVolume = snapshot.notificationVolume
+                notificationVolume = snapshot.notificationVolume,
+                minReadAloudPriority = snapshot.minReadAloudPriority
             )
             dataLayerSender.sendNotificationSettings(json.encodeToString(payload))
                 .onFailure { AppLog.w(TAG, "Failed to send notification settings: ${it.message}") }
