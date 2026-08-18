@@ -47,7 +47,8 @@ class FcmMessageListenerService : FirebaseMessagingService() {
                         referenceId = data["reference-id"],
                         timestamp = data["timestamp"]?.toLongOrNull() ?: message.sentTime,
                         mediaAttachmentUrl = data["media-attachment-url"],
-                        actions = data["actions"]
+                        actions = data["actions"],
+                        priority = data["priority"]
                     )
                 }
             }

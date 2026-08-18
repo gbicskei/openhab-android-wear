@@ -29,7 +29,8 @@ data class WatchSettingsSnapshot(
     val notificationReadAloud: Boolean = false,
     val chimeEnabled: Boolean = true,
     val chimeSound: String = "default",
-    val notificationVolume: Float = 1.0f
+    val notificationVolume: Float = 1.0f,
+    val minReadAloudPriority: String = "normal"
 ) {
     /**
      * Convert to a flat string map suitable for openHAB item metadata config.
@@ -48,7 +49,8 @@ data class WatchSettingsSnapshot(
         "notificationReadAloud" to notificationReadAloud.toString(),
         "chimeEnabled" to chimeEnabled.toString(),
         "chimeSound" to chimeSound,
-        "notificationVolume" to notificationVolume.toString()
+        "notificationVolume" to notificationVolume.toString(),
+        "minReadAloudPriority" to minReadAloudPriority
     )
 
     companion object {
@@ -76,7 +78,8 @@ data class WatchSettingsSnapshot(
                 notificationReadAloud = config["notificationReadAloud"]?.toBooleanStrictOrNull() ?: false,
                 chimeEnabled = config["chimeEnabled"]?.toBooleanStrictOrNull() ?: true,
                 chimeSound = config["chimeSound"] ?: "default",
-                notificationVolume = config["notificationVolume"]?.toFloatOrNull() ?: 1.0f
+                notificationVolume = config["notificationVolume"]?.toFloatOrNull() ?: 1.0f,
+                minReadAloudPriority = config["minReadAloudPriority"] ?: "normal"
             )
     }
 }

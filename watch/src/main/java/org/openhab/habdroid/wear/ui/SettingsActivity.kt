@@ -324,6 +324,7 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
     val notifReadAloud by viewModel.notifReadAloudEnabled.collectAsState()
     val chime by viewModel.chimeEnabled.collectAsState()
     val notifVolume by viewModel.notificationVolume.collectAsState()
+    val minPriority by viewModel.minReadAloudPriority.collectAsState()
 
     androidx.compose.foundation.layout.Column(
         modifier = Modifier.fillMaxSize(),
@@ -359,6 +360,14 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = notificationsEnabled && notifReadAloud,
                 label = { Text("Alert Sound") }
+            )
+        }
+        item {
+            Button(
+                onClick = { viewModel.cycleMinReadAloudPriority() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = notificationsEnabled && notifReadAloud,
+                label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") }
             )
         }
         item {
@@ -431,6 +440,9 @@ class WatchSettingsViewModel @Inject constructor(
 
     val notificationVolume = notificationPrefs.notificationVolume
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
+
+    val minReadAloudPriority = notificationPrefs.minReadAloudPriority
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "normal")
 
     // ─── Debug ───
     val debugMode = AppLog.debugModeFlow
@@ -587,6 +599,18 @@ class WatchSettingsViewModel @Inject constructor(
 
     fun setNotificationVolume(volume: Float) {
         viewModelScope.launch { notificationPrefs.setNotificationVolume(volume) }
+    }
+
+    fun cycleMinReadAloudPriority() {
+        viewModelScope.launch {
+            val current = minReadAloudPriority.value
+            val next = when (current) {
+                "low" -> "normal"
+                "normal" -> "high"
+                else -> "low"
+            }
+            notificationPrefs.setMinReadAloudPriority(next)
+        }
     }
 
     // ─── Debug actions ───

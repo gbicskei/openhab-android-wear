@@ -28,6 +28,7 @@ class NotificationPreferenceStore(
         val KEY_CHIME_ENABLED = booleanPreferencesKey("notification_chime_enabled")
         val KEY_CHIME_SOUND = stringPreferencesKey("notification_chime_sound")
         val KEY_NOTIFICATION_VOLUME = floatPreferencesKey("notification_volume")
+        val KEY_MIN_READ_ALOUD_PRIORITY = stringPreferencesKey("notification_min_read_aloud_priority")
     }
 
     /**
@@ -104,6 +105,22 @@ class NotificationPreferenceStore(
     suspend fun setNotificationVolume(volume: Float) {
         dataStore.edit { prefs ->
             prefs[KEY_NOTIFICATION_VOLUME] = volume.coerceIn(0.0f, 1.0f)
+        }
+    }
+
+    /**
+     * Minimum priority level for read-aloud.
+     * Values: "low", "normal", "high". Default: "normal".
+     * Messages below this threshold are shown visually but not spoken.
+     */
+    val minReadAloudPriority: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_MIN_READ_ALOUD_PRIORITY] ?: "normal"
+    }
+
+    /** Set the minimum priority for read-aloud. */
+    suspend fun setMinReadAloudPriority(priority: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_MIN_READ_ALOUD_PRIORITY] = priority
         }
     }
 }
