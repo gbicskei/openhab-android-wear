@@ -203,6 +203,9 @@ class VoiceSettingsViewModelTest {
     fun `hasGoogleTtsKey reflects credential store`() = runTest(testDispatcher) {
         every { credentialStore.hasGoogleTtsApiKey } returns true
         every { credentialStore.getGoogleTtsApiKey() } returns "key123"
+        coEvery { connectionTester.fetchGoogleVoices("key123", any()) } returns listOf(
+            VoiceOption(id = "en-US-Wavenet-A", label = "Wavenet A", locale = "en-US")
+        )
 
         val vm = createViewModel()
         advanceUntilIdle()

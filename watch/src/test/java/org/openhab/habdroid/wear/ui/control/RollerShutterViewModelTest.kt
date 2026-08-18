@@ -58,15 +58,15 @@ class RollerShutterViewModelTest {
     }
 
     @Test
-    fun `position 0 shows OPEN`() {
+    fun `position 0 shows percentage`() {
         val state = RollerShutterState(position = 0f)
-        assertEquals("OPEN", state.positionDisplay)
+        assertEquals("0%", state.positionDisplay)
     }
 
     @Test
-    fun `position 100 shows CLOSED`() {
+    fun `position 100 shows percentage`() {
         val state = RollerShutterState(position = 100f)
-        assertEquals("CLOSED", state.positionDisplay)
+        assertEquals("100%", state.positionDisplay)
     }
 
     @Test
