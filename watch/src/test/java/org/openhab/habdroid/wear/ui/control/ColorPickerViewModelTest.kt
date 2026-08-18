@@ -39,7 +39,8 @@ class ColorPickerViewModelTest {
 
     private fun createViewModel(itemName: String = "TestColor"): ColorPickerViewModel {
         val savedState = SavedStateHandle(mapOf("item_name" to itemName))
-        return ColorPickerViewModel(repository, savedState)
+        val complicationRefresher = mockk<org.openhab.habdroid.wear.complication.ComplicationRefresher>(relaxed = true)
+        return ColorPickerViewModel(repository, complicationRefresher, savedState)
     }
 
     // --- HSB State Parsing ---
