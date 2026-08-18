@@ -157,6 +157,17 @@ object AppModule {
 
     @Provides
     @Singleton
+    @Named("plainClient")
+    fun providePlainClient(cachingDns: CachingDns): OkHttpClient {
+        return OkHttpClient.Builder()
+            .dns(cachingDns)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(authInterceptor: AuthInterceptor, cachingDns: CachingDns): OkHttpClient {
         return OkHttpClient.Builder()
             .dns(cachingDns)

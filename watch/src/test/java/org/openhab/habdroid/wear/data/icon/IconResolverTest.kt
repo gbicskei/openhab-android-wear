@@ -2,7 +2,6 @@ package org.openhab.habdroid.wear.data.icon
 
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import okhttp3.Call
 import okhttp3.OkHttpClient
@@ -16,29 +15,20 @@ import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.openhab.habdroid.wear.shared.model.ServerCredentials
-import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class IconResolverTest {
 
     private lateinit var okHttpClient: OkHttpClient
-    private lateinit var credentialStore: CredentialStore
+    private lateinit var plainClient: OkHttpClient
     private lateinit var iconResolver: IconResolver
-
-    private val testCredentials = ServerCredentials(
-        serverUrl = "https://myopenhab.org",
-        username = "user",
-        password = "pass"
-    )
 
     @Before
     fun setup() {
         okHttpClient = mockk()
-        credentialStore = mockk()
-        every { credentialStore.credentials } returns flowOf(testCredentials)
-        iconResolver = IconResolver(okHttpClient, credentialStore)
+        plainClient = mockk()
+        iconResolver = IconResolver(okHttpClient, plainClient)
     }
 
     // --- Source Parsing Tests ---
@@ -86,9 +76,11 @@ class IconResolverTest {
     // --- Resolve Tests ---
 
     @Test
-    fun `resolve fetches openHAB icon with correct URL`() = runTest {
+    fun `resolve fetches openHAB icon using placeholder URL through main client`() = runTest {
         val svgBytes = "<svg></svg>".toByteArray()
-        mockHttpResponse("https://myopenhab.org/icon/light?format=svg&state=ON", svgBytes)
+        // IconResolver builds: https://placeholder.openhab.org/icon/light?format=svg&state=ON
+        // AuthInterceptor (not present in test) would rewrite the URL, but here we mock the raw placeholder URL
+        mockHttpResponse(okHttpClient, "https://placeholder.openhab.org/icon/light?format=svg&state=ON", svgBytes)
 
         val result = iconResolver.resolve("light", "ON")
         assertNotNull(result)
@@ -96,18 +88,18 @@ class IconResolverTest {
     }
 
     @Test
-    fun `resolve fetches oh-prefixed icon correctly`() = runTest {
+    fun `resolve fetches oh-prefixed icon using placeholder URL`() = runTest {
         val svgBytes = "<svg></svg>".toByteArray()
-        mockHttpResponse("https://myopenhab.org/icon/heating?format=svg&state=OFF", svgBytes)
+        mockHttpResponse(okHttpClient, "https://placeholder.openhab.org/icon/heating?format=svg&state=OFF", svgBytes)
 
         val result = iconResolver.resolve("oh:heating", "OFF")
         assertNotNull(result)
     }
 
     @Test
-    fun `resolve fetches iconify icon with correct URL`() = runTest {
+    fun `resolve fetches iconify icon using plain client`() = runTest {
         val svgBytes = "<svg>iconify</svg>".toByteArray()
-        mockHttpResponse("https://api.iconify.design/mdi/lightbulb.svg", svgBytes)
+        mockHttpResponse(plainClient, "https://api.iconify.design/mdi/lightbulb.svg", svgBytes)
 
         val result = iconResolver.resolve("iconify:mdi:lightbulb", "ON")
         assertNotNull(result)
@@ -115,9 +107,10 @@ class IconResolverTest {
     }
 
     @Test
-    fun `resolve fetches material icon with correct URL`() = runTest {
+    fun `resolve fetches material icon using plain client`() = runTest {
         val svgBytes = "<svg>material</svg>".toByteArray()
         mockHttpResponse(
+            plainClient,
             "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/lock/default/48px.svg",
             svgBytes
         )
@@ -128,25 +121,16 @@ class IconResolverTest {
 
     @Test
     fun `resolve returns null on HTTP error`() = runTest {
-        mockHttpError("https://myopenhab.org/icon/missing?format=svg&state=ON", 404)
+        mockHttpError(okHttpClient, "https://placeholder.openhab.org/icon/missing?format=svg&state=ON", 404)
 
         val result = iconResolver.resolve("missing", "ON")
         assertNull(result)
     }
 
     @Test
-    fun `resolve returns null when no credentials for openHAB source`() = runTest {
-        every { credentialStore.credentials } returns flowOf(null)
-        iconResolver = IconResolver(okHttpClient, credentialStore)
-
-        val result = iconResolver.resolve("light", "ON")
-        assertNull(result)
-    }
-
-    @Test
     fun `resolve uses cache on second call`() = runTest {
         val svgBytes = "<svg>cached</svg>".toByteArray()
-        mockHttpResponse("https://api.iconify.design/mdi/home.svg", svgBytes)
+        mockHttpResponse(plainClient, "https://api.iconify.design/mdi/home.svg", svgBytes)
 
         // First call — fetches from network
         val first = iconResolver.resolve("iconify:mdi:home", "ON")
@@ -163,14 +147,14 @@ class IconResolverTest {
         val onBytes = "<svg>on</svg>".toByteArray()
         val offBytes = "<svg>off</svg>".toByteArray()
 
-        mockHttpResponse("https://myopenhab.org/icon/light?format=svg&state=ON", onBytes)
+        mockHttpResponse(okHttpClient, "https://placeholder.openhab.org/icon/light?format=svg&state=ON", onBytes)
 
         val onResult = iconResolver.resolve("light", "ON")
         assertNotNull(onResult)
         assertEquals("<svg>on</svg>", String(onResult!!))
 
         // Different state should fetch again (different cache key)
-        mockHttpResponse("https://myopenhab.org/icon/light?format=svg&state=OFF", offBytes)
+        mockHttpResponse(okHttpClient, "https://placeholder.openhab.org/icon/light?format=svg&state=OFF", offBytes)
 
         val offResult = iconResolver.resolve("light", "OFF")
         assertNotNull(offResult)
@@ -179,7 +163,7 @@ class IconResolverTest {
 
     // --- Helpers ---
 
-    private fun mockHttpResponse(url: String, responseBytes: ByteArray) {
+    private fun mockHttpResponse(client: OkHttpClient, url: String, responseBytes: ByteArray) {
         val call = mockk<Call>()
         val response = Response.Builder()
             .request(Request.Builder().url(url).build())
@@ -189,10 +173,10 @@ class IconResolverTest {
             .body(responseBytes.toResponseBody(null))
             .build()
         every { call.execute() } returns response
-        every { okHttpClient.newCall(match { it.url.toString() == url }) } returns call
+        every { client.newCall(match { it.url.toString() == url }) } returns call
     }
 
-    private fun mockHttpError(url: String, code: Int) {
+    private fun mockHttpError(client: OkHttpClient, url: String, code: Int) {
         val call = mockk<Call>()
         val response = Response.Builder()
             .request(Request.Builder().url(url).build())
@@ -202,6 +186,6 @@ class IconResolverTest {
             .body("".toResponseBody(null))
             .build()
         every { call.execute() } returns response
-        every { okHttpClient.newCall(match { it.url.toString() == url }) } returns call
+        every { client.newCall(match { it.url.toString() == url }) } returns call
     }
 }
