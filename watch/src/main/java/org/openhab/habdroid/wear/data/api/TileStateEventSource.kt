@@ -49,7 +49,7 @@ class TileStateEventSource @Inject constructor(
     companion object {
         private const val TAG = "TileStateSSE"
         private const val EVENTS_PATH = "/rest/events"
-        private const val TOPIC_FILTER = "openhab/items/*/statechanged"
+        private const val TOPIC_WILDCARD_FILTER = "openhab/items/*/statechanged"
 
         /** Timeout waiting for any event (ALIVE or state change). Server sends ALIVE every ~10s. */
         private const val EVENT_TIMEOUT_MS = 30_000L
@@ -70,8 +70,22 @@ class TileStateEventSource @Inject constructor(
         private const val CONNECTION_ALIVE_THRESHOLD_MS = 60_000L
     }
 
-    /** Item names to watch for changes. Updated when tile items are loaded. */
+    /** Item names to watch for changes. Updated when tile items are loaded.
+     *  Setting a new value restarts the SSE connection to apply the updated topic filter. */
     var watchedItems: Set<String> = emptySet()
+        set(value) {
+            val changed = field != value
+            field = value
+            if (changed && connectionJob?.isActive == true) {
+                AppLog.d(TAG, "Watched items changed (${value.size} items), restarting SSE for new topic filter")
+                restartPending = true
+                connectionJob?.cancel()
+            }
+        }
+
+    /** Flag to distinguish a restart (items changed) from a stop (tile leave). */
+    @Volatile
+    private var restartPending = false
 
     /** Timestamp of the last successful SSE event or poll. Used by the tile to show connection status. */
     @Volatile
@@ -106,10 +120,11 @@ class TileStateEventSource @Inject constructor(
      */
     fun start(onChanged: () -> Unit) {
         AppLog.d(TAG, "→ start()")
-        if (connectionJob?.isActive == true) {
+        if (connectionJob?.isActive == true && !restartPending) {
             AppLog.d(TAG, "Already running, skipping start")
             return
         }
+        restartPending = false
 
         connectionJob = scope.launch {
             var consecutiveQuickFailures = 0
@@ -185,7 +200,8 @@ class TileStateEventSource @Inject constructor(
     private suspend fun runSseSession(baseUrl: String, onChanged: () -> Unit): SseResult {
         val _traceStart = System.currentTimeMillis()
         AppLog.d(TAG, "→ runSseSession()")
-        val url = "$baseUrl$EVENTS_PATH?topics=$TOPIC_FILTER"
+        val topicFilter = buildTopicFilter()
+        val url = "$baseUrl$EVENTS_PATH?topics=$topicFilter"
         AppLog.d(TAG, "Connecting SSE: $url")
 
         val sseClient = okHttpClient.newBuilder()
@@ -452,6 +468,17 @@ class TileStateEventSource @Inject constructor(
         FAILURE,
         TIMEOUT,
         CANCELLED
+    }
+
+    /**
+     * Builds the SSE topic filter from [watchedItems].
+     * If items are known, subscribes only to their state changes (reduces bandwidth).
+     * Falls back to wildcard if no items are configured yet.
+     */
+    private fun buildTopicFilter(): String {
+        val items = watchedItems
+        if (items.isEmpty()) return TOPIC_WILDCARD_FILTER
+        return items.joinToString(",") { "openhab/items/$it/statechanged" }
     }
 
     private sealed interface SseEvent {
