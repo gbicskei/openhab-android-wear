@@ -43,7 +43,8 @@ class ChoicePickerViewModelTest {
     private fun createViewModel(itemName: String = "Scene"): ChoicePickerViewModel {
         val savedState = SavedStateHandle(mapOf("item_name" to itemName))
         val themeStore = mockk<org.openhab.habdroid.wear.data.repository.ThemeStore>(relaxed = true)
-        return ChoicePickerViewModel(repository, themeStore, savedState)
+        val complicationRefresher = mockk<org.openhab.habdroid.wear.complication.ComplicationRefresher>(relaxed = true)
+        return ChoicePickerViewModel(repository, themeStore, complicationRefresher, savedState)
     }
 
     // --- Loading commandOptions ---

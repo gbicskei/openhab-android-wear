@@ -38,7 +38,8 @@ class RollerShutterViewModelTest {
     private fun createViewModel(itemName: String = "Shutter"): RollerShutterViewModel {
         val savedState = SavedStateHandle(mapOf("item_name" to itemName))
         val themeStore = mockk<org.openhab.habdroid.wear.data.repository.ThemeStore>(relaxed = true)
-        return RollerShutterViewModel(repository, themeStore, savedState)
+        val complicationRefresher = mockk<org.openhab.habdroid.wear.complication.ComplicationRefresher>(relaxed = true)
+        return RollerShutterViewModel(repository, themeStore, complicationRefresher, savedState)
     }
 
     // --- State Loading ---

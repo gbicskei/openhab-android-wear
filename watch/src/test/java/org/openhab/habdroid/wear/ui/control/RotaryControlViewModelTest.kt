@@ -50,7 +50,8 @@ class RotaryControlViewModelTest {
 
     private fun createViewModel(itemName: String = "Dimmer1"): RotaryControlViewModel {
         val savedState = SavedStateHandle(mapOf("item_name" to itemName))
-        return RotaryControlViewModel(repository, themeStore, savedState)
+        val complicationRefresher = mockk<org.openhab.habdroid.wear.complication.ComplicationRefresher>(relaxed = true)
+        return RotaryControlViewModel(repository, themeStore, complicationRefresher, savedState)
     }
 
     private fun makeItem(
