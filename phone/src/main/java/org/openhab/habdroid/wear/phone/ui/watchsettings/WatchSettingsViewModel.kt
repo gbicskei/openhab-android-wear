@@ -205,7 +205,7 @@ class WatchSettingsViewModel @Inject constructor(
 
     private fun observeWatchConnection() {
         viewModelScope.launch {
-            dataLayerSender.watchConnectionState(intervalMs = 3_000L).collect { info ->
+            dataLayerSender.watchConnectionState.collect { info ->
                 if (info == null && _uiState.value.loadState == LoadState.Loaded) {
                     _watchDisconnected.value = true
                 }

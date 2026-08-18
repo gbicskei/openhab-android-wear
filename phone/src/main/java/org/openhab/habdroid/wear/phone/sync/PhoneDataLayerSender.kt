@@ -6,10 +6,16 @@ import com.google.android.gms.wearable.CapabilityClient
 import com.google.android.gms.wearable.Node
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
@@ -83,24 +89,25 @@ class PhoneDataLayerSender @Inject constructor(
     }
 
     /**
-     * Emits the currently connected watch node (or null) every [intervalMs].
-     * Polls NodeClient since it doesn't have a listener API.
-     * The flow is lifecycle-aware when collected in a viewModelScope.
+     * Shared flow of watch connection state, polled every 5 seconds.
+     * Single polling loop regardless of how many collectors subscribe.
+     * Uses [SharingStarted.WhileSubscribed] so polling stops when the app goes to background.
      */
-    fun watchConnectionState(intervalMs: Long = 5_000L): Flow<WatchConnectionInfo?> = flow {
+    val watchConnectionState: SharedFlow<WatchConnectionInfo?> = flow {
         AppLog.i(TAG, "watchConnectionState flow started")
         while (currentCoroutineContext().isActive) {
-            // Data Layer works over Bluetooth directly — no internet needed.
             val node = getConnectedWatch()
-            // connectedNodes only returns nodes with matching applicationId,
-            // so node presence already implies the watch app is installed.
             val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby, watchAppInstalled = true) }
             AppLog.i(TAG, "Poll: node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
             emit(info)
-            delay(intervalMs)
+            delay(5_000L)
         }
         AppLog.i(TAG, "watchConnectionState flow ended")
-    }
+    }.shareIn(
+        scope = CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()),
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000L),
+        replay = 1
+    )
 
     /**
      * Send credentials to the connected watch.
