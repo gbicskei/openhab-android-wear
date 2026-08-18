@@ -12,7 +12,9 @@ import javax.inject.Singleton
 /**
  * OkHttp interceptor that:
  * 1. Replaces the placeholder base URL with the active server URL (selected by [ServerSelector])
- * 2. Adds Basic Auth credentials if configured
+ * 2. Adds the appropriate auth header based on which server won the race:
+ *    - Local server: Bearer token if API token is set, else Basic Auth with local creds, else no auth
+ *    - Cloud server: Basic Auth with cloud credentials
  *
  * On the first request, triggers [ServerSelector.resolveUrl] to race local vs cloud.
  * Subsequent requests use the cached winner.
@@ -24,7 +26,7 @@ class AuthInterceptor @Inject constructor(
 ) : Interceptor {
 
     override fun intercept(chain: Interceptor.Chain): Response {
-        val credentials = runBlocking { credentialStore.credentials.first() }
+        val cloudCredentials = runBlocking { credentialStore.credentials.first() }
             ?: return chain.proceed(chain.request())
 
         val originalRequest = chain.request()
@@ -42,14 +44,41 @@ class AuthInterceptor @Inject constructor(
         val requestBuilder = originalRequest.newBuilder()
             .url(newUrl)
 
-        // Add auth header if credentials are available
-        if (credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
-            requestBuilder.header(
-                "Authorization",
-                Credentials.basic(credentials.username, credentials.password)
-            )
+        // Add auth header based on which server is active
+        val authHeader = if (serverSelector.isLocalActive()) {
+            resolveLocalAuthHeader()
+        } else {
+            resolveCloudAuthHeader(cloudCredentials.username, cloudCredentials.password)
+        }
+
+        if (authHeader != null) {
+            requestBuilder.header("Authorization", authHeader)
         }
 
         return chain.proceed(requestBuilder.build())
+    }
+
+    /**
+     * Resolves the auth header for the local server.
+     * Priority: API token (Bearer) > Basic Auth > no auth (null).
+     */
+    private fun resolveLocalAuthHeader(): String? {
+        val localCreds = runBlocking { credentialStore.localCredentials.first() }
+        return when {
+            localCreds.hasApiToken -> "Bearer ${localCreds.apiToken}"
+            localCreds.hasBasicAuth -> Credentials.basic(localCreds.username, localCreds.password)
+            else -> null // No auth — common for LAN-only servers
+        }
+    }
+
+    /**
+     * Resolves the auth header for the cloud server (Basic Auth).
+     */
+    private fun resolveCloudAuthHeader(username: String, password: String): String? {
+        return if (username.isNotBlank() && password.isNotBlank()) {
+            Credentials.basic(username, password)
+        } else {
+            null
+        }
     }
 }

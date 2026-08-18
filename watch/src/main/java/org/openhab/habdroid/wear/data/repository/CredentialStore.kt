@@ -22,6 +22,9 @@ class CredentialStore @Inject constructor(
     private companion object {
         val KEY_SERVER_URL = stringPreferencesKey("server_url")
         val KEY_LOCAL_SERVER_URL = stringPreferencesKey("local_server_url")
+        val KEY_LOCAL_USERNAME = stringPreferencesKey("local_username")
+        val KEY_LOCAL_PASSWORD = stringPreferencesKey("local_password")
+        val KEY_LOCAL_API_TOKEN = stringPreferencesKey("local_api_token")
         val KEY_USERNAME = stringPreferencesKey("username")
         val KEY_PASSWORD = stringPreferencesKey("password")
         val KEY_USER_KEY = stringPreferencesKey("user_key")
@@ -44,6 +47,15 @@ class CredentialStore @Inject constructor(
     /** Flow of local (direct/LAN) server URL for Happy Eyeballs racing. Empty = cloud-only. */
     val localServerUrl: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_LOCAL_SERVER_URL] ?: ""
+    }
+
+    /** Flow of local server credentials (username, password, apiToken). All empty = no auth. */
+    val localCredentials: Flow<LocalCredentials> = dataStore.data.map { prefs ->
+        LocalCredentials(
+            username = prefs[KEY_LOCAL_USERNAME] ?: "",
+            password = prefs[KEY_LOCAL_PASSWORD] ?: "",
+            apiToken = prefs[KEY_LOCAL_API_TOKEN] ?: ""
+        )
     }
 
     /** Whether credentials have been configured */
@@ -76,10 +88,13 @@ class CredentialStore @Inject constructor(
         }
     }
 
-    /** Save local (direct/LAN) server URL for Happy Eyeballs racing */
-    suspend fun saveLocalServerUrl(url: String) {
+    /** Save local (direct/LAN) server URL and credentials for Happy Eyeballs racing */
+    suspend fun saveLocalServerUrl(url: String, username: String = "", password: String = "", apiToken: String = "") {
         dataStore.edit { prefs ->
             prefs[KEY_LOCAL_SERVER_URL] = url
+            prefs[KEY_LOCAL_USERNAME] = username
+            prefs[KEY_LOCAL_PASSWORD] = password
+            prefs[KEY_LOCAL_API_TOKEN] = apiToken
         }
     }
 
@@ -111,4 +126,18 @@ class CredentialStore @Inject constructor(
     suspend fun clear() {
         dataStore.edit { it.clear() }
     }
+}
+
+/**
+ * Local server credentials synced from the phone companion.
+ * All empty = no auth required (common for LAN-only openHAB servers).
+ */
+data class LocalCredentials(
+    val username: String = "",
+    val password: String = "",
+    val apiToken: String = ""
+) {
+    val hasApiToken: Boolean get() = apiToken.isNotBlank()
+    val hasBasicAuth: Boolean get() = username.isNotBlank() && password.isNotBlank()
+    val hasAnyAuth: Boolean get() = hasApiToken || hasBasicAuth
 }

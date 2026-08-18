@@ -114,8 +114,13 @@ class WearDataLayerListenerService : WearableListenerService() {
                 // Save binding installed status
                 credentialStore.saveBindingInstalled(configData.bindingInstalled)
 
-                // Save local server URL for Happy Eyeballs racing
-                credentialStore.saveLocalServerUrl(configData.localServerUrl)
+                // Save local server URL and credentials for Happy Eyeballs racing
+                credentialStore.saveLocalServerUrl(
+                    url = configData.localServerUrl,
+                    username = configData.localUsername,
+                    password = configData.localPassword,
+                    apiToken = configData.localApiToken
+                )
                 if (configData.localServerUrl.isNotBlank()) {
                     AppLog.d(TAG, "Local server URL saved: ${configData.localServerUrl}")
                 }
@@ -154,7 +159,25 @@ class WearDataLayerListenerService : WearableListenerService() {
                 // Restart SSE so it picks up the new server URL immediately
                 tileStateEventSource.stop()
 
-                // Also trigger tile refresh after credential update
+                // Perform reload if requested (config is fully saved at this point)
+                if (configData.triggerReload) {
+                    AppLog.d(TAG, "Config includes triggerReload — clearing cache and refreshing")
+                    repository.clearAndReload()
+                        .onSuccess { count ->
+                            AppLog.d(TAG, "Reload complete: $count items loaded")
+                        }
+                        .onFailure { e ->
+                            AppLog.e(TAG, "Reload failed: ${e.message}")
+                        }
+
+                    // Refresh complications
+                    ComplicationDataSourceUpdateRequester.create(
+                        this@WearDataLayerListenerService,
+                        android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
+                    ).requestUpdateAll()
+                }
+
+                // Trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
                     .requestUpdate(OpenHabTileService::class.java)
             }

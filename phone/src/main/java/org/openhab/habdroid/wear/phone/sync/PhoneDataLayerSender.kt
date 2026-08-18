@@ -109,8 +109,12 @@ class PhoneDataLayerSender @Inject constructor(
         credentials: ServerCredentials,
         debugMode: Boolean = false,
         localServerUrl: String = "",
+        localUsername: String = "",
+        localPassword: String = "",
+        localApiToken: String = "",
         deviceName: String = "",
-        bindingInstalled: Boolean = false
+        bindingInstalled: Boolean = false,
+        triggerReload: Boolean = false
     ): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
             throw NoNetworkException()
@@ -135,7 +139,11 @@ class PhoneDataLayerSender @Inject constructor(
                 debugMode = debugMode,
                 bindingInstalled = bindingInstalled,
                 resolvedIps = resolvedIps,
-                localServerUrl = localServerUrl
+                localServerUrl = localServerUrl,
+                localUsername = localUsername,
+                localPassword = localPassword,
+                localApiToken = localApiToken,
+                triggerReload = triggerReload
             )
         )
 

@@ -584,12 +584,22 @@ class SetupViewModel @Inject constructor(
                 userKey = state.userKey,
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
-            val localUrl = if (credentialStore.isWatchUseLocalServer) {
-                credentialStore.localConfig.first()?.serverUrl ?: ""
+            val localConfig = if (credentialStore.isWatchUseLocalServer) {
+                credentialStore.localConfig.first()
             } else {
-                ""
+                null
             }
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl, deviceName = credentialStore.deviceName, bindingInstalled = credentialStore.isBindingInstalled)
+            val localUrl = localConfig?.serverUrl ?: ""
+            dataLayerSender.sendCredentials(
+                credentials,
+                debugMode = credentialStore.isDebugMode,
+                localServerUrl = localUrl,
+                localUsername = localConfig?.username ?: "",
+                localPassword = localConfig?.password ?: "",
+                localApiToken = localConfig?.apiToken ?: "",
+                deviceName = credentialStore.deviceName,
+                bindingInstalled = credentialStore.isBindingInstalled
+            )
                 .onSuccess {
                     AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
                 }
@@ -622,17 +632,24 @@ class SetupViewModel @Inject constructor(
                 googleTtsApiKey = getEffectiveGoogleTtsApiKey()
             )
 
-            val localUrl = if (credentialStore.isWatchUseLocalServer) {
-                credentialStore.localConfig.first()?.serverUrl ?: ""
+            val localConfig = if (credentialStore.isWatchUseLocalServer) {
+                credentialStore.localConfig.first()
             } else {
-                ""
+                null
             }
-            dataLayerSender.sendCredentials(credentials, debugMode = credentialStore.isDebugMode, localServerUrl = localUrl, deviceName = credentialStore.deviceName, bindingInstalled = credentialStore.isBindingInstalled)
+            val localUrl = localConfig?.serverUrl ?: ""
+            dataLayerSender.sendCredentials(
+                credentials,
+                debugMode = credentialStore.isDebugMode,
+                localServerUrl = localUrl,
+                localUsername = localConfig?.username ?: "",
+                localPassword = localConfig?.password ?: "",
+                localApiToken = localConfig?.apiToken ?: "",
+                deviceName = credentialStore.deviceName,
+                bindingInstalled = credentialStore.isBindingInstalled,
+                triggerReload = true
+            )
                 .onSuccess {
-                    // Send reload signal so the watch refreshes tile config (includes theme)
-                    try {
-                        dataLayerSender.sendReload()
-                    } catch (_: Exception) {}
                     _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
                     // Re-check sync status after giving the watch time to reload config + write DataItem
                     kotlinx.coroutines.delay(10_000)

@@ -44,6 +44,10 @@ class ServerSelector @Inject constructor(
     @Volatile
     private var activeUrl: String? = null
 
+    /** Whether the active URL is the local server (vs cloud). */
+    @Volatile
+    private var activeIsLocal: Boolean = false
+
     /** Whether resolution has been attempted this process lifetime. */
     @Volatile
     private var resolved = false
@@ -63,6 +67,7 @@ class ServerSelector @Inject constructor(
         // If no local URL configured, just use cloud directly
         if (localUrl.isBlank()) {
             activeUrl = cloudUrl
+            activeIsLocal = false
             resolved = true
             AppLog.d(TAG, "No local URL configured, using cloud: $cloudUrl")
             return cloudUrl
@@ -71,6 +76,7 @@ class ServerSelector @Inject constructor(
         // Race both URLs
         val winner = raceUrls(localUrl, cloudUrl)
         activeUrl = winner
+        activeIsLocal = winner == localUrl
         resolved = true
         AppLog.d(TAG, "Race winner: $winner (local=$localUrl, cloud=$cloudUrl)")
         return winner
@@ -90,9 +96,16 @@ class ServerSelector @Inject constructor(
      */
     fun reset() {
         activeUrl = null
+        activeIsLocal = false
         resolved = false
         AppLog.d(TAG, "Selection reset — will re-race on next request")
     }
+
+    /**
+     * Whether the currently active URL is the local server (vs cloud).
+     * Only meaningful after [resolveUrl] has been called.
+     */
+    fun isLocalActive(): Boolean = activeIsLocal
 
     /**
      * Races HEAD requests to local and cloud URLs. Returns the first URL that responds
