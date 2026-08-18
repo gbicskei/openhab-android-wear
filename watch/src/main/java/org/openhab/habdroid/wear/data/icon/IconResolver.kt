@@ -2,11 +2,10 @@ package org.openhab.habdroid.wear.data.icon
 
 import android.util.LruCache
 import org.openhab.habdroid.wear.util.AppLog
-import kotlinx.coroutines.flow.first
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.openhab.habdroid.wear.data.repository.CredentialStore
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 /**
@@ -17,17 +16,22 @@ import javax.inject.Singleton
  * - "iconify:{set}:{name}" → Iconify API (e.g., iconify:mdi:lightbulb)
  * - "material:{name}" → Google Material Symbols
  *
+ * openHAB icons are fetched via the main OkHttpClient (which includes AuthInterceptor),
+ * using the placeholder URL pattern so ServerSelector routes them to the correct server.
+ *
+ * Third-party icons (Iconify, Material) use a plain client without auth headers.
+ *
  * Raw bytes are cached in an LRU memory cache keyed by the full icon reference.
- * The cache is not affected by theme or state changes (those are applied during compositing).
  */
 @Singleton
 class IconResolver @Inject constructor(
     private val okHttpClient: OkHttpClient,
-    private val credentialStore: CredentialStore
+    @Named("plainClient") private val plainClient: OkHttpClient
 ) {
     companion object {
         private const val TAG = "IconResolver"
         private const val CACHE_SIZE = 100 // max cached icon byte arrays
+        private const val PLACEHOLDER_BASE = "https://placeholder.openhab.org"
         private const val ICONIFY_BASE = "https://api.iconify.design"
         private const val MATERIAL_BASE = "https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined"
     }
@@ -51,8 +55,12 @@ class IconResolver @Inject constructor(
         cache.get(cacheKey)?.let { if (it.isNotEmpty()) return it else cache.remove(cacheKey) }
 
         // Fetch
-        val url = buildUrl(source, state) ?: return null
-        val bytes = fetchBytes(url)
+        val url = buildUrl(source, state)
+        val client = when (source) {
+            is IconSource.OpenHab -> okHttpClient  // Goes through AuthInterceptor → ServerSelector
+            is IconSource.Iconify, is IconSource.Material -> plainClient  // No auth needed
+        }
+        val bytes = fetchBytes(url, client)
 
         if (bytes != null && bytes.isNotEmpty()) {
             cache.put(cacheKey, bytes)
@@ -61,7 +69,6 @@ class IconResolver @Inject constructor(
 
         // Fallback for openHAB icons: try any previously cached state
         if (source is IconSource.OpenHab) {
-            // Check if we have this icon cached with any state
             val snapshot = cache.snapshot()
             val fallback = snapshot.keys.firstOrNull { it.startsWith("${iconRef}_") }
             if (fallback != null) {
@@ -117,11 +124,11 @@ class IconResolver @Inject constructor(
         }
     }
 
-    private suspend fun buildUrl(source: IconSource, state: String): String? {
+    private fun buildUrl(source: IconSource, state: String): String {
         return when (source) {
             is IconSource.OpenHab -> {
-                val credentials = credentialStore.credentials.first() ?: return null
-                "${credentials.serverUrl.trimEnd('/')}/icon/${source.name}?format=svg&state=$state"
+                // Use placeholder base — AuthInterceptor will replace with the active server URL
+                "$PLACEHOLDER_BASE/icon/${source.name}?format=svg&state=$state"
             }
             is IconSource.Iconify -> {
                 "$ICONIFY_BASE/${source.set}/${source.name}.svg"
@@ -133,10 +140,10 @@ class IconResolver @Inject constructor(
         }
     }
 
-    private fun fetchBytes(url: String): ByteArray? {
+    private fun fetchBytes(url: String, client: OkHttpClient): ByteArray? {
         return try {
             val request = Request.Builder().url(url).build()
-            val response = okHttpClient.newCall(request).execute()
+            val response = client.newCall(request).execute()
             val bytes = if (response.isSuccessful) {
                 response.body?.bytes()
             } else {
