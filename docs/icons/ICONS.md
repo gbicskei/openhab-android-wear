@@ -1,6 +1,6 @@
 # Watch Tile Icon System
 
-Icons for the openHAB Wear OS tile. Supports multiple icon sources, renders at 96x96px with configurable theme color, ring, and tinting — all composited on the watch.
+Icons for the wearOH tile. Supports multiple icon sources, renders at 96x96px with configurable theme color, ring, and tinting — all composited on the watch.
 
 ## Icon Resolution
 

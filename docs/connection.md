@@ -2,7 +2,7 @@
 
 ## Overview
 
-The openHAB Wear OS system uses two server connections:
+The wearOH system uses two server connections:
 
 1. **Main Server** (synced to watch) — the openHAB instance the watch connects to for item state, commands, and tile config. This is typically `https://myopenhab.org` (cloud relay) or a direct URL.
 2. **Config Server** (phone-only) — an openHAB instance with direct REST API access, used by the phone's tile/complication editor for read/write operations. This can be the same as the main server, or a local instance on the home network.

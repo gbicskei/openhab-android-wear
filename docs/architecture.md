@@ -2,7 +2,7 @@
 
 ## Overview
 
-The openHAB Wear OS app is a **standalone watch application** that communicates directly with any openHAB server — either through the myopenhab.org cloud relay, a self-hosted cloud instance, or a directly-accessible local/VPN server. It does not require the phone to be present or connected for day-to-day operation.
+The wearOH app is a **standalone watch application** that communicates directly with any openHAB server — either through the myopenhab.org cloud relay, a self-hosted cloud instance, or a directly-accessible local/VPN server. It does not require the phone to be present or connected for day-to-day operation.
 
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐

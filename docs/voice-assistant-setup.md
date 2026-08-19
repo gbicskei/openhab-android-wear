@@ -1,6 +1,6 @@
 # Voice Assistant Setup
 
-The openHAB Wear OS app can be used as the default voice assistant on your watch.
+The wearOH app can be used as the default voice assistant on your watch.
 Long-press the Home (power) button to trigger voice commands that are sent to
 the openHAB voice interpreter.
 
@@ -18,7 +18,7 @@ permission to register itself as the system assistant.
 
 ### Prerequisites
 
-- openHAB Wear OS app installed on your watch
+- wearOH app installed on your watch
 - ADB installed on your PC ([download](https://developer.android.com/tools/releases/platform-tools))
 - Watch connected to the same WiFi network as your PC (for wireless ADB)
 

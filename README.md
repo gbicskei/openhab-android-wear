@@ -1,4 +1,4 @@
-# openHAB Wear OS App
+# wearOH
 
 A standalone Wear OS companion app for [openHAB](https://www.openhab.org/) smart home, with a phone companion for easy configuration. Control your home directly from your wrist — toggle items, adjust colors, control shutters, and issue voice commands — all without needing your phone nearby.
 

@@ -74,7 +74,7 @@ Output locations:
 
 1. Go to [Google Play Console](https://play.google.com/console)
 2. **Create app**:
-   - App name: `openHAB Wear`
+   - App name: `wearOH`
    - Default language: English (United States)
    - App or game: App
    - Free or paid: Free
