@@ -85,6 +85,15 @@ class ServerSelector @Inject constructor(
             return cloudUrl
         }
 
+        // If local and cloud are the same URL, skip the race (no point probing twice)
+        if (localUrl == cloudUrl) {
+            activeUrl = cloudUrl
+            activeIsLocal = false
+            resolved = true
+            AppLog.d(TAG, "Local == cloud, skipping race: $cloudUrl")
+            return cloudUrl
+        }
+
         // Race both URLs
         val winner = raceUrls(localUrl, localAuth, cloudUrl, cloudAuth)
         activeUrl = winner
