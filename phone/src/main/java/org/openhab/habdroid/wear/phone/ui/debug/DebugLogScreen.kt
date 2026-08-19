@@ -282,7 +282,7 @@ private fun DebugLogEntryCard(entry: DebugLogEntry) {
 
 private fun exportDebugLog(context: android.content.Context, entries: List<DebugLogEntry>) {
     val sb = StringBuilder()
-    sb.appendLine("=== openHAB Wear Debug Log ===")
+    sb.appendLine("=== wearOH Debug Log ===")
     sb.appendLine("Exported: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
     sb.appendLine("Entries: ${entries.size}")
     sb.appendLine()
@@ -298,7 +298,7 @@ private fun exportDebugLog(context: android.content.Context, entries: List<Debug
 
     val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(android.content.Intent.EXTRA_SUBJECT, "openHAB Wear Debug Log")
+        putExtra(android.content.Intent.EXTRA_SUBJECT, "wearOH Debug Log")
         putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
     }
     context.startActivity(android.content.Intent.createChooser(intent, "Export Debug Log"))
