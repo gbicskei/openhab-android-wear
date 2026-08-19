@@ -94,15 +94,20 @@ class PhoneDataLayerSender @Inject constructor(
      * Uses [SharingStarted.WhileSubscribed] so polling stops when the app goes to background.
      */
     val watchConnectionState: SharedFlow<WatchConnectionInfo?> = flow {
-        AppLog.i(TAG, "watchConnectionState flow started")
+        AppLog.d(TAG, "watchConnectionState flow started")
+        var lastInfo: WatchConnectionInfo? = null
         while (currentCoroutineContext().isActive) {
             val node = getConnectedWatch()
             val info = node?.let { WatchConnectionInfo(it.displayName, it.isNearby, watchAppInstalled = true) }
-            AppLog.i(TAG, "Poll: node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
+            // Only log when connection state changes (avoid flooding debug log)
+            if (info?.displayName != lastInfo?.displayName || info?.isNearby != lastInfo?.isNearby) {
+                AppLog.i(TAG, "Watch connection: node=${info?.displayName}, nearby=${info?.isNearby}, appInstalled=${info?.watchAppInstalled}")
+            }
+            lastInfo = info
             emit(info)
             delay(5_000L)
         }
-        AppLog.i(TAG, "watchConnectionState flow ended")
+        AppLog.d(TAG, "watchConnectionState flow ended")
     }.shareIn(
         scope = CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob()),
         started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000L),

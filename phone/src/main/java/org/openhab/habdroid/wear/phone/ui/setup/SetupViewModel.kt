@@ -216,7 +216,6 @@ class SetupViewModel @Inject constructor(
     private fun loadWatchVersionFromDataItem() {
         val phoneVersionName = org.openhab.habdroid.wear.phone.BuildConfig.VERSION_NAME
         if (VersionCompat.isDevBuild(phoneVersionName)) {
-            AppLog.d("SetupVM", "Dev build — skipping version check")
             return
         }
 
