@@ -63,6 +63,18 @@ class ServerSelector @Inject constructor(
         val credentials = credentialStore.credentials.first()
         val cloudUrl = credentials?.serverUrl?.trimEnd('/') ?: ""
         val localUrl = credentialStore.localServerUrl.first().trimEnd('/')
+        val localCreds = credentialStore.localCredentials.first()
+
+        // Resolve auth headers for probes
+        val cloudAuth = if (credentials != null && credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
+            okhttp3.Credentials.basic(credentials.username, credentials.password)
+        } else null
+
+        val localAuth = when {
+            localCreds.hasApiToken -> "Bearer ${localCreds.apiToken}"
+            localCreds.hasBasicAuth -> okhttp3.Credentials.basic(localCreds.username, localCreds.password)
+            else -> null
+        }
 
         // If no local URL configured, just use cloud directly
         if (localUrl.isBlank()) {
@@ -74,7 +86,7 @@ class ServerSelector @Inject constructor(
         }
 
         // Race both URLs
-        val winner = raceUrls(localUrl, cloudUrl)
+        val winner = raceUrls(localUrl, localAuth, cloudUrl, cloudAuth)
         activeUrl = winner
         activeIsLocal = winner == localUrl
         resolved = true
@@ -113,12 +125,14 @@ class ServerSelector @Inject constructor(
      */
     private suspend fun raceUrls(
         localUrl: String,
-        cloudUrl: String
+        localAuth: String?,
+        cloudUrl: String,
+        cloudAuth: String?
     ): String {
         return withTimeoutOrNull(RACE_TIMEOUT_MS) {
             coroutineScope {
-                val localProbe = async { probe(localUrl) }
-                val cloudProbe = async { probe(cloudUrl) }
+                val localProbe = async { probe(localUrl, localAuth) }
+                val cloudProbe = async { probe(cloudUrl, cloudAuth) }
 
                 // Wait for local first (preferred) with a short head start
                 val localResult = withTimeoutOrNull(PROBE_TIMEOUT_MS) { localProbe.await() }
@@ -140,14 +154,16 @@ class ServerSelector @Inject constructor(
     }
 
     /**
-     * Sends a HEAD request to the server's REST API root. Returns true if the server
-     * responds with any non-error HTTP status (even 401 means the server is reachable).
+     * Sends a HEAD request to the server's REST API root with optional auth.
+     * Returns true if the server responds with any HTTP status (even 401 means reachable,
+     * though with proper auth it should return 200).
      */
-    private fun probe(baseUrl: String): Boolean {
+    private fun probe(baseUrl: String, authHeader: String? = null): Boolean {
         return try {
             val request = Request.Builder()
                 .url("$baseUrl/rest/")
                 .head()
+                .apply { authHeader?.let { header("Authorization", it) } }
                 .build()
             val response = probeClient.newCall(request).execute()
             val code = response.code
