@@ -43,7 +43,7 @@ data class DebugLogEntry(
  * Max [MAX_ENTRIES] entries; oldest entries are dropped when full.
  */
 object DebugLog {
-    private const val MAX_ENTRIES = 500
+    private const val MAX_ENTRIES = 1500
 
     private val buffer = ConcurrentLinkedDeque<DebugLogEntry>()
 
