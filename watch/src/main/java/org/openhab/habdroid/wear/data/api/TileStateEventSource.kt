@@ -6,6 +6,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -22,21 +25,28 @@ import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.ItemCache
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.channels.Channel
 
 /**
- * SSE client for real-time item state updates on the watch tile.
+ * Shared SSE client for real-time item state updates.
  *
- * Strategy (matching the phone app pattern):
- * 1. Connect to SSE stream for item state changes
+ * This is the **single source** of server-sent events for the entire watch app.
+ * All components (tile, complications, control activities) subscribe via [stateChanges].
+ *
+ * Strategy:
+ * 1. Connect to SSE stream filtered to [watchedItems] state changes
  * 2. Use ALIVE heartbeat (every ~10s from server) as liveness signal
  * 3. If no event within 30s → assume dead, reconnect
  * 4. After 3 consecutive quick failures → fall back to polling (15s interval)
- * 5. Polling continues until tile leaves (stop() called)
+ * 5. Polling continues until all subscribers leave (ref count → 0)
  *
- * Lifecycle: start() on tile enter, stop() on tile leave.
+ * Lifecycle is reference-counted:
+ * - [subscribe] increments the ref count and starts SSE if it was stopped
+ * - [unsubscribe] decrements the ref count and stops SSE when it reaches 0
+ * - Tile enter/leave and control activity start/finish use subscribe/unsubscribe
  */
 @Singleton
 class TileStateEventSource @Inject constructor(
@@ -87,6 +97,18 @@ class TileStateEventSource @Inject constructor(
     @Volatile
     private var restartPending = false
 
+    /** Shared flow of state changes. All subscribers receive (itemName, newState) pairs. */
+    private val _stateChanges = MutableSharedFlow<Pair<String, String>>(extraBufferCapacity = 64)
+
+    /** Flow of item state changes from the SSE connection. Collect this from any component. */
+    val stateChanges: SharedFlow<Pair<String, String>> = _stateChanges.asSharedFlow()
+
+    /** Reference count of active subscribers. SSE runs while > 0. */
+    private val subscriberCount = AtomicInteger(0)
+
+    /** Callback for tile refresh (set by tile service). */
+    private var tileChangedCallback: (() -> Unit)? = null
+
     /** Timestamp of the last successful SSE event or poll. Used by the tile to show connection status. */
     @Volatile
     var lastSuccessMillis: Long = 0L
@@ -115,16 +137,66 @@ class TileStateEventSource @Inject constructor(
     private val scope = CoroutineScope(Dispatchers.IO)
 
     /**
+     * Subscribe to the shared SSE connection. Increments the ref count and starts SSE if needed.
+     * Call from tile enter, control activity start, etc.
+     *
+     * @param onChanged optional callback for tile refresh (only the tile service sets this)
+     */
+    fun subscribe(onChanged: (() -> Unit)? = null) {
+        if (onChanged != null) tileChangedCallback = onChanged
+        val count = subscriberCount.incrementAndGet()
+        AppLog.d(TAG, "subscribe() → refCount=$count")
+        startIfNeeded()
+    }
+
+    /**
+     * Unsubscribe from the shared SSE connection. Decrements the ref count and stops SSE when 0.
+     * Call from tile leave, control activity finish, etc.
+     */
+    fun unsubscribe() {
+        val count = subscriberCount.decrementAndGet()
+        AppLog.d(TAG, "unsubscribe() → refCount=$count")
+        if (count <= 0) {
+            subscriberCount.set(0) // floor at 0
+            stopInternal()
+        }
+    }
+
+    /**
      * Start the SSE connection loop. Handles reconnection and fallback to polling.
      * @param onChanged callback invoked when a watched item's state changes (triggers tile refresh)
      */
     fun start(onChanged: () -> Unit) {
         AppLog.d(TAG, "→ start()")
+        tileChangedCallback = onChanged
         if (connectionJob?.isActive == true && !restartPending) {
             AppLog.d(TAG, "Already running, skipping start")
             return
         }
         restartPending = false
+        startConnection()
+    }
+
+    /**
+     * Stop the SSE connection and any polling. Called on tile leave.
+     */
+    fun stop() {
+        AppLog.d(TAG, "Stopping")
+        stopInternal()
+    }
+
+    private fun startIfNeeded() {
+        if (connectionJob?.isActive == true && !restartPending) return
+        restartPending = false
+        startConnection()
+    }
+
+    private fun stopInternal() {
+        connectionJob?.cancel()
+        connectionJob = null
+    }
+
+    private fun startConnection() {
 
         connectionJob = scope.launch {
             var consecutiveQuickFailures = 0
@@ -144,7 +216,7 @@ class TileStateEventSource @Inject constructor(
 
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {
                     AppLog.d(TAG, "SSE unstable ($consecutiveQuickFailures quick failures), switching to polling")
-                    val pollResult = pollLoop(onChanged)
+                    val pollResult = pollLoop()
                     // Poll succeeded → network is back, reset and retry SSE
                     consecutiveQuickFailures = 0
                     if (pollResult == SseResult.CANCELLED) return@launch
@@ -154,7 +226,7 @@ class TileStateEventSource @Inject constructor(
                 }
 
                 val connectTime = System.currentTimeMillis()
-                val sseResult = runSseSession(baseUrl, onChanged)
+                val sseResult = runSseSession(baseUrl)
 
                 when (sseResult) {
                     SseResult.CANCELLED -> return@launch // stop() was called
@@ -167,14 +239,14 @@ class TileStateEventSource @Inject constructor(
                             // Connection lasted a while then died — may have missed events
                             consecutiveQuickFailures = 0
                             AppLog.d(TAG, "SSE dropped after ${elapsed}ms, refreshing states")
-                            refreshAndNotify(onChanged)
+                            refreshAndNotify()
                         }
                     }
                     SseResult.TIMEOUT -> {
                         // No events for 30s — reconnect (not a "quick" failure)
                         consecutiveQuickFailures = 0
                         AppLog.d(TAG, "Event timeout, refreshing states and reconnecting")
-                        refreshAndNotify(onChanged)
+                        refreshAndNotify()
                     }
                 }
 
@@ -185,19 +257,15 @@ class TileStateEventSource @Inject constructor(
         }
     }
 
-    /**
-     * Stop the SSE connection and any polling. Called on tile leave.
-     */
-    fun stop() {
-        AppLog.d(TAG, "Stopping")
-        connectionJob?.cancel()
-        connectionJob = null
+    /** Notify all subscribers (shared flow + tile callback). */
+    private fun notifyChanged() {
+        tileChangedCallback?.invoke()
     }
 
     /**
      * Run a single SSE session. Returns when the connection fails, times out, or is cancelled.
      */
-    private suspend fun runSseSession(baseUrl: String, onChanged: () -> Unit): SseResult {
+    private suspend fun runSseSession(baseUrl: String): SseResult {
         val _traceStart = System.currentTimeMillis()
         AppLog.d(TAG, "→ runSseSession()")
         val topicFilter = buildTopicFilter()
@@ -284,7 +352,7 @@ class TileStateEventSource @Inject constructor(
                 }
 
                 when (event) {
-                    is SseEvent.Data -> handleEvent(event.data, onChanged)
+                    is SseEvent.Data -> handleEvent(event.data)
                     is SseEvent.Failed -> {
                         eventSource.cancel()
                         return SseResult.FAILURE
@@ -309,7 +377,7 @@ class TileStateEventSource @Inject constructor(
      * Quick state refresh to catch events missed during SSE gap.
      * Only fetches items currently on the visible tile page (lightweight).
      */
-    private suspend fun refreshAndNotify(onChanged: () -> Unit) {
+    private suspend fun refreshAndNotify() {
         try {
             // Only refresh the watched items (current page) — not all 14
             val itemsToRefresh = watchedItems.take(4) // max 4 items on a tile page
@@ -317,7 +385,7 @@ class TileStateEventSource @Inject constructor(
                 repository.refreshStates()
                     .onSuccess {
                         lastSuccessMillis = System.currentTimeMillis()
-                        onChanged()
+                        notifyChanged()
                     }
                     .onFailure { e -> AppLog.w(TAG, "Reconnect refresh failed: ${e.message}") }
                 return
@@ -331,6 +399,7 @@ class TileStateEventSource @Inject constructor(
                         val newState = item.state
                         if (newState != null) {
                             itemCache.updateItemState(name, newState)
+                            _stateChanges.tryEmit(name to newState)
                             anyChanged = true
                         }
                     }
@@ -340,7 +409,7 @@ class TileStateEventSource @Inject constructor(
             }
             if (anyChanged) {
                 lastSuccessMillis = System.currentTimeMillis()
-                onChanged()
+                notifyChanged()
             }
         } catch (e: Exception) {
             AppLog.w(TAG, "Reconnect refresh error: ${e.message}")
@@ -352,7 +421,7 @@ class TileStateEventSource @Inject constructor(
      * After a successful poll (network is back), retries SSE.
      * Runs until SSE is re-established or the coroutine is cancelled (tile leave → stop()).
      */
-    private suspend fun pollLoop(onChanged: () -> Unit): SseResult {
+    private suspend fun pollLoop(): SseResult {
         AppLog.d(TAG, "→ pollLoop()")
         AppLog.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
         while (true) {
@@ -362,7 +431,7 @@ class TileStateEventSource @Inject constructor(
                     .onSuccess {
                         AppLog.d(TAG, "Poll: states refreshed — promoting back to SSE")
                         lastSuccessMillis = System.currentTimeMillis()
-                        onChanged()
+                        notifyChanged()
                         return SseResult.TIMEOUT // signals main loop to retry SSE
                     }
                     .onFailure { e ->
@@ -379,7 +448,7 @@ class TileStateEventSource @Inject constructor(
     /**
      * Parse SSE event data and update cache + trigger callback if relevant.
      */
-    private fun handleEvent(data: String, onChanged: () -> Unit) {
+    private fun handleEvent(data: String) {
         val _traceStart = System.currentTimeMillis()
         AppLog.d(TAG, "→ handleEvent() dataLen=${data.length}")
         try {
@@ -411,20 +480,23 @@ class TileStateEventSource @Inject constructor(
             val newState = extractNewState(data)
             AppLog.d(TAG, "Parsed: item=$itemName state=$newState watched=${watchedItems.contains(itemName)} watchedItems=${watchedItems.size}")
 
+            if (newState != null) {
+                // Always emit to shared flow (control activities may be listening for any item)
+                _stateChanges.tryEmit(itemName to newState)
+            }
+
             if (watchedItems.isEmpty() || watchedItems.contains(itemName)) {
                 AppLog.d(TAG, "State changed: $itemName → $newState")
-                // Update cache directly from SSE event (avoids full refresh)
                 if (newState != null) {
                     itemCache.updateItemState(itemName, newState)
                 }
-                onChanged()
+                notifyChanged()
             } else if (newState != null) {
                 // Might be a Group member — update if it matches
                 itemCache.updateItemState(itemName, newState)
-                // Check if this member update changed any visible tile item's state
                 if (itemCache.get()?.any { it.item.isGroup && it.item.members?.any { m -> m.name == itemName } == true } == true) {
                     AppLog.d(TAG, "Group member state changed: $itemName → $newState")
-                    onChanged()
+                    notifyChanged()
                 }
             }
         } catch (e: Exception) {
