@@ -272,16 +272,22 @@ class TileStateEventSource @Inject constructor(
         val url = "$baseUrl$EVENTS_PATH?topics=$topicFilter"
         AppLog.d(TAG, "Connecting SSE: $url")
 
-        val sseClient = okHttpClient.newBuilder()
+        // Resolve auth header upfront — don't use AuthInterceptor for SSE
+        // (interceptors with runBlocking can interfere with OkHttp's SSE reader thread)
+        val authHeader = serverSelector.resolveAuthHeader()
+
+        val sseClient = OkHttpClient.Builder()
             .readTimeout(0, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .apply {
-                // Remove body-level logging interceptors — they buffer SSE streams
-                val interceptorsToKeep = interceptors().filter { interceptor ->
-                    interceptor !is okhttp3.logging.HttpLoggingInterceptor
+                if (authHeader != null) {
+                    addInterceptor { chain ->
+                        val request = chain.request().newBuilder()
+                            .header("Authorization", authHeader)
+                            .build()
+                        chain.proceed(request)
+                    }
                 }
-                interceptors().clear()
-                interceptorsToKeep.forEach { addInterceptor(it) }
             }
             .build()
 
