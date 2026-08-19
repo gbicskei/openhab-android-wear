@@ -238,15 +238,15 @@ class TileStateEventSource @Inject constructor(
                         } else {
                             // Connection lasted a while then died — may have missed events
                             consecutiveQuickFailures = 0
-                            AppLog.d(TAG, "SSE dropped after ${elapsed}ms, refreshing states")
-                            refreshAndNotify()
+                            AppLog.d(TAG, "SSE dropped after ${elapsed}ms, refreshing states in background")
+                            scope.launch { refreshAndNotify() }
                         }
                     }
                     SseResult.TIMEOUT -> {
                         // No events for 30s — reconnect (not a "quick" failure)
                         consecutiveQuickFailures = 0
-                        AppLog.d(TAG, "Event timeout, refreshing states and reconnecting")
-                        refreshAndNotify()
+                        AppLog.d(TAG, "Event timeout, refreshing states in background and reconnecting")
+                        scope.launch { refreshAndNotify() }
                     }
                 }
 
