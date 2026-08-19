@@ -131,15 +131,26 @@ class ServerSelector @Inject constructor(
         return if (activeIsLocal) {
             val localCreds = credentialStore.localCredentials.first()
             when {
-                localCreds.hasApiToken -> "Bearer ${localCreds.apiToken}"
-                localCreds.hasBasicAuth -> okhttp3.Credentials.basic(localCreds.username, localCreds.password)
-                else -> null
+                localCreds.hasApiToken -> {
+                    AppLog.d(TAG, "Auth: local Bearer token")
+                    "Bearer ${localCreds.apiToken}"
+                }
+                localCreds.hasBasicAuth -> {
+                    AppLog.d(TAG, "Auth: local Basic (${localCreds.username})")
+                    okhttp3.Credentials.basic(localCreds.username, localCreds.password)
+                }
+                else -> {
+                    AppLog.d(TAG, "Auth: local no-auth")
+                    null
+                }
             }
         } else {
             val credentials = credentialStore.credentials.first()
             if (credentials != null && credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
+                AppLog.d(TAG, "Auth: cloud Basic (${credentials.username})")
                 okhttp3.Credentials.basic(credentials.username, credentials.password)
             } else {
+                AppLog.d(TAG, "Auth: cloud no credentials")
                 null
             }
         }

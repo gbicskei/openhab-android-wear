@@ -68,6 +68,8 @@ class FcmRegistrationWorker @AssistedInject constructor(
             return Result.failure()
         }
 
+        AppLog.d(TAG, "Resolved server: $serverUrl (local=${serverSelector.isLocalActive()})")
+
         if (!serverSelector.isLocalActive()) {
             AppLog.w(TAG, "Only cloud server reachable — /mobileaudio/register is not proxied, " +
                 "registration will likely fail")
