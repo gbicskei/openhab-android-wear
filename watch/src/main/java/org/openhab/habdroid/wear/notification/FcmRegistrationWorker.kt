@@ -16,9 +16,9 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
-import okhttp3.Credentials
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.openhab.habdroid.wear.data.api.ServerSelector
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.util.AppLog
 
@@ -27,7 +27,10 @@ import org.openhab.habdroid.wear.util.AppLog
  * MobileAudio binding on the openHAB server.
  *
  * Calls GET {serverUrl}/mobileaudio/register?regId={fcmToken}&deviceId={androidId}&deviceModel={model}
- * using the configured server URL and Basic Auth credentials from CredentialStore.
+ * using the active server URL and auth resolved by [ServerSelector].
+ *
+ * Note: The /mobileaudio/register endpoint is served by the binding directly and is NOT
+ * proxied by myopenhab.org. Registration will only succeed when the local server is reachable.
  *
  * Triggered:
  * - After credential sync from phone
@@ -38,7 +41,7 @@ class FcmRegistrationWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted workerParams: WorkerParameters,
     private val credentialStore: CredentialStore,
-    private val okHttpClient: OkHttpClient
+    private val serverSelector: ServerSelector
 ) : CoroutineWorker(context, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -57,14 +60,20 @@ class FcmRegistrationWorker @AssistedInject constructor(
             return Result.failure()
         }
 
-        // Prefer local server URL for registration (the servlet is not proxied by myopenhab.org)
-        val localUrl = credentialStore.localServerUrl.first()
-        val serverUrl = localUrl.takeIf { it.isNotBlank() }?.trimEnd('/')
-            ?: credentials.serverUrl.trimEnd('/')
+        // Use ServerSelector to resolve the best reachable server
+        serverSelector.reset()
+        val serverUrl = serverSelector.resolveUrl().trimEnd('/')
         if (serverUrl.isBlank()) {
             AppLog.w(TAG, "Server URL is blank — skipping FCM registration")
             return Result.failure()
         }
+
+        if (!serverSelector.isLocalActive()) {
+            AppLog.w(TAG, "Only cloud server reachable — /mobileaudio/register is not proxied, " +
+                "registration will likely fail")
+        }
+
+        val authHeader = serverSelector.resolveAuthHeader()
 
         // Get FCM token
         val fcmToken = try {
@@ -101,14 +110,16 @@ class FcmRegistrationWorker @AssistedInject constructor(
             .followRedirects(true)
             .build()
 
-        val request = Request.Builder()
+        val requestBuilder = Request.Builder()
             .url(registrationUrl)
-            .header("Authorization", Credentials.basic(credentials.username, credentials.password))
             .get()
-            .build()
+
+        if (authHeader != null) {
+            requestBuilder.header("Authorization", authHeader)
+        }
 
         return try {
-            val response = plainClient.newCall(request).execute()
+            val response = plainClient.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
                 AppLog.d(TAG, "FCM registration successful (device=$deviceId, model=$deviceModel, name=$deviceName)")
                 Result.success()

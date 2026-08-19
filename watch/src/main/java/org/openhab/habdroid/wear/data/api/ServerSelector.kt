@@ -120,6 +120,32 @@ class ServerSelector @Inject constructor(
     fun isLocalActive(): Boolean = activeIsLocal
 
     /**
+     * Resolves the appropriate Authorization header for the currently active server.
+     * - Local: API token (Bearer) > Basic Auth with local creds > null (no auth)
+     * - Cloud: Basic Auth with cloud credentials
+     *
+     * Must be called after [resolveUrl] or [getActiveUrlOrDefault] has determined
+     * which server is active. If not yet resolved, defaults to cloud auth.
+     */
+    suspend fun resolveAuthHeader(): String? {
+        return if (activeIsLocal) {
+            val localCreds = credentialStore.localCredentials.first()
+            when {
+                localCreds.hasApiToken -> "Bearer ${localCreds.apiToken}"
+                localCreds.hasBasicAuth -> okhttp3.Credentials.basic(localCreds.username, localCreds.password)
+                else -> null
+            }
+        } else {
+            val credentials = credentialStore.credentials.first()
+            if (credentials != null && credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
+                okhttp3.Credentials.basic(credentials.username, credentials.password)
+            } else {
+                null
+            }
+        }
+    }
+
+    /**
      * Races HEAD requests to local and cloud URLs. Returns the first URL that responds
      * with a successful HTTP status. Prefers local if both respond within the timeout.
      */
