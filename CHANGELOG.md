@@ -75,6 +75,26 @@ Feature release introducing **FCM push notifications with audio sink playback**,
 
 ---
 
+## [1.7.4] — 2026-08-19
+
+### Summary
+
+SSE real-time event streaming fix — events now flow reliably on both WiFi and LTE.
+
+### Fixed
+
+- SSE client no longer inherits AuthInterceptor (was blocking the event reader thread)
+- Nginx reverse proxy `Connection: close` header no longer kills SSE streams (server-side config)
+- SSE reconnect no longer blocked by state refresh (fires in background)
+- Skip redundant server race when local == cloud URL (eliminates 5-10s probe delay)
+
+### Improved
+
+- SSE drop reason tracing (onFailure vs onClosed with exception class)
+- Debug log buffer increased from 500 to 1500 entries
+
+---
+
 ## [1.7.3] — 2026-08-19
 
 ### Summary
