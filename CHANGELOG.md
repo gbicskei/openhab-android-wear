@@ -75,6 +75,32 @@ Feature release introducing **FCM push notifications with audio sink playback**,
 
 ---
 
+## [1.7.3] — 2026-08-19
+
+### Summary
+
+Bugfix release consolidating server connection handling and fixing branding.
+
+### Fixed
+
+- All network paths (SSE, FCM registration, complication config) now consistently use ServerSelector for URL resolution and auth
+- `observeItemState()` no longer hardcodes cloud URL — uses local server when available
+- `FcmRegistrationWorker` now uses correct auth for local server (API token/local creds instead of cloud creds)
+- `SetupViewModel` resets ServerSelector after saving credentials (prevents stale cached server)
+- Guard added for unconfigured watch in `observeItemState()` (prevents crash on empty URL)
+
+### Improved
+
+- Auth decision logging in ServerSelector (Bearer/Basic/none for local/cloud)
+- Suppressed DataLayer poll spam in debug log (only logs on state change now)
+- Connection documentation updated with ServerSelector architecture
+
+### Changed
+
+- Renamed all "openHAB Wear" references to "wearOH" (branding consistency)
+
+---
+
 ## [1.1.0] — 2026-08-06
 
 ### Summary
