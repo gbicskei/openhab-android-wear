@@ -38,7 +38,7 @@ import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.ui.components.AppLogoHeader
 
 /**
- * Main launcher activity for the openHAB Wear OS app.
+ * Main launcher activity for the wearOH app.
  * Shows logo, setup on phone, reload items, settings, and about.
  * The primary interaction happens on the tile itself (buttons + mic).
  * Theme config is accessed via long-press on tile → pencil icon.

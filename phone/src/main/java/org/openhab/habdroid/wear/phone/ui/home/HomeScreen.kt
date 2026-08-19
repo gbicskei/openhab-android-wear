@@ -283,7 +283,7 @@ private fun WatchStatusChip(
                 )
                 if (watchStatus == WatchStatus.AppNotInstalled) {
                     Text(
-                        text = "Install the openHAB Wear app on your watch",
+                        text = "Install the wearOH app on your watch",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.7f)
                     )
