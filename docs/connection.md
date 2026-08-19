@@ -7,7 +7,7 @@ The openHAB Wear OS system uses two server connections:
 1. **Main Server** (synced to watch) — the openHAB instance the watch connects to for item state, commands, and tile config. This is typically `https://myopenhab.org` (cloud relay) or a direct URL.
 2. **Config Server** (phone-only) — an openHAB instance with direct REST API access, used by the phone's tile/complication editor for read/write operations. This can be the same as the main server, or a local instance on the home network.
 
-The watch only knows about the Main Server. The Config Server is used exclusively by the phone companion app.
+The watch only knows about the Main Server. The Config Server is used exclusively by the phone companion app for tile editing. However, the phone can optionally share the Config Server's URL and credentials with the watch for direct LAN connectivity (see "Watch uses Config Server" toggle below).
 
 ## Connection Flow
 
@@ -23,6 +23,12 @@ The watch only knows about the Main Server. The Config Server is used exclusivel
 │         ▼                    ▼                    │           │
 │  Sync to Watch       Tile/Complication            │           │
 │  (Data Layer)        Editor REST calls            │           │
+│         │                                         │           │
+│  ┌──────┴──────────────────────────────────┐     │           │
+│  │ "Watch uses Config Server" toggle       │     │           │
+│  │ ON  → sends localServerUrl + local auth │     │           │
+│  │ OFF → sends empty localServerUrl        │     │           │
+│  └─────────────────────────────────────────┘     │           │
 └─────────┬────────────────────────────────────────┘           │
           │                                                     │
           ▼                                                     │
@@ -30,14 +36,22 @@ The watch only knows about the Main Server. The Config Server is used exclusivel
 │  Watch                                                        │
 │                                                               │
 │  CredentialStore (DataStore)                                  │
-│  ├── server_url    ← Main Server URL                         │
-│  ├── username      ← Main Server credentials                 │
-│  ├── password      ← Main Server credentials                 │
-│  └── user_key      ← Tile namespace identifier               │
+│  ├── server_url        ← Cloud/Main Server URL               │
+│  ├── username/password ← Cloud credentials (Basic Auth)      │
+│  ├── local_server_url  ← Config Server URL (empty = disabled)│
+│  ├── local_username/password/api_token ← Config Server auth  │
+│  └── user_key          ← Tile namespace identifier           │
+│                                                               │
+│  ServerSelector (Happy Eyeballs)                              │
+│  ├── Races local vs cloud on first request                   │
+│  ├── Caches winner for process lifetime                      │
+│  ├── Skips racing if local_server_url is empty               │
+│  └── resolveAuthHeader() → correct auth for active server    │
 │                                                               │
 │  AuthInterceptor                                              │
-│  ├── Replaces placeholder URL with server_url                │
-│  └── Adds Basic Auth header from username/password           │
+│  ├── Uses ServerSelector to get active URL                   │
+│  ├── Replaces placeholder URL with resolved URL              │
+│  └── Adds auth header (local token/creds OR cloud Basic)     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -126,33 +140,43 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
   "debugMode": false,
   "bindingInstalled": true,
   "resolvedIps": ["1.2.3.4"],
-  "localServerUrl": "http://192.168.1.100:8080"
+  "localServerUrl": "http://192.168.1.100:8080",
+  "localUsername": "admin",
+  "localPassword": "localpass",
+  "localApiToken": "oh.mytoken.abc123"
 }
 ```
 
 | Field | Description |
 |-------|-------------|
-| `serverUrl` | Main server URL for the watch |
-| `username` | Basic Auth username |
-| `password` | Basic Auth password |
+| `serverUrl` | Main server URL for the watch (cloud) |
+| `username` | Basic Auth username (cloud) |
+| `password` | Basic Auth password (cloud) |
 | `userKey` | Tile namespace (empty = shared) |
 | `deviceName` | Friendly watch name for audio sink binding registration |
 | `googleTtsApiKey` | Google Cloud TTS API key (optional) |
 | `debugMode` | Enable verbose logging on the watch |
 | `bindingInstalled` | Whether the Mobile Audio binding is installed on the server (controls notification UI visibility and FCM registration) |
 | `resolvedIps` | Pre-resolved DNS addresses (seeded by phone) |
-| `localServerUrl` | Direct/LAN server URL for Happy Eyeballs racing (empty = cloud-only) |
+| `localServerUrl` | Config Server URL for Happy Eyeballs racing (empty = cloud-only, controlled by "Watch uses Config Server" toggle) |
+| `localUsername` | Config Server username for Basic Auth |
+| `localPassword` | Config Server password for Basic Auth |
+| `localApiToken` | Config Server API token for Bearer auth (takes priority over Basic Auth) |
 
 ### Sync process
 
 1. User taps "Sync to Watch" on the phone
 2. Phone saves credentials locally (if unsaved changes exist)
-3. Phone sends `SyncConfigPayload` via MessageClient to `/openhab/config`
-4. Watch `WearDataLayerListenerService` receives the message
-5. Watch deserializes payload and saves to `CredentialStore` (DataStore)
-6. Watch saves `deviceName`, `bindingInstalled`, `localServerUrl`, debug mode
-7. Watch schedules FCM registration (if `bindingInstalled=true`)
-8. Phone sends `/openhab/reload` — watch clears item cache and refreshes tile
+3. Phone checks "Watch uses Config Server" toggle — includes local server URL + auth if enabled, empty otherwise
+4. Phone sends `SyncConfigPayload` via MessageClient to `/openhab/config`
+5. Watch `WearDataLayerListenerService` receives the message
+6. Watch deserializes payload and saves to `CredentialStore` (DataStore): server URL, credentials, local server URL + auth
+7. Watch resets `ServerSelector` (forces re-race on next request with new URLs/credentials)
+8. Watch seeds DNS cache with phone-resolved IPs (if provided)
+9. Watch saves `deviceName`, `bindingInstalled`, debug mode, Google TTS API key
+10. Watch schedules FCM registration (if `bindingInstalled=true`)
+11. Watch restarts SSE connection (picks up new server URL immediately)
+12. If `triggerReload=true`: watch clears item cache and re-fetches tile config
 
 ### Requirements
 
@@ -163,22 +187,65 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
 
 ## Watch-Side Setup
 
-The watch does not support manual credential entry. Setup is handled exclusively by the phone companion app via Data Layer sync.
+The watch supports two setup paths:
+
+1. **Phone sync (primary)** — credentials synced from the phone companion via Data Layer. This is the standard flow for paired watches.
+2. **Manual entry** — the watch's own Setup screen (`SetupViewModel`) allows entering server URL, username, and password directly. After saving, it resets `ServerSelector` and verifies connectivity before confirming success.
 
 The watch app's launcher menu provides:
-- **Setup on Phone** — sends a Data Layer message (`/openhab/open-app`) to open the phone companion
+- **Setup** — opens manual credential entry (or sends a Data Layer message to open the phone companion)
 - **Reload Items** — clears item cache and re-fetches tile config from the server
 
-If no credentials are configured, the tile renders in a dimmed/empty state until the phone syncs credentials.
+If no credentials are configured, the tile renders in a dimmed/empty state until credentials are provided via either path.
 
-## Watch-Side Auth (AuthInterceptor)
+## Watch-Side Auth (AuthInterceptor + ServerSelector)
 
-All watch HTTP requests go through `AuthInterceptor`, which:
+All watch HTTP requests go through a **two-layer** connection system:
 
-1. Replaces the placeholder URL (`https://placeholder.openhab.org/`) with the configured server URL
-2. Adds an `Authorization: Basic` header if credentials are configured
+### ServerSelector (Happy Eyeballs)
 
-Retrofit defines all endpoints against the placeholder host. The interceptor transparently rewrites every request to the real server.
+On the first API request of the process, `ServerSelector` races the local (LAN) and cloud server URLs in parallel. Whichever responds first is cached as the active URL for the remainder of the process lifetime.
+
+- **Local preferred:** If the local server responds within 5s, it wins immediately (lower latency, no cloud hop).
+- **Cloud fallback:** If only the cloud server responds, it's used for all subsequent requests.
+- **Neither:** Defaults to cloud (lets the real request fail naturally with a meaningful error).
+- **Reset:** The cached winner is cleared whenever credentials change (phone sync or manual setup), forcing a re-race on the next request.
+
+The local server URL is only present on the watch when the phone user enables **"Watch uses Config Server"** in setup. When disabled, the phone sends an empty `localServerUrl` to the watch — `ServerSelector` sees no local URL and uses cloud directly without racing.
+
+### AuthInterceptor
+
+All Retrofit API calls pass through `AuthInterceptor`, which:
+
+1. Resolves the active server URL via `ServerSelector` (triggers the race on the first call)
+2. Replaces the placeholder URL (`https://placeholder.openhab.org/`) with the resolved server
+3. Adds the appropriate `Authorization` header based on which server won:
+   - **Local active:** API token (Bearer) > Basic Auth with local credentials > no auth
+   - **Cloud active:** Basic Auth with cloud credentials
+
+### Connection paths
+
+| Path | Goes through ServerSelector? | Notes |
+|------|------------------------------|-------|
+| Retrofit API calls (items, commands, tile config, complications) | Yes (via AuthInterceptor) | Standard path |
+| TileStateEventSource (SSE for live updates) | Yes (explicit reset + resolveUrl on each reconnect) | Adapts when entering/leaving home WiFi |
+| OpenHabRepository.observeItemState (SSE for single item) | Yes (resolveUrl + resolveAuthHeader) | Used for complication preview |
+| FcmRegistrationWorker | Yes (reset + resolveUrl + resolveAuthHeader) | Warns if only cloud reachable (endpoint not proxied) |
+| IconResolver (openHAB icons) | Yes (via AuthInterceptor on main OkHttpClient) | — |
+| IconResolver (Iconify/Material icons) | No (plainClient, external URLs) | No auth needed |
+| ServerTtsPlayer (Google TTS) | No (external Google API) | Uses Google API key |
+
+### ServerSelector.resolveAuthHeader()
+
+A shared utility on `ServerSelector` that returns the correct auth header for the currently active server:
+
+```kotlin
+suspend fun resolveAuthHeader(): String?
+// Local active → Bearer {apiToken} > Basic(localUser, localPass) > null
+// Cloud active → Basic(cloudUser, cloudPass) > null
+```
+
+Used by connection paths that build their own OkHttpClient (SSE, FCM registration) to avoid duplicating auth-resolution logic.
 
 ## Debug Credential Injection (ADB)
 
@@ -203,6 +270,7 @@ Writes directly to DataStore. Available in debug builds only.
 
 ### Watch storage
 - DataStore Preferences (plaintext on watch filesystem)
+- Stores cloud credentials, local server URL + auth (API token, username, password)
 - Protected by Wear OS app sandboxing
 - Wiped on app uninstall or watch factory reset
 
@@ -242,7 +310,7 @@ The phone detects whether the Mobile Audio binding is installed on the openHAB s
 
 The watch registers its FCM token with the binding's servlet:
 ```
-GET {localServerUrl}/mobileaudio/register?regId={token}&deviceId={androidId}&deviceModel={model}&deviceName={name}
+GET {serverUrl}/mobileaudio/register?regId={token}&deviceId={androidId}&deviceModel={model}&deviceName={name}
 ```
 
-The worker prefers the local server URL (the servlet is not proxied by myopenhab.org). The `deviceName` parameter enables stable Thing matching across app reinstalls.
+The worker uses `ServerSelector` to resolve the best reachable server and applies the correct auth for whichever server won the race. Since the `/mobileaudio/register` endpoint is not proxied by myopenhab.org, registration will only succeed when the local server is reachable — the worker logs a warning if only cloud responds. The `deviceName` parameter enables stable Thing matching across app reinstalls.

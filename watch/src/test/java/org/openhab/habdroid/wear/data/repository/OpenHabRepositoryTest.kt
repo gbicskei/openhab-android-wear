@@ -25,6 +25,7 @@ class OpenHabRepositoryTest {
 
     private lateinit var apiService: OpenHabApiService
     private lateinit var credentialStore: CredentialStore
+    private lateinit var serverSelector: org.openhab.habdroid.wear.data.api.ServerSelector
     private lateinit var tilePreferenceStore: TilePreferenceStore
     private lateinit var itemCache: ItemCache
     private lateinit var diskCache: TileConfigDiskCache
@@ -42,6 +43,7 @@ class OpenHabRepositoryTest {
     fun setup() {
         apiService = mockk(relaxed = true)
         credentialStore = mockk()
+        serverSelector = mockk(relaxed = true)
         tilePreferenceStore = mockk(relaxed = true)
         diskCache = mockk(relaxed = true)
         watchStatusWriter = mockk(relaxed = true)
@@ -58,6 +60,7 @@ class OpenHabRepositoryTest {
         repository = OpenHabRepository(
             apiService = apiService,
             credentialStore = credentialStore,
+            serverSelector = serverSelector,
             tilePreferenceStore = tilePreferenceStore,
             itemCache = itemCache,
             diskCache = diskCache,

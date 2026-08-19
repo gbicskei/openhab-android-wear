@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonObject
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.openhab.habdroid.wear.data.api.OpenHabApiService
+import org.openhab.habdroid.wear.data.api.ServerSelector
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.model.TileItem
 import org.openhab.habdroid.wear.data.model.ValueDisplay
@@ -38,6 +39,7 @@ import javax.inject.Singleton
 class OpenHabRepository @Inject constructor(
     private val apiService: OpenHabApiService,
     private val credentialStore: CredentialStore,
+    private val serverSelector: ServerSelector,
     private val tilePreferenceStore: TilePreferenceStore,
     private val itemCache: ItemCache,
     private val diskCache: TileConfigDiskCache,
@@ -600,30 +602,37 @@ class OpenHabRepository @Inject constructor(
      * Returns a Flow that emits the new state string whenever the item changes.
      * The SSE connection is automatically closed when the collector is cancelled.
      *
+     * Uses [ServerSelector] to connect to the best available server (local or cloud).
      * Battery-safe: connection lives only while the Flow is collected (activity is visible).
      */
     fun observeItemState(itemName: String): Flow<String> = callbackFlow {
+            // Bail early if no credentials configured (watch not set up yet)
             val credentials = credentialStore.credentials.first()
-            if (credentials == null) {
+            if (credentials == null || credentials.serverUrl.isBlank()) {
                 close()
                 return@callbackFlow
             }
 
-            val serverUrl = credentials.serverUrl.trimEnd('/')
+            val baseUrl = (serverSelector.getActiveUrlOrDefault()
+                ?: serverSelector.resolveUrl()).trimEnd('/')
+            val authHeader = serverSelector.resolveAuthHeader()
+
             val topic = "openhab/items/$itemName/statechanged"
-            val url = "$serverUrl/rest/events?topics=$topic"
+            val url = "$baseUrl/rest/events?topics=$topic"
 
             AppLog.d(TAG, "observeItemState: connecting SSE for '$itemName' at $url")
 
             val sseClient = okhttp3.OkHttpClient.Builder()
                 .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS)
-                .addInterceptor { chain ->
-                    val request = chain.request().newBuilder()
-                    if (credentials.username.isNotBlank() && credentials.password.isNotBlank()) {
-                        request.header("Authorization",
-                            okhttp3.Credentials.basic(credentials.username, credentials.password))
+                .apply {
+                    if (authHeader != null) {
+                        addInterceptor { chain ->
+                            val request = chain.request().newBuilder()
+                                .header("Authorization", authHeader)
+                                .build()
+                            chain.proceed(request)
+                        }
                     }
-                    chain.proceed(request.build())
                 }
                 .build()
 

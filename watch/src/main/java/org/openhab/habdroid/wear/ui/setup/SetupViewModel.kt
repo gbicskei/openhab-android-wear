@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.data.api.ServerSelector
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import javax.inject.Inject
@@ -26,6 +27,7 @@ sealed interface SetupUiState {
 @HiltViewModel
 class SetupViewModel @Inject constructor(
     private val credentialStore: CredentialStore,
+    private val serverSelector: ServerSelector,
     private val repository: OpenHabRepository
 ) : ViewModel() {
 
@@ -78,6 +80,9 @@ class SetupViewModel @Inject constructor(
                     password = state.password
                 )
                 credentialStore.saveCredentials(credentials)
+
+                // Reset server selection so next request re-races with new credentials
+                serverSelector.reset()
 
                 // Verify connectivity by fetching items
                 repository.getAllItems()
