@@ -315,12 +315,12 @@ class TileStateEventSource @Inject constructor(
             }
 
             override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
-                AppLog.w(TAG, "SSE failed: ${t?.message ?: "status ${response?.code}"}")
+                AppLog.w(TAG, "SSE onFailure: ${t?.javaClass?.simpleName}: ${t?.message ?: "status ${response?.code}"}")
                 channel.trySend(SseEvent.Failed(t))
             }
 
             override fun onClosed(eventSource: EventSource) {
-                AppLog.d(TAG, "SSE closed by server")
+                AppLog.d(TAG, "SSE onClosed (server closed the connection)")
                 channel.trySend(SseEvent.Closed)
             }
         })
@@ -360,10 +360,12 @@ class TileStateEventSource @Inject constructor(
                 when (event) {
                     is SseEvent.Data -> handleEvent(event.data)
                     is SseEvent.Failed -> {
+                        AppLog.d(TAG, "Event loop: received Failed signal")
                         eventSource.cancel()
                         return SseResult.FAILURE
                     }
                     is SseEvent.Closed -> {
+                        AppLog.d(TAG, "Event loop: received Closed signal")
                         eventSource.cancel()
                         return SseResult.FAILURE
                     }
