@@ -1,6 +1,7 @@
 package org.openhab.habdroid.wear.util
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.media.MediaPlayer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -115,32 +116,43 @@ class ServerTtsPlayer @Inject constructor(
         }
     }
 
-    private suspend fun playFile(file: File): Boolean = suspendCancellableCoroutine { cont ->
+    private suspend fun playFile(file: File): Boolean = withContext(Dispatchers.Main) {
         stop()
-        mediaPlayer = MediaPlayer().apply {
-            try {
-                setDataSource(file.absolutePath)
-                setOnCompletionListener {
-                    it.release()
-                    mediaPlayer = null
-                    if (cont.isActive) cont.resume(true)
-                }
-                setOnErrorListener { mp, _, _ ->
-                    mp.release()
+        suspendCancellableCoroutine { cont ->
+            mediaPlayer = MediaPlayer().apply {
+                try {
+                    setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_MEDIA)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                            .build()
+                    )
+                    setDataSource(file.absolutePath)
+                    setOnCompletionListener {
+                        AppLog.d(TAG, "Playback complete")
+                        it.release()
+                        mediaPlayer = null
+                        if (cont.isActive) cont.resume(true)
+                    }
+                    setOnErrorListener { mp, what, extra ->
+                        AppLog.e(TAG, "MediaPlayer error: what=$what, extra=$extra")
+                        mp.release()
+                        mediaPlayer = null
+                        if (cont.isActive) cont.resume(false)
+                        true
+                    }
+                    prepare()
+                    start()
+                } catch (e: Exception) {
+                    AppLog.e(TAG, "Failed to play TTS audio file", e)
+                    release()
                     mediaPlayer = null
                     if (cont.isActive) cont.resume(false)
-                    true
                 }
-                prepare()
-                start()
-            } catch (e: Exception) {
-                release()
-                mediaPlayer = null
-                if (cont.isActive) cont.resume(false)
             }
-        }
 
-        cont.invokeOnCancellation { stop() }
+            cont.invokeOnCancellation { stop() }
+        }
     }
 
     /** Stop current playback */

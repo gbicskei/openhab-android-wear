@@ -13,11 +13,16 @@ Feature release introducing **FCM push notifications with audio sink playback**,
 - FCM push notifications forwarded from openHAB Cloud to the watch
 - Two notification modes based on FCM tag:
   - `audio-tts` — watch speaks the message using configured TTS engine
-  - `audio-sink` — streams pre-rendered audio from a server URL (AudioUrlPlayer)
+  - `audio-sink` — downloads and plays pre-rendered audio from server (authenticated via ServerSelector)
 - `SpeakDisplayActivity` shows message text + logo during audio playback
 - Configurable notification chime and read-aloud behavior (phone UI, synced to watch)
-- POST_NOTIFICATIONS permission requested at runtime (Wear OS API 33+)
+- POST_NOTIFICATIONS and VIBRATE permissions requested at runtime (Wear OS API 33+)
 - `CachingDns` for reliable DNS resolution on watch (reduces timeout issues)
+- `AudioPlaybackService` foreground service keeps process alive during playback (prevents lmkd kill and AudioHardening mute)
+- `TtsManager.speak()` is now a suspend function — blocks until utterance finishes, ensuring foreground state and ringer mode are maintained for full duration
+- `AudioUrlPlayer` downloads audio via OkHttp with auth (same pattern as FcmRegistrationWorker) to avoid unauthenticated 401s that trigger fail2ban bans
+- `ServerTtsPlayer.playFile()` runs on Main dispatcher for proper MediaPlayer Looper callback delivery
+- Chime playback has a 5-second timeout to prevent blocking TTS on cold start when audio system is initializing
 
 ### New: Settings Architecture Redesign
 
