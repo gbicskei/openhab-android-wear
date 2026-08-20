@@ -18,6 +18,13 @@
     <!-- Post notifications (required since API 33) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Vibrate for notifications -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Foreground service for audio playback (prevents process kill and AudioHardening mute) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+
     <!-- Wake lock for tile updates and background work -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -272,6 +279,12 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- Foreground service for audio playback during notifications -->
+        <service
+            android:name=".notification.AudioPlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- Voice Interaction Service (registers this app as a selectable assistant) -->
         <service

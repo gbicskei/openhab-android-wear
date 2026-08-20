@@ -75,8 +75,8 @@ class NotificationHandler @Inject constructor(
             return
         }
 
-        // Don't show visual notification for audio sink/TTS messages (they just play audio)
-        if (tag != TAG_AUDIO_SINK && tag != TAG_AUDIO_TTS) {
+        // Don't show visual notification for audio sink messages (they just play audio)
+        if (tag != TAG_AUDIO_SINK) {
             showNotification(title, message, tag, referenceId, timestamp, priority)
         }
 
@@ -117,6 +117,7 @@ class NotificationHandler @Inject constructor(
      * Plays optional chime before the audio, then restores ringer mode.
      */
     private suspend fun playAudioWithUnmute(audioUrl: String) {
+        AudioPlaybackService.start(context, "Playing audio")
         showSpeakDisplay("openHAB", audioUrl)
 
         val originalRingerMode = audioManager.ringerMode
@@ -138,6 +139,7 @@ class NotificationHandler @Inject constructor(
                 AppLog.d(TAG, "Restored ringer mode=$originalRingerMode")
             }
             dismissSpeakDisplay()
+            AudioPlaybackService.stop(context)
         }
     }
 
@@ -146,6 +148,7 @@ class NotificationHandler @Inject constructor(
      * Plays optional chime before speaking, then restores ringer mode.
      */
     private suspend fun playTtsWithUnmute(title: String, message: String) {
+        AudioPlaybackService.start(context, message.take(50))
         showSpeakDisplay(title, message)
 
         val originalRingerMode = audioManager.ringerMode
@@ -169,6 +172,7 @@ class NotificationHandler @Inject constructor(
                 AppLog.d(TAG, "Restored ringer mode=$originalRingerMode")
             }
             dismissSpeakDisplay()
+            AudioPlaybackService.stop(context)
         }
     }
 
@@ -191,20 +195,30 @@ class NotificationHandler @Inject constructor(
     ) {
         val notifId = (referenceId ?: tag ?: message)?.hashCode() ?: System.currentTimeMillis().toInt()
 
-        val notifPriority = when (priority?.lowercase()) {
-            "high" -> NotificationCompat.PRIORITY_HIGH
-            "low" -> NotificationCompat.PRIORITY_LOW
-            else -> NotificationCompat.PRIORITY_DEFAULT
+        val (notifPriority, color) = when (priority?.lowercase()) {
+            "high" -> Pair(
+                NotificationCompat.PRIORITY_HIGH,
+                0xFFF44336.toInt() // Red
+            )
+            "low" -> Pair(
+                NotificationCompat.PRIORITY_LOW,
+                0xFF2196F3.toInt() // Blue
+            )
+            else -> Pair(
+                NotificationCompat.PRIORITY_DEFAULT,
+                0xFFFF9800.toInt() // Orange
+            )
         }
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title.ifBlank { "openHAB" })
+            .setContentTitle(title.ifBlank { "wearOH" })
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setWhen(timestamp)
             .setAutoCancel(true)
             .setPriority(notifPriority)
+            .setColor(color)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .build()
 
@@ -225,41 +239,44 @@ class NotificationHandler @Inject constructor(
 
     /**
      * Play a system alert sound before TTS. Suspends until playback completes.
+     * Times out after 5 seconds to avoid blocking TTS on cold start when audio system is slow.
      */
     private suspend fun playChime() = withContext(Dispatchers.IO) {
         try {
             val uri = getChimeUri() ?: return@withContext
 
-            suspendCancellableCoroutine { cont ->
-                val player = try {
-                    MediaPlayer().apply {
-                        setDataSource(context, uri)
-                        prepare()
+            kotlinx.coroutines.withTimeoutOrNull(5000L) {
+                suspendCancellableCoroutine { cont ->
+                    val player = try {
+                        MediaPlayer().apply {
+                            setDataSource(context, uri)
+                            prepare()
+                        }
+                    } catch (e: Exception) {
+                        AppLog.w(TAG, "Failed to create MediaPlayer for chime", e)
+                        if (cont.isActive) cont.resume(Unit)
+                        return@suspendCancellableCoroutine
                     }
-                } catch (e: Exception) {
-                    AppLog.w(TAG, "Failed to create MediaPlayer for chime", e)
-                    if (cont.isActive) cont.resume(Unit)
-                    return@suspendCancellableCoroutine
-                }
 
-                player.setOnCompletionListener {
-                    it.release()
-                    if (cont.isActive) cont.resume(Unit)
-                }
-                player.setOnErrorListener { mp, _, _ ->
-                    mp.release()
-                    if (cont.isActive) cont.resume(Unit)
-                    true
-                }
-                player.start()
+                    player.setOnCompletionListener {
+                        it.release()
+                        if (cont.isActive) cont.resume(Unit)
+                    }
+                    player.setOnErrorListener { mp, _, _ ->
+                        mp.release()
+                        if (cont.isActive) cont.resume(Unit)
+                        true
+                    }
+                    player.start()
 
-                cont.invokeOnCancellation {
-                    try {
-                        player.stop()
-                        player.release()
-                    } catch (_: Exception) {}
+                    cont.invokeOnCancellation {
+                        try {
+                            player.stop()
+                            player.release()
+                        } catch (_: Exception) {}
+                    }
                 }
-            }
+            } ?: AppLog.w(TAG, "Chime timed out — proceeding to TTS")
         } catch (e: Exception) {
             AppLog.w(TAG, "Chime playback failed", e)
         }

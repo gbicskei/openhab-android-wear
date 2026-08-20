@@ -63,9 +63,6 @@ class VoiceCommandViewModel @Inject constructor(
                             val pitch = voicePreferenceStore.ttsPitch.first()
                             _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = true, ttsUsed = true)
                             ttsManager.speak(responseText, speechRate = speechRate, pitch = pitch)
-                            // Wait for TTS to start, then wait for it to finish
-                            ttsManager.isSpeaking.first { it } // wait until speaking starts
-                            ttsManager.isSpeaking.first { !it } // wait until speaking ends
                             _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = false, ttsUsed = true)
                         }
                     } else {

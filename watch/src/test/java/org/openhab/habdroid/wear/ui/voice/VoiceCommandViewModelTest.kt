@@ -4,10 +4,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -49,7 +47,6 @@ class VoiceCommandViewModelTest {
         every { voicePreferenceStore.serverTtsVoice } returns flowOf("en-US-Wavenet-D")
         every { voicePreferenceStore.ttsSpeechRate } returns flowOf(1.0f)
         every { voicePreferenceStore.ttsPitch } returns flowOf(1.0f)
-        every { ttsManager.isSpeaking } returns MutableStateFlow(false)
     }
 
     @After
@@ -140,27 +137,18 @@ class VoiceCommandViewModelTest {
 
     @Test
     fun `sendVoiceCommand with local TTS uses ttsManager`() = runTest {
-        val isSpeakingFlow = MutableStateFlow(false)
         every { voicePreferenceStore.voiceResponseSpoken } returns flowOf(true)
         every { voicePreferenceStore.serverTtsEnabled } returns flowOf(false)
         every { voicePreferenceStore.ttsSpeechRate } returns flowOf(1.2f)
         every { voicePreferenceStore.ttsPitch } returns flowOf(0.9f)
-        every { ttsManager.isSpeaking } returns isSpeakingFlow
         coEvery { repository.sendVoiceCommand("test") } returns Result.success("Done it")
-
-        // Simulate TTS lifecycle: starts speaking, then finishes
-        every { ttsManager.speak(any(), any(), any()) } answers {
-            isSpeakingFlow.value = true
-        }
+        coEvery { ttsManager.speak(any(), any(), any()) } returns true
 
         val vm = createViewModel()
         vm.sendVoiceCommand("test")
+        advanceUntilIdle()
 
-        // At this point the coroutine is suspended waiting for isSpeaking to become true
-        // (it already is), then waiting for it to become false. Simulate finish:
-        isSpeakingFlow.value = false
-
-        verify { ttsManager.speak("Done it", 1.2f, 0.9f) }
+        coVerify { ttsManager.speak("Done it", 1.2f, 0.9f) }
         val state = vm.uiState.value as VoiceUiState.Success
         assertTrue(state.ttsUsed)
         assertFalse(state.isSpeaking)
