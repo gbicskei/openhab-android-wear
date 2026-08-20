@@ -12,9 +12,9 @@ wearOH receives push notifications from openHAB via FCM (Firebase Cloud Messagin
 
 ### MobileAudio Binding
 
-The binding JAR is available from [GitHub Releases](https://github.com/gbicskei/openhab-android-wear/releases). Do NOT commit the JAR to the repository — it contains embedded Firebase credentials.
+The binding JAR is distributed via Google Drive (not in the git repository — it contains embedded Firebase credentials).
 
-1. Download `org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar` from the latest release
+1. Download `org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar` from [Google Drive](https://drive.google.com/drive/u/0/folders/11qmovO3jsNv3oerq3b0_6vnLVZkSaf2j)
 2. Copy it to your openHAB server's `addons/` folder:
    ```bash
    scp org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar user@server:/opt/openhab/addons/
@@ -168,3 +168,52 @@ Cold start issue — AudioFlinger needs time to initialize. The foreground servi
 ### Thing shows OFFLINE
 
 The FCM token registration (`/mobileaudio/register`) only works on the local network. Ensure the watch can reach the openHAB server directly (not through the cloud proxy).
+
+## Advanced: Using Your Own Firebase Project (Optional)
+
+By default, wearOH uses a shared Firebase project for FCM delivery. If you prefer to use your own Firebase project (e.g. quota control), follow these steps:
+
+### 1. Create a Firebase Project
+
+1. Go to the [Firebase Console](https://console.firebase.google.com/)
+2. Click **Add project** and follow the wizard
+3. Enable **Firebase Cloud Messaging API** in [Google Cloud Console → APIs & Services](https://console.cloud.google.com/apis/library)
+
+### 2. Create a Service Account Key
+
+1. In Firebase Console → **Project Settings** → **Service accounts** tab
+2. Click **Generate new private key** → confirm → download the JSON file
+3. Go to [Google Cloud Console → IAM](https://console.cloud.google.com/iam-admin/iam)
+4. Find your service account (e.g. `firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com`)
+5. Click edit (pencil icon) → **Add Another Role** → select **Firebase Cloud Messaging Admin**
+6. Save
+
+### 3. Configure the Binding
+
+Place the service account JSON on your openHAB server:
+
+```bash
+scp your-service-account.json server:/etc/openhab/firebase-service-account.json
+```
+
+Then configure the binding to use it (via openHAB UI → Settings → Things → MobileAudio Device → Configuration):
+
+- **Service Account Path**: `/etc/openhab/firebase-service-account.json`
+
+Or via `.config` file:
+
+```
+serviceAccountPath="/etc/openhab/firebase-service-account.json"
+```
+
+### 4. Register a Wear OS App in Firebase
+
+1. In Firebase Console → **Project Settings** → **General** tab
+2. Click **Add app** → select **Android**
+3. Package name: `org.openhab.habdroid.wear`
+4. Download `google-services.json`
+5. Place it in the watch app source at `watch/` and rebuild
+
+### 5. IAM Propagation
+
+After granting the Firebase Cloud Messaging Admin role, it can take up to 7 minutes for the permission to propagate. If you see HTTP 403 errors with `cloudmessaging.messages.create` permission denied, wait and retry.
