@@ -52,8 +52,7 @@ class ServerTtsPlayer @Inject constructor(
     suspend fun speakFromServer(
         text: String,
         voice: String = DEFAULT_VOICE,
-        languageCode: String = DEFAULT_LANGUAGE,
-        volume: Float = 1.0f
+        languageCode: String = DEFAULT_LANGUAGE
     ): Boolean = withContext(Dispatchers.IO) {
         val key = apiKey
         if (key.isNullOrBlank()) {
@@ -109,19 +108,18 @@ class ServerTtsPlayer @Inject constructor(
             tempFile.writeBytes(audioBytes)
 
             // Play
-            playFile(tempFile, volume)
+            playFile(tempFile)
         } catch (e: Exception) {
             AppLog.e(TAG, "Server TTS failed", e)
             false
         }
     }
 
-    private suspend fun playFile(file: File, volume: Float = 1.0f): Boolean = suspendCancellableCoroutine { cont ->
+    private suspend fun playFile(file: File): Boolean = suspendCancellableCoroutine { cont ->
         stop()
         mediaPlayer = MediaPlayer().apply {
             try {
                 setDataSource(file.absolutePath)
-                setVolume(volume, volume)
                 setOnCompletionListener {
                     it.release()
                     mediaPlayer = null
@@ -134,7 +132,6 @@ class ServerTtsPlayer @Inject constructor(
                     true
                 }
                 prepare()
-                setVolume(1.0f, 1.0f)
                 start()
             } catch (e: Exception) {
                 release()

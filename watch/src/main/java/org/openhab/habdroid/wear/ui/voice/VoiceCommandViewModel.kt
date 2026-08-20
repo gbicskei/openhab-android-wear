@@ -49,22 +49,20 @@ class VoiceCommandViewModel @Inject constructor(
                         if (useServer) {
                             val apiKey = voicePreferenceStore.serverTtsApiKey.first()
                             val voice = voicePreferenceStore.serverTtsVoice.first()
-                            val volume = voicePreferenceStore.ttsVolume.first()
                             if (apiKey.isNotBlank()) {
                                 _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = true, ttsUsed = true)
                                 serverTtsPlayer.setApiKey(apiKey)
-                                serverTtsPlayer.speakFromServer(responseText, voice = voice, volume = volume)
+                                serverTtsPlayer.speakFromServer(responseText, voice = voice)
                                 _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = false, ttsUsed = true)
                             } else {
                                 _uiState.value = VoiceUiState.Success(responseText = displayText)
                             }
                         } else {
-                            // Local TTS — apply volume, speech rate, and pitch from preferences
-                            val volume = voicePreferenceStore.ttsVolume.first()
+                            // Local TTS — apply speech rate and pitch from preferences
                             val speechRate = voicePreferenceStore.ttsSpeechRate.first()
                             val pitch = voicePreferenceStore.ttsPitch.first()
                             _uiState.value = VoiceUiState.Success(responseText = displayText, isSpeaking = true, ttsUsed = true)
-                            ttsManager.speak(responseText, volume, speechRate, pitch)
+                            ttsManager.speak(responseText, speechRate = speechRate, pitch = pitch)
                             // Wait for TTS to start, then wait for it to finish
                             ttsManager.isSpeaking.first { it } // wait until speaking starts
                             ttsManager.isSpeaking.first { !it } // wait until speaking ends

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,13 +51,6 @@ fun NotificationSettingsContent(viewModel: NotificationSettingsViewModel) {
                     checked = uiState.chimeEnabled,
                     onCheckedChange = viewModel::onChimeChanged
                 )
-                Spacer(modifier = Modifier.height(12.dp))
-                VolumeSlider(
-                    label = "Notification volume",
-                    subtitle = "Speaker volume for alert notifications",
-                    value = uiState.notificationVolume,
-                    onValueChange = viewModel::onVolumeChanged
-                )
             }
         }
     }
@@ -89,43 +81,5 @@ private fun NotificationToggle(
             }
         }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
-
-@Composable
-private fun VolumeSlider(
-    label: String,
-    subtitle: String? = null,
-    value: Float,
-    onValueChange: (Float) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(label, style = MaterialTheme.typography.bodyLarge)
-                if (subtitle != null) {
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            Text(
-                "${(value * 100).toInt()}%",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = 0.1f..1.0f,
-            modifier = Modifier.fillMaxWidth()
-        )
     }
 }

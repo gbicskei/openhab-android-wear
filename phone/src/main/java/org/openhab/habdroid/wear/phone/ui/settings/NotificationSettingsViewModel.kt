@@ -18,7 +18,6 @@ import javax.inject.Inject
 data class NotificationSettingsUiState(
     val readAloudEnabled: Boolean = false,
     val chimeEnabled: Boolean = true,
-    val notificationVolume: Float = 1.0f,
     val hasUnsavedChanges: Boolean = false
 )
 
@@ -40,8 +39,7 @@ class NotificationSettingsViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 readAloudEnabled = credentialStore.isNotificationReadAloud,
-                chimeEnabled = credentialStore.isNotificationChime,
-                notificationVolume = credentialStore.notificationVolume
+                chimeEnabled = credentialStore.isNotificationChime
             )
         }
     }
@@ -54,21 +52,16 @@ class NotificationSettingsViewModel @Inject constructor(
         _uiState.update { it.copy(chimeEnabled = enabled, hasUnsavedChanges = true) }
     }
 
-    fun onVolumeChanged(volume: Float) {
-        _uiState.update { it.copy(notificationVolume = volume, hasUnsavedChanges = true) }
-    }
-
     fun save() {
         val state = _uiState.value
         viewModelScope.launch {
             credentialStore.saveNotificationSettings(
                 state.readAloudEnabled,
-                state.chimeEnabled,
-                state.notificationVolume
+                state.chimeEnabled
             )
             syncToWatch()
             _uiState.update { it.copy(hasUnsavedChanges = false) }
-            AppLog.d(TAG, "Notification settings saved (readAloud=${state.readAloudEnabled}, chime=${state.chimeEnabled}, volume=${state.notificationVolume})")
+            AppLog.d(TAG, "Notification settings saved (readAloud=${state.readAloudEnabled}, chime=${state.chimeEnabled})")
         }
     }
 
@@ -80,8 +73,7 @@ class NotificationSettingsViewModel @Inject constructor(
                 notificationsEnabled = true,
                 readAloudEnabled = state.readAloudEnabled,
                 chimeEnabled = state.chimeEnabled,
-                chimeSound = "default",
-                notificationVolume = state.notificationVolume
+                chimeSound = "default"
             )
         )
         dataLayerSender.sendNotificationSettings(payload)

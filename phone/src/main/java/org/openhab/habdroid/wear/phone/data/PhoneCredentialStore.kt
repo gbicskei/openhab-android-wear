@@ -328,11 +328,6 @@ class PhoneCredentialStore @Inject constructor(
         encryptedPrefs.getString(KEY_SERVER_TTS_VOICE, "") ?: ""
     } catch (_: Exception) { "" }
 
-    /** TTS volume (0.0–1.0). Default: 1.0. */
-    val ttsVolume: Float get() = try {
-        encryptedPrefs.getFloat(KEY_TTS_VOLUME, 1.0f)
-    } catch (_: Exception) { 1.0f }
-
     /** TTS speech rate. Default: 1.0. */
     val ttsSpeechRate: Float get() = try {
         encryptedPrefs.getFloat(KEY_TTS_SPEECH_RATE, 1.0f)
@@ -349,7 +344,6 @@ class PhoneCredentialStore @Inject constructor(
         readAloudEnabled: Boolean,
         useServerTts: Boolean,
         serverTtsVoice: String,
-        volume: Float,
         speechRate: Float,
         pitch: Float
     ) {
@@ -359,7 +353,6 @@ class PhoneCredentialStore @Inject constructor(
                 .putBoolean(KEY_READ_ALOUD_ENABLED, readAloudEnabled)
                 .putBoolean(KEY_USE_SERVER_TTS, useServerTts)
                 .putString(KEY_SERVER_TTS_VOICE, serverTtsVoice)
-                .putFloat(KEY_TTS_VOLUME, volume)
                 .putFloat(KEY_TTS_SPEECH_RATE, speechRate)
                 .putFloat(KEY_TTS_PITCH, pitch)
                 .putBoolean(KEY_SETTINGS_NEED_SYNC, true)
@@ -381,18 +374,12 @@ class PhoneCredentialStore @Inject constructor(
         encryptedPrefs.getBoolean(KEY_NOTIFICATION_CHIME, true)
     } catch (_: Exception) { true }
 
-    /** Notification volume (0.0–1.0). Default: 1.0 (max). */
-    val notificationVolume: Float get() = try {
-        encryptedPrefs.getFloat(KEY_NOTIFICATION_VOLUME, 1.0f)
-    } catch (_: Exception) { 1.0f }
-
     /** Save notification settings. */
-    suspend fun saveNotificationSettings(readAloud: Boolean, chime: Boolean, volume: Float) {
+    suspend fun saveNotificationSettings(readAloud: Boolean, chime: Boolean) {
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
                 .putBoolean(KEY_NOTIFICATION_READ_ALOUD, readAloud)
                 .putBoolean(KEY_NOTIFICATION_CHIME, chime)
-                .putFloat(KEY_NOTIFICATION_VOLUME, volume)
                 .putBoolean(KEY_SETTINGS_NEED_SYNC, true)
                 .apply()
         }

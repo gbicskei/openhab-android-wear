@@ -114,7 +114,7 @@ class NotificationHandler @Inject constructor(
 
     /**
      * Temporarily unmute the watch and play an audio URL (for audio-sink messages).
-     * Plays optional chime before the audio, then restores ringer mode and volume.
+     * Plays optional chime before the audio, then restores ringer mode.
      */
     private suspend fun playAudioWithUnmute(audioUrl: String) {
         showSpeakDisplay("openHAB", audioUrl)
@@ -126,12 +126,6 @@ class NotificationHandler @Inject constructor(
             AppLog.d(TAG, "Temporarily unmuted for audio-sink (was mode=$originalRingerMode)")
         }
 
-        // Set the desired notification volume
-        val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        val targetVolume = calculateStreamVolume(notificationPrefs.notificationVolume.first())
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
-        AppLog.d(TAG, "Set stream volume to $targetVolume (was $originalVolume)")
-
         try {
             val chime = notificationPrefs.chimeEnabled.first()
             if (chime) {
@@ -139,7 +133,6 @@ class NotificationHandler @Inject constructor(
             }
             audioUrlPlayer.play(audioUrl)
         } finally {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
             if (wasMuted) {
                 audioManager.ringerMode = originalRingerMode
                 AppLog.d(TAG, "Restored ringer mode=$originalRingerMode")
@@ -150,7 +143,7 @@ class NotificationHandler @Inject constructor(
 
     /**
      * Temporarily unmute the watch and speak text via TTS (for audio-tts messages).
-     * Plays optional chime before speaking, then restores ringer mode and volume.
+     * Plays optional chime before speaking, then restores ringer mode.
      */
     private suspend fun playTtsWithUnmute(title: String, message: String) {
         showSpeakDisplay(title, message)
@@ -162,12 +155,6 @@ class NotificationHandler @Inject constructor(
             AppLog.d(TAG, "Temporarily unmuted for TTS (was mode=$originalRingerMode)")
         }
 
-        // Set the desired notification volume
-        val originalVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        val targetVolume = calculateStreamVolume(notificationPrefs.notificationVolume.first())
-        audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
-        AppLog.d(TAG, "Set stream volume to $targetVolume (was $originalVolume)")
-
         try {
             val chime = notificationPrefs.chimeEnabled.first()
             if (chime) {
@@ -177,7 +164,6 @@ class NotificationHandler @Inject constructor(
             AppLog.d(TAG, "Speaking: '$spokenText'")
             speakMessage(spokenText)
         } finally {
-            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
             if (wasMuted) {
                 audioManager.ringerMode = originalRingerMode
                 AppLog.d(TAG, "Restored ringer mode=$originalRingerMode")
@@ -307,15 +293,13 @@ class NotificationHandler @Inject constructor(
 
         if (useServerTts && serverTtsPlayer.isConfigured) {
             val voice = voicePrefs.serverTtsVoice.first()
-            val volume = voicePrefs.ttsVolume.first()
             AppLog.d(TAG, "Speaking via server TTS (voice=$voice): '${text.take(50)}...'")
-            serverTtsPlayer.speakFromServer(text, voice, volume = volume)
+            serverTtsPlayer.speakFromServer(text, voice)
         } else {
-            val volume = voicePrefs.ttsVolume.first()
             val rate = voicePrefs.ttsSpeechRate.first()
             val pitch = voicePrefs.ttsPitch.first()
             AppLog.d(TAG, "Speaking via local TTS: '${text.take(50)}...'")
-            ttsManager.speak(text, volume, rate, pitch)
+            ttsManager.speak(text, speechRate = rate, pitch = pitch)
         }
     }
 
@@ -329,14 +313,6 @@ class NotificationHandler @Inject constructor(
             enableVibration(true)
         }
         notificationManager.createNotificationChannel(channel)
-    }
-
-    /**
-     * Convert a 0.0–1.0 volume fraction to an absolute stream volume index.
-     */
-    private fun calculateStreamVolume(fraction: Float): Int {
-        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        return (fraction.coerceIn(0.0f, 1.0f) * maxVolume).toInt().coerceAtLeast(1)
     }
 
     /**

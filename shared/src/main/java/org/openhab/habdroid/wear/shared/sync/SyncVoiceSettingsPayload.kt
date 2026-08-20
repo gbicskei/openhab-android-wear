@@ -11,7 +11,6 @@ data class SyncVoiceSettingsPayload(
     val readAloudEnabled: Boolean = false,
     val useServerTts: Boolean = false,
     val serverTtsVoice: String = "",
-    val volume: Float = 1.0f,
     val speechRate: Float = 1.0f,
     val pitch: Float = 1.0f
 )

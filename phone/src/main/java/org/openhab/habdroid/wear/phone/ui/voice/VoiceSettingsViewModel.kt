@@ -22,7 +22,6 @@ data class VoiceSettingsUiState(
     val selectedVoice: String = "",
     val availableVoices: List<VoiceOption> = emptyList(),
     val voicesLoading: Boolean = false,
-    val volume: Float = 1.0f,
     val speechRate: Float = 1.0f,
     val pitch: Float = 1.0f,
     val ohVersion: String? = null,
@@ -65,7 +64,6 @@ class VoiceSettingsViewModel @Inject constructor(
                 readAloudEnabled = credentialStore.isReadAloudEnabled,
                 useServerTts = credentialStore.isUseServerTts && hasKey,
                 selectedVoice = credentialStore.serverTtsVoice,
-                volume = credentialStore.ttsVolume,
                 speechRate = credentialStore.ttsSpeechRate,
                 pitch = credentialStore.ttsPitch,
                 hasGoogleTtsKey = hasKey
@@ -111,28 +109,14 @@ class VoiceSettingsViewModel @Inject constructor(
                 val languageTag = java.util.Locale.getDefault().toLanguageTag()
                 val voices = connectionTester.fetchGoogleVoices(apiKey, languageTag)
                 if (voices.isEmpty()) {
-                    // API key invalid or no voices available — disable server TTS
-                    AppLog.w(TAG, "No voices returned — disabling server TTS")
-                    _uiState.update {
-                        it.copy(
-                            voicesLoading = false,
-                            availableVoices = emptyList(),
-                            useServerTts = false,
-                            hasGoogleTtsKey = false
-                        )
-                    }
+                    AppLog.w(TAG, "No voices returned for locale $languageTag")
+                    _uiState.update { it.copy(voicesLoading = false, availableVoices = emptyList()) }
                 } else {
                     _uiState.update { it.copy(availableVoices = voices, voicesLoading = false) }
                 }
             } catch (e: Exception) {
-                AppLog.w(TAG, "Failed to load voices — disabling server TTS", e)
-                _uiState.update {
-                    it.copy(
-                        voicesLoading = false,
-                        useServerTts = false,
-                        hasGoogleTtsKey = false
-                    )
-                }
+                AppLog.w(TAG, "Failed to load voices", e)
+                _uiState.update { it.copy(voicesLoading = false, availableVoices = emptyList()) }
             }
         }
     }
@@ -147,6 +131,9 @@ class VoiceSettingsViewModel @Inject constructor(
 
     fun onUseServerTtsChanged(useServer: Boolean) {
         _uiState.update { it.copy(useServerTts = useServer, hasUnsavedChanges = true) }
+        if (useServer && _uiState.value.availableVoices.isEmpty()) {
+            loadVoices()
+        }
     }
 
     fun onVoiceSelected(voiceId: String) {
@@ -171,10 +158,6 @@ class VoiceSettingsViewModel @Inject constructor(
         }
     }
 
-    fun onVolumeChanged(volume: Float) {
-        _uiState.update { it.copy(volume = volume, hasUnsavedChanges = true) }
-    }
-
     fun onSpeechRateChanged(rate: Float) {
         _uiState.update { it.copy(speechRate = rate, hasUnsavedChanges = true) }
     }
@@ -191,7 +174,6 @@ class VoiceSettingsViewModel @Inject constructor(
                 readAloudEnabled = state.readAloudEnabled,
                 useServerTts = state.useServerTts,
                 serverTtsVoice = state.selectedVoice,
-                volume = state.volume,
                 speechRate = state.speechRate,
                 pitch = state.pitch
             )
