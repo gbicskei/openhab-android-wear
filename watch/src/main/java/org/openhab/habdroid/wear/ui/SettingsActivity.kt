@@ -178,7 +178,6 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
     val ttsVoice by viewModel.serverTtsVoice.collectAsState()
     val apiKey by viewModel.hasGoogleTtsApiKey.collectAsState()
     val serverOnline by viewModel.serverOnline.collectAsState()
-    val ttsVolume by viewModel.ttsVolume.collectAsState()
     val ttsSpeechRate by viewModel.ttsSpeechRate.collectAsState()
     val testPlaying by viewModel.testPlaying.collectAsState()
 
@@ -246,20 +245,6 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
             }
         }
         item {
-            Text(
-                "Volume: ${(ttsVolume * 100).toInt()}%",
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        item {
-            Slider(
-                value = ttsVolume,
-                onValueChange = { viewModel.setTtsVolume(it) },
-                valueRange = 0f..1f,
-                steps = 9
-            )
-        }
-        item {
             Button(
                 onClick = { viewModel.testVoice() },
                 modifier = Modifier.fillMaxWidth(),
@@ -323,7 +308,6 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val notifReadAloud by viewModel.notifReadAloudEnabled.collectAsState()
     val chime by viewModel.chimeEnabled.collectAsState()
-    val notifVolume by viewModel.notificationVolume.collectAsState()
     val minPriority by viewModel.minReadAloudPriority.collectAsState()
 
     androidx.compose.foundation.layout.Column(
@@ -370,21 +354,6 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
                 label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") }
             )
         }
-        item {
-            Text(
-                "Volume: ${(notifVolume * 100).toInt()}%",
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        item {
-            Slider(
-                value = notifVolume,
-                onValueChange = { viewModel.setNotificationVolume(it) },
-                valueRange = 0f..1f,
-                steps = 9,
-                enabled = notificationsEnabled
-            )
-        }
     }
     }
 }
@@ -422,9 +391,6 @@ class WatchSettingsViewModel @Inject constructor(
     val hasGoogleTtsApiKey = voicePrefs.serverTtsApiKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
-    val ttsVolume = voicePrefs.ttsVolume
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
-
     val ttsSpeechRate = voicePrefs.ttsSpeechRate
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
@@ -437,9 +403,6 @@ class WatchSettingsViewModel @Inject constructor(
 
     val chimeEnabled = notificationPrefs.chimeEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
-    val notificationVolume = notificationPrefs.notificationVolume
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.0f)
 
     val minReadAloudPriority = notificationPrefs.minReadAloudPriority
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "normal")
@@ -527,13 +490,12 @@ class WatchSettingsViewModel @Inject constructor(
             AppLog.d(TAG, "→ testVoice()")
             try {
                 val useServer = voicePrefs.serverTtsEnabled.first()
-                val volume = voicePrefs.ttsVolume.first()
                 if (useServer) {
                     val apiKey = voicePrefs.serverTtsApiKey.first()
                     val voice = voicePrefs.serverTtsVoice.first()
                     AppLog.d(TAG, "testVoice: server TTS (voice=$voice)")
                     serverTtsPlayer.setApiKey(apiKey)
-                    serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice, volume = volume)
+                    serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice)
                 } else {
                     AppLog.d(TAG, "testVoice: local TTS")
                     // System TTS — fire and wait
@@ -543,10 +505,7 @@ class WatchSettingsViewModel @Inject constructor(
                     kotlinx.coroutines.delay(800) // let engine init
                     tts.setSpeechRate(rate)
                     tts.setPitch(pitch)
-                    val params = android.os.Bundle().apply {
-                        putFloat(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
-                    }
-                    tts.speak("This is a voice test.", android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "test")
+                    tts.speak("This is a voice test.", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "test")
                     kotlinx.coroutines.delay(3000)
                     tts.shutdown()
                 }
@@ -572,10 +531,6 @@ class WatchSettingsViewModel @Inject constructor(
                 .sorted()
         }
 
-    fun setTtsVolume(volume: Float) {
-        viewModelScope.launch { voicePrefs.setTtsVolume(volume) }
-    }
-
     fun setTtsSpeechRate(rate: Float) {
         viewModelScope.launch { voicePrefs.setTtsSpeechRate(rate) }
     }
@@ -595,10 +550,6 @@ class WatchSettingsViewModel @Inject constructor(
     fun toggleChime(enabled: Boolean) {
         AppLog.d(TAG, "toggleChime($enabled)")
         viewModelScope.launch { notificationPrefs.setChimeEnabled(enabled) }
-    }
-
-    fun setNotificationVolume(volume: Float) {
-        viewModelScope.launch { notificationPrefs.setNotificationVolume(volume) }
     }
 
     fun cycleMinReadAloudPriority() {

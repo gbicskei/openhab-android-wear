@@ -35,7 +35,6 @@ class TtsManager @Inject constructor(
 
     private var tts: TextToSpeech? = null
     private var isInitialized = false
-    private var pendingVolume = 1.0f
     private var pendingSpeechRate = 1.0f
     private var pendingPitch = 1.0f
 
@@ -53,7 +52,7 @@ class TtsManager @Inject constructor(
      * - Device has no audio output
      * - Text is blank or exceeds [MAX_SPEAK_LENGTH]
      */
-    fun speak(text: String, volume: Float = 1.0f, speechRate: Float = 1.0f, pitch: Float = 1.0f) {
+    fun speak(text: String, speechRate: Float = 1.0f, pitch: Float = 1.0f) {
         if (!hasAudioOutput) {
             AppLog.d(TAG, "No audio output — skipping TTS")
             return
@@ -63,7 +62,6 @@ class TtsManager @Inject constructor(
             return
         }
 
-        pendingVolume = volume
         pendingSpeechRate = speechRate
         pendingPitch = pitch
 
@@ -131,9 +129,6 @@ class TtsManager @Inject constructor(
             }
         })
 
-        // Speak with volume via Bundle params
-        val params = android.os.Bundle()
-        params.putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, pendingVolume)
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, "openhab_voice_response")
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "openhab_voice_response")
     }
 }

@@ -15,8 +15,7 @@ Feature release introducing **FCM push notifications with audio sink playback**,
   - `audio-tts` — watch speaks the message using configured TTS engine
   - `audio-sink` — streams pre-rendered audio from a server URL (AudioUrlPlayer)
 - `SpeakDisplayActivity` shows message text + logo during audio playback
-- Configurable notification volume (phone UI slider, synced to watch)
-- Volume set before playback, restored after
+- Configurable notification chime and read-aloud behavior (phone UI, synced to watch)
 - POST_NOTIFICATIONS permission requested at runtime (Wear OS API 33+)
 - `CachingDns` for reliable DNS resolution on watch (reduces timeout issues)
 

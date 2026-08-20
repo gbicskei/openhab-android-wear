@@ -39,7 +39,6 @@ Voice settings are configured on the **phone companion app** under **General Set
 |---------|---------|-------------|
 | Enable voice commands | On | Shows/hides the mic button on the tile. Automatically disabled if OH < 5.2.1 |
 | Read responses aloud | Off | Speaks the interpreter's response via TTS on the watch |
-| Volume | 100% | TTS playback volume |
 | Use Google WaveNet | Off | Use high-quality server-side voices instead of the watch's built-in TTS |
 | Voice | en-US-Wavenet-D | WaveNet voice selection (only visible when WaveNet is enabled) |
 | Speech rate | 1.0x | Built-in TTS speech rate (0.25x – 2.0x) |

@@ -47,7 +47,6 @@ class VoiceCommandViewModelTest {
         every { voicePreferenceStore.serverTtsEnabled } returns flowOf(false)
         every { voicePreferenceStore.serverTtsApiKey } returns flowOf("")
         every { voicePreferenceStore.serverTtsVoice } returns flowOf("en-US-Wavenet-D")
-        every { voicePreferenceStore.ttsVolume } returns flowOf(1.0f)
         every { voicePreferenceStore.ttsSpeechRate } returns flowOf(1.0f)
         every { voicePreferenceStore.ttsPitch } returns flowOf(1.0f)
         every { ttsManager.isSpeaking } returns MutableStateFlow(false)
@@ -144,14 +143,13 @@ class VoiceCommandViewModelTest {
         val isSpeakingFlow = MutableStateFlow(false)
         every { voicePreferenceStore.voiceResponseSpoken } returns flowOf(true)
         every { voicePreferenceStore.serverTtsEnabled } returns flowOf(false)
-        every { voicePreferenceStore.ttsVolume } returns flowOf(0.8f)
         every { voicePreferenceStore.ttsSpeechRate } returns flowOf(1.2f)
         every { voicePreferenceStore.ttsPitch } returns flowOf(0.9f)
         every { ttsManager.isSpeaking } returns isSpeakingFlow
         coEvery { repository.sendVoiceCommand("test") } returns Result.success("Done it")
 
         // Simulate TTS lifecycle: starts speaking, then finishes
-        every { ttsManager.speak(any(), any(), any(), any()) } answers {
+        every { ttsManager.speak(any(), any(), any()) } answers {
             isSpeakingFlow.value = true
         }
 
@@ -162,7 +160,7 @@ class VoiceCommandViewModelTest {
         // (it already is), then waiting for it to become false. Simulate finish:
         isSpeakingFlow.value = false
 
-        verify { ttsManager.speak("Done it", 0.8f, 1.2f, 0.9f) }
+        verify { ttsManager.speak("Done it", 1.2f, 0.9f) }
         val state = vm.uiState.value as VoiceUiState.Success
         assertTrue(state.ttsUsed)
         assertFalse(state.isSpeaking)

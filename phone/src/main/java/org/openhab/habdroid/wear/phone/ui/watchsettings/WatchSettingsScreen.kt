@@ -207,13 +207,6 @@ private fun WatchSettingsContent(
                         valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
                     )
                 }
-                SettingSlider(
-                    label = "Volume",
-                    value = snapshot.ttsVolume,
-                    onValueChange = viewModel::setTtsVolume,
-                    valueRange = 0f..1f,
-                    valueLabel = "${(snapshot.ttsVolume * 100).toInt()}%"
-                )
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = { viewModel.testVoice() },
@@ -269,14 +262,6 @@ private fun WatchSettingsContent(
                         selected = snapshot.minReadAloudPriority,
                         enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
                         onSelected = viewModel::setMinReadAloudPriority
-                    )
-                    SettingSlider(
-                        label = "Volume",
-                        value = snapshot.notificationVolume,
-                        onValueChange = viewModel::setNotificationVolume,
-                        valueRange = 0f..1f,
-                        enabled = snapshot.notificationsEnabled,
-                        valueLabel = "${(snapshot.notificationVolume * 100).toInt()}%"
                     )
                 }
             }

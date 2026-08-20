@@ -219,7 +219,6 @@ class WearDataLayerListenerService : WearableListenerService() {
                 voicePreferenceStore.setVoiceResponseSpoken(settings.readAloudEnabled)
                 voicePreferenceStore.setServerTtsEnabled(settings.useServerTts)
                 voicePreferenceStore.setServerTtsVoice(settings.serverTtsVoice)
-                voicePreferenceStore.setTtsVolume(settings.volume)
                 voicePreferenceStore.setTtsSpeechRate(settings.speechRate)
                 voicePreferenceStore.setTtsPitch(settings.pitch)
                 AppLog.d(TAG, "Voice settings saved from phone sync")
@@ -241,7 +240,6 @@ class WearDataLayerListenerService : WearableListenerService() {
                 notificationPreferenceStore.setReadAloudEnabled(settings.readAloudEnabled)
                 notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
                 notificationPreferenceStore.setChimeSound(settings.chimeSound)
-                notificationPreferenceStore.setNotificationVolume(settings.notificationVolume)
                 notificationPreferenceStore.setMinReadAloudPriority(settings.minReadAloudPriority)
                 AppLog.d(TAG, "Notification settings saved from phone sync")
             }
@@ -255,12 +253,11 @@ class WearDataLayerListenerService : WearableListenerService() {
         serviceScope.launch {
             try {
                 val useServerTts = voicePreferenceStore.serverTtsEnabled.first()
-                val volume = voicePreferenceStore.ttsVolume.first()
                 if (useServerTts) {
                     val apiKey = voicePreferenceStore.serverTtsApiKey.first()
                     val voice = voicePreferenceStore.serverTtsVoice.first()
                     serverTtsPlayer.setApiKey(apiKey)
-                    serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice, volume = volume)
+                    serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice)
                 } else {
                     // System TTS
                     val rate = voicePreferenceStore.ttsSpeechRate.first()
@@ -269,10 +266,7 @@ class WearDataLayerListenerService : WearableListenerService() {
                     kotlinx.coroutines.delay(800)
                     tts.setSpeechRate(rate)
                     tts.setPitch(pitch)
-                    val params = android.os.Bundle().apply {
-                        putFloat(android.speech.tts.TextToSpeech.Engine.KEY_PARAM_VOLUME, volume)
-                    }
-                    tts.speak("This is a voice test.", android.speech.tts.TextToSpeech.QUEUE_FLUSH, params, "test")
+                    tts.speak("This is a voice test.", android.speech.tts.TextToSpeech.QUEUE_FLUSH, null, "test")
                     kotlinx.coroutines.delay(3000)
                     tts.shutdown()
                 }
@@ -314,14 +308,12 @@ class WearDataLayerListenerService : WearableListenerService() {
                     readAloudEnabled = voicePreferenceStore.voiceResponseSpoken.first(),
                     useServerTts = voicePreferenceStore.serverTtsEnabled.first(),
                     serverTtsVoice = voicePreferenceStore.serverTtsVoice.first(),
-                    ttsVolume = voicePreferenceStore.ttsVolume.first(),
                     ttsSpeechRate = voicePreferenceStore.ttsSpeechRate.first(),
                     ttsPitch = voicePreferenceStore.ttsPitch.first(),
                     notificationsEnabled = notificationPreferenceStore.notificationsEnabled.first(),
                     notificationReadAloud = notificationPreferenceStore.readAloudEnabled.first(),
                     chimeEnabled = notificationPreferenceStore.chimeEnabled.first(),
                     chimeSound = notificationPreferenceStore.chimeSound.first(),
-                    notificationVolume = notificationPreferenceStore.notificationVolume.first(),
                     minReadAloudPriority = notificationPreferenceStore.minReadAloudPriority.first()
                 )
 

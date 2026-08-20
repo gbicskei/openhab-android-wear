@@ -388,8 +388,8 @@ Configure watch face complications:
 The phone provides a remote settings editor for watch-owned settings. The watch is the source of truth — the phone reads current values via MessageClient request/response and pushes changes back instantly (no Save button).
 
 Sections:
-- **Voice** — TTS engine, volume, speech rate, pitch, WaveNet voice, test button
-- **Notifications** — notification volume slider (controls audio-sink playback volume)
+- **Voice** — TTS engine, speech rate, pitch, WaveNet voice, test button
+- **Notifications** — enable/disable, read aloud, chime, priority filter
 - **Debug** — enable/disable debug mode, view debug log (24h retention, tail-f UX)
 
 Settings are backed up to the server as item metadata for disaster recovery.
@@ -420,8 +420,7 @@ FCM push notifications forwarded from openHAB Cloud to the watch.
 
 - `AudioUrlPlayer` streams audio from server-prepared URLs
 - `SpeakDisplayActivity` shows message text + wearOH logo during playback
-- Notification volume setting (phone slider, synced to watch) controls playback volume
-- Volume set before playback, restored after completion
+- Playback uses device system volume (no app-level volume override)
 
 ### Implementation
 
@@ -432,4 +431,4 @@ FCM push notifications forwarded from openHAB Cloud to the watch.
 | `NotificationHandler` | `notification/NotificationHandler.kt` | Routes by tag: TTS, audio-sink, or standard notification |
 | `SpeakDisplayActivity` | `notification/SpeakDisplayActivity.kt` | Shows message text + logo during audio playback |
 | `AudioUrlPlayer` | `util/AudioUrlPlayer.kt` | MediaPlayer wrapper for streaming audio URLs |
-| `NotificationPreferenceStore` | `data/repository/NotificationPreferenceStore.kt` | Stores notification volume + preferences |
+| `NotificationPreferenceStore` | `data/repository/NotificationPreferenceStore.kt` | Stores notification preferences (chime, read-aloud, priority) |

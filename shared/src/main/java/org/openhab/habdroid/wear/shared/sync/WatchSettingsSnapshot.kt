@@ -21,7 +21,6 @@ data class WatchSettingsSnapshot(
     val readAloudEnabled: Boolean = false,
     val useServerTts: Boolean = false,
     val serverTtsVoice: String = "",
-    val ttsVolume: Float = 1.0f,
     val ttsSpeechRate: Float = 1.0f,
     val ttsPitch: Float = 1.0f,
     // Notifications
@@ -29,7 +28,6 @@ data class WatchSettingsSnapshot(
     val notificationReadAloud: Boolean = false,
     val chimeEnabled: Boolean = true,
     val chimeSound: String = "default",
-    val notificationVolume: Float = 1.0f,
     val minReadAloudPriority: String = "normal"
 ) {
     /**
@@ -42,14 +40,12 @@ data class WatchSettingsSnapshot(
         "readAloudEnabled" to readAloudEnabled.toString(),
         "useServerTts" to useServerTts.toString(),
         "serverTtsVoice" to serverTtsVoice,
-        "ttsVolume" to ttsVolume.toString(),
         "ttsSpeechRate" to ttsSpeechRate.toString(),
         "ttsPitch" to ttsPitch.toString(),
         "notificationsEnabled" to notificationsEnabled.toString(),
         "notificationReadAloud" to notificationReadAloud.toString(),
         "chimeEnabled" to chimeEnabled.toString(),
         "chimeSound" to chimeSound,
-        "notificationVolume" to notificationVolume.toString(),
         "minReadAloudPriority" to minReadAloudPriority
     )
 
@@ -71,14 +67,12 @@ data class WatchSettingsSnapshot(
                 readAloudEnabled = config["readAloudEnabled"]?.toBooleanStrictOrNull() ?: false,
                 useServerTts = config["useServerTts"]?.toBooleanStrictOrNull() ?: false,
                 serverTtsVoice = config["serverTtsVoice"] ?: "",
-                ttsVolume = config["ttsVolume"]?.toFloatOrNull() ?: 1.0f,
                 ttsSpeechRate = config["ttsSpeechRate"]?.toFloatOrNull() ?: 1.0f,
                 ttsPitch = config["ttsPitch"]?.toFloatOrNull() ?: 1.0f,
                 notificationsEnabled = config["notificationsEnabled"]?.toBooleanStrictOrNull() ?: true,
                 notificationReadAloud = config["notificationReadAloud"]?.toBooleanStrictOrNull() ?: false,
                 chimeEnabled = config["chimeEnabled"]?.toBooleanStrictOrNull() ?: true,
                 chimeSound = config["chimeSound"] ?: "default",
-                notificationVolume = config["notificationVolume"]?.toFloatOrNull() ?: 1.0f,
                 minReadAloudPriority = config["minReadAloudPriority"] ?: "normal"
             )
     }

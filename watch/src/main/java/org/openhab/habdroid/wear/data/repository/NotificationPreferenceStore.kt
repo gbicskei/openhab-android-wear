@@ -94,21 +94,6 @@ class NotificationPreferenceStore(
     }
 
     /**
-     * Notification volume (0.0–1.0) to set when temporarily unmuting for alerts.
-     * Default: 1.0 (maximum).
-     */
-    val notificationVolume: Flow<Float> = dataStore.data.map { prefs ->
-        prefs[KEY_NOTIFICATION_VOLUME] ?: 1.0f
-    }
-
-    /** Set the notification volume level (0.0–1.0). */
-    suspend fun setNotificationVolume(volume: Float) {
-        dataStore.edit { prefs ->
-            prefs[KEY_NOTIFICATION_VOLUME] = volume.coerceIn(0.0f, 1.0f)
-        }
-    }
-
-    /**
      * Minimum priority level for read-aloud.
      * Values: "low", "normal", "high". Default: "normal".
      * Messages below this threshold are shown visually but not spoken.

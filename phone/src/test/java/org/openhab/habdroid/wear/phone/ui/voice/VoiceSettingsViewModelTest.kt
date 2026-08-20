@@ -41,7 +41,6 @@ class VoiceSettingsViewModelTest {
         every { credentialStore.isReadAloudEnabled } returns false
         every { credentialStore.isUseServerTts } returns false
         every { credentialStore.serverTtsVoice } returns ""
-        every { credentialStore.ttsVolume } returns 1.0f
         every { credentialStore.ttsSpeechRate } returns 1.0f
         every { credentialStore.ttsPitch } returns 1.0f
         every { credentialStore.credentials } returns flowOf(null)
@@ -58,7 +57,6 @@ class VoiceSettingsViewModelTest {
     fun `initial state loads from credential store`() = runTest(testDispatcher) {
         every { credentialStore.isVoiceCommandsEnabled } returns true
         every { credentialStore.isReadAloudEnabled } returns true
-        every { credentialStore.ttsVolume } returns 0.7f
 
         val vm = createViewModel()
         advanceUntilIdle()
@@ -66,7 +64,6 @@ class VoiceSettingsViewModelTest {
         val state = vm.uiState.value
         assertTrue(state.voiceCommandsEnabled)
         assertTrue(state.readAloudEnabled)
-        assertEquals(0.7f, state.volume)
     }
 
     @Test
@@ -88,17 +85,6 @@ class VoiceSettingsViewModelTest {
         vm.onReadAloudChanged(true)
 
         assertTrue(vm.uiState.value.readAloudEnabled)
-        assertTrue(vm.uiState.value.hasUnsavedChanges)
-    }
-
-    @Test
-    fun `onVolumeChanged updates state`() = runTest(testDispatcher) {
-        val vm = createViewModel()
-        advanceUntilIdle()
-
-        vm.onVolumeChanged(0.5f)
-
-        assertEquals(0.5f, vm.uiState.value.volume)
         assertTrue(vm.uiState.value.hasUnsavedChanges)
     }
 
@@ -153,7 +139,6 @@ class VoiceSettingsViewModelTest {
 
         vm.onVoiceCommandsEnabledChanged(false)
         vm.onReadAloudChanged(true)
-        vm.onVolumeChanged(0.6f)
         vm.save()
         advanceUntilIdle()
 
@@ -163,7 +148,6 @@ class VoiceSettingsViewModelTest {
                 readAloudEnabled = true,
                 useServerTts = any(),
                 serverTtsVoice = any(),
-                volume = 0.6f,
                 speechRate = any(),
                 pitch = any()
             )

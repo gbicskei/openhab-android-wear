@@ -91,7 +91,7 @@ Connection options:
 **Decision:** The watch owns all runtime settings (voice, notifications, debug). The phone is a remote editor that reads/writes via MessageClient.
 
 **Rationale:**
-- Settings are inherently local to the device that uses them (TTS volume, notification behavior)
+- Settings are inherently local to the device that uses them (TTS engine, notification behavior)
 - Eliminates sync conflicts — one owner, one copy
 - Phone doesn't need to be connected for settings to work
 - Server backup (item metadata) provides disaster recovery without being the primary store
@@ -223,7 +223,6 @@ openHAB Cloud → FCM → FcmMessageListenerService
     → tag = "audio-sink"?
       → AudioUrlPlayer.play(audioUrl)
       → SpeakDisplayActivity shows message text
-      → Set notification volume → play → restore volume
     → tag = "audio-tts"?
       → TTS engine speaks message text
     → else

@@ -96,15 +96,6 @@ fun VoiceSettingsContent(viewModel: VoiceSettingsViewModel) {
                 Column {
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Volume slider
-                    SliderSetting(
-                        label = "Volume",
-                        value = uiState.volume,
-                        onValueChange = viewModel::onVolumeChanged,
-                        valueRange = 0f..1f,
-                        valueLabel = "${(uiState.volume * 100).toInt()}%"
-                    )
-
                     // ─── Server TTS (Google WaveNet) ───
                     Spacer(modifier = Modifier.height(12.dp))
 

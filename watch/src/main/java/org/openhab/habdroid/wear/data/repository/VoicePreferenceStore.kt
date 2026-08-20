@@ -94,17 +94,6 @@ class VoicePreferenceStore @Inject constructor(
         }
     }
 
-    /** TTS playback volume (0.0–1.0). Default: 1.0. */
-    val ttsVolume: Flow<Float> = dataStore.data.map { prefs ->
-        prefs[KEY_TTS_VOLUME] ?: 1.0f
-    }
-
-    suspend fun setTtsVolume(volume: Float) {
-        dataStore.edit { prefs ->
-            prefs[KEY_TTS_VOLUME] = volume.coerceIn(0f, 1f)
-        }
-    }
-
     /** System TTS speech rate (0.25–3.0). Default: 1.0. */
     val ttsSpeechRate: Flow<Float> = dataStore.data.map { prefs ->
         prefs[KEY_TTS_SPEECH_RATE] ?: 1.0f

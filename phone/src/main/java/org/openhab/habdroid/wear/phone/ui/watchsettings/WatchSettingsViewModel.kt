@@ -193,6 +193,9 @@ class WatchSettingsViewModel @Inject constructor(
                 if (response != null) {
                     _uiState.update { it.copy(loadState = LoadState.Loaded, snapshot = response) }
                     AppLog.d(TAG, "Settings loaded from watch")
+                    if (response.useServerTts) {
+                        loadVoices()
+                    }
                 } else {
                     _uiState.update { it.copy(loadState = LoadState.Error, errorMessage = "Watch did not respond") }
                 }
@@ -289,10 +292,6 @@ class WatchSettingsViewModel @Inject constructor(
         updateAndSyncVoice { it.copy(serverTtsVoice = voice) }
     }
 
-    fun setTtsVolume(volume: Float) {
-        updateAndSyncVoice { it.copy(ttsVolume = volume) }
-    }
-
     fun setTtsSpeechRate(rate: Float) {
         updateAndSyncVoice { it.copy(ttsSpeechRate = rate) }
     }
@@ -315,7 +314,6 @@ class WatchSettingsViewModel @Inject constructor(
                 readAloudEnabled = snapshot.readAloudEnabled,
                 useServerTts = snapshot.useServerTts,
                 serverTtsVoice = snapshot.serverTtsVoice,
-                volume = snapshot.ttsVolume,
                 speechRate = snapshot.ttsSpeechRate,
                 pitch = snapshot.ttsPitch
             )
@@ -342,10 +340,6 @@ class WatchSettingsViewModel @Inject constructor(
         updateAndSyncNotifications { it.copy(chimeSound = sound) }
     }
 
-    fun setNotificationVolume(volume: Float) {
-        updateAndSyncNotifications { it.copy(notificationVolume = volume) }
-    }
-
     fun setMinReadAloudPriority(priority: String) {
         updateAndSyncNotifications { it.copy(minReadAloudPriority = priority) }
     }
@@ -364,7 +358,6 @@ class WatchSettingsViewModel @Inject constructor(
                 readAloudEnabled = snapshot.notificationReadAloud,
                 chimeEnabled = snapshot.chimeEnabled,
                 chimeSound = snapshot.chimeSound,
-                notificationVolume = snapshot.notificationVolume,
                 minReadAloudPriority = snapshot.minReadAloudPriority
             )
             dataLayerSender.sendNotificationSettings(json.encodeToString(payload))
