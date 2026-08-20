@@ -1,0 +1,2 @@
+# Never commit binding JARs - they contain embedded Firebase credentials
+*.jar

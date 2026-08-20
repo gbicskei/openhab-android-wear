@@ -2,6 +2,8 @@
 
 openHAB binding that acts as an audio sink for wearOH. Sends TTS audio and notifications directly to the watch via FCM.
 
+**Important:** The binding JAR must NOT be committed to this repository — it contains embedded Firebase service account credentials. Distribute via GitHub Releases only.
+
 ## Compatibility
 
 - openHAB 5.x (tested with 5.2.1+)

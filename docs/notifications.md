@@ -12,12 +12,12 @@ wearOH receives push notifications from openHAB via FCM (Firebase Cloud Messagin
 
 ### MobileAudio Binding
 
-The binding JAR is included in this repository under [`binding/`](../binding/).
+The binding JAR is available from [GitHub Releases](https://github.com/gbicskei/openhab-android-wear/releases). Do NOT commit the JAR to the repository — it contains embedded Firebase credentials.
 
-1. Download `org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar` from the `binding/` directory
+1. Download `org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar` from the latest release
 2. Copy it to your openHAB server's `addons/` folder:
    ```bash
-   scp binding/org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar user@server:/opt/openhab/addons/
+   scp org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar user@server:/opt/openhab/addons/
    ```
 3. The binding loads automatically — no restart needed
 4. Add a new Thing of type `mobileaudio:device` via the openHAB UI (Settings → Things → + → MobileAudio Binding)
