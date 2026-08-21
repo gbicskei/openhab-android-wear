@@ -341,6 +341,22 @@ private fun TileSlotButton(
                 stateText = stateText
             )
         }
+
+        // Position badge — bottom center, centered on the ring stroke
+        val badgeOffset = slotSize / 2  // half the badge hangs below the button edge
+        Text(
+            text = position.toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.85f),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = badgeOffset * 0.18f)
+                .background(
+                    color = Color(0xFF555555),
+                    shape = CircleShape
+                )
+                .padding(horizontal = 4.dp, vertical = 1.dp)
+        )
     }
 }
 
