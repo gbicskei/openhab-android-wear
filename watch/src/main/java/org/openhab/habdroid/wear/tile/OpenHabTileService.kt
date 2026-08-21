@@ -137,6 +137,7 @@ class OpenHabTileService : TileService() {
                 repository.refreshStates()
                     .onSuccess {
                         allItems = itemCache.get() ?: allItems
+                        tileStateEventSource.lastSuccessMillis = System.currentTimeMillis()
                         AppLog.d("TileNav", "Inline state refresh done")
                     }
                     .onFailure { e ->

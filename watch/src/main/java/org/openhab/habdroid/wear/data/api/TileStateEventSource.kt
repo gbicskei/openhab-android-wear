@@ -54,7 +54,8 @@ class TileStateEventSource @Inject constructor(
     private val credentialStore: CredentialStore,
     private val repository: OpenHabRepository,
     private val itemCache: ItemCache,
-    private val serverSelector: ServerSelector
+    private val serverSelector: ServerSelector,
+    private val cachingDns: CachingDns
 ) {
     companion object {
         private const val TAG = "TileStateSSE"
@@ -279,7 +280,9 @@ class TileStateEventSource @Inject constructor(
         val authHeader = serverSelector.resolveAuthHeader()
 
         val sseClient = OkHttpClient.Builder()
+            .dns(cachingDns)
             .readTimeout(0, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
             .retryOnConnectionFailure(true)
             .apply {
                 if (authHeader != null) {
@@ -434,8 +437,13 @@ class TileStateEventSource @Inject constructor(
     private suspend fun pollLoop(): SseResult {
         AppLog.d(TAG, "→ pollLoop()")
         AppLog.d(TAG, "Starting poll loop (${POLL_INTERVAL_MS}ms interval)")
+        var firstAttempt = true
         while (true) {
-            delay(POLL_INTERVAL_MS)
+            if (firstAttempt) {
+                firstAttempt = false
+            } else {
+                delay(POLL_INTERVAL_MS)
+            }
             try {
                 repository.refreshStates()
                     .onSuccess {
