@@ -237,6 +237,19 @@ class PhoneDataLayerSender @Inject constructor(
             payloadJson.toByteArray(Charsets.UTF_8)
         ).await()
     }
+
+    /**
+     * Send theme selection to the watch.
+     */
+    suspend fun sendTheme(themeName: String): Result<Unit> = runCatching {
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_THEME,
+            themeName.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
 }
 
 class NoWatchConnectedException : Exception("No connected watch found")

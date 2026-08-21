@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
@@ -47,7 +49,9 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            OpenHabWearPhoneTheme(accentName = credentialStore.getSelectedTheme()) {
+            val currentTheme by credentialStore.selectedThemeState.collectAsState()
+
+            OpenHabWearPhoneTheme(accentName = currentTheme) {
                 val navController = rememberNavController()
                 AppNavHost(navController = navController)
 

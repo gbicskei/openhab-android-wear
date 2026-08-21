@@ -221,6 +221,12 @@ class TileDesignViewModel @Inject constructor(
         val state = (_uiState.value as? TileDesignUiState.Success) ?: return
         val currentPage = state.editor.currentPage
 
+        // Warn if configured items would be hidden by the smaller layout
+        val configuredCount = currentPage.slots.count { !it.isEmpty }
+        if (newLayout < configuredCount) {
+            _snackbarMessage.value = "${configuredCount - newLayout} item(s) will be hidden"
+        }
+
         // Keep ALL slot definitions — just change the layout count.
         // Slots beyond the layout count are preserved but not displayed.
         val updatedPage = currentPage.copy(layout = newLayout)
@@ -252,16 +258,9 @@ class TileDesignViewModel @Inject constructor(
     }
 
     fun onThemeSelected(themeName: String) {
+        // Preview only — updates the tile designer preview without persisting.
+        // The actual theme is saved from Watch Settings → Theme section.
         _selectedTheme.value = themeName
-        viewModelScope.launch {
-            credentialStore.saveSelectedTheme(themeName)
-            // Update the main page's theme in the editor state and save to server
-            val state = (_uiState.value as? TileDesignUiState.Success) ?: return@launch
-            val mainPage = state.editor.pages.find { it.uid == "main" } ?: return@launch
-            val updatedMain = mainPage.copy(theme = themeName)
-            updatePageInState(updatedMain)
-            savePage(updatedMain)
-        }
     }
 
     /** User selected an item from the picker. */

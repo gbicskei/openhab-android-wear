@@ -72,6 +72,9 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var serverSelector: org.openhab.habdroid.wear.data.api.ServerSelector
 
+    @Inject
+    lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -82,6 +85,7 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
             SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
             SyncConstants.PATH_NOTIFICATION_SETTINGS -> handleNotificationSettingsMessage(messageEvent)
+            SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             SyncConstants.PATH_ASSISTANT_STATUS_REQUEST -> handleAssistantStatusRequest(messageEvent)
             SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
             SyncConstants.PATH_SETTINGS_REQUEST -> handleSettingsRequest(messageEvent)
@@ -245,6 +249,19 @@ class WearDataLayerListenerService : WearableListenerService() {
             }
         } catch (e: Exception) {
             AppLog.e(TAG, "Failed to parse notification settings message", e)
+        }
+    }
+
+    private fun handleThemeMessage(messageEvent: MessageEvent) {
+        val themeName = String(messageEvent.data, Charsets.UTF_8)
+        AppLog.d(TAG, "Theme received from phone: $themeName")
+        serviceScope.launch {
+            val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
+            themeStore.setTheme(theme)
+            // Request tile update to reflect new theme color
+            androidx.wear.tiles.TileService.getUpdater(this@WearDataLayerListenerService)
+                .requestUpdate(org.openhab.habdroid.wear.tile.OpenHabTileService::class.java)
+            AppLog.d(TAG, "Theme updated to $themeName, tile refresh requested")
         }
     }
 

@@ -221,6 +221,12 @@ class PhoneCredentialStore @Inject constructor(
         _userKey.value = ""
     }
 
+    /** Observable theme state for Compose reactivity. */
+    val selectedThemeState = kotlinx.coroutines.flow.MutableStateFlow(
+        try { encryptedPrefs.getString(KEY_SELECTED_THEME, DEFAULT_THEME) ?: DEFAULT_THEME }
+        catch (_: Exception) { DEFAULT_THEME }
+    )
+
     /** Get the currently selected tile theme name. */
     fun getSelectedTheme(): String {
         return encryptedPrefs.getString(KEY_SELECTED_THEME, DEFAULT_THEME) ?: DEFAULT_THEME
@@ -233,6 +239,7 @@ class PhoneCredentialStore @Inject constructor(
                 .putString(KEY_SELECTED_THEME, themeName)
                 .apply()
         }
+        selectedThemeState.value = themeName
     }
 
     /** Get the stored Google Cloud TTS API key. Empty string if not set. */

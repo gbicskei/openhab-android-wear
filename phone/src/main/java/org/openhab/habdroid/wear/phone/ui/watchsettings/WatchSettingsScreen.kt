@@ -1,6 +1,7 @@
 package org.openhab.habdroid.wear.phone.ui.watchsettings
 
 import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -60,8 +61,10 @@ fun WatchSettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val watchDisconnected by viewModel.watchDisconnected.collectAsStateWithLifecycle()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val context = LocalContext.current
+
+    // Track which sub-screen is showing (null = overview)
+    var currentSection by remember { mutableStateOf<SettingsSection?>(null) }
 
     // Auto-navigate back if watch disconnects
     LaunchedEffect(watchDisconnected) {
@@ -71,12 +74,21 @@ fun WatchSettingsScreen(
         }
     }
 
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val title = when (currentSection) {
+        SettingsSection.VOICE -> "Voice"
+        SettingsSection.NOTIFICATIONS -> "Notifications"
+        SettingsSection.MISC -> "Misc"
+        SettingsSection.THEME -> "Theme"
+        null -> "Watch Settings"
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Watch Settings")
+                        Text(title)
                         Spacer(modifier = Modifier.width(8.dp))
                         Box(
                             modifier = Modifier
@@ -89,7 +101,9 @@ fun WatchSettingsScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        if (currentSection != null) currentSection = null else onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -131,189 +145,328 @@ fun WatchSettingsScreen(
             }
 
             LoadState.Loaded -> {
-                WatchSettingsContent(
-                    state = state,
-                    viewModel = viewModel,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(paddingValues)
-                        .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState())
-                )
+                when (currentSection) {
+                    null -> SettingsOverview(
+                        state = state,
+                        onSectionSelected = { currentSection = it },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                    )
+                    SettingsSection.VOICE -> VoiceSettingsContent(
+                        state = state,
+                        viewModel = viewModel,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                    SettingsSection.NOTIFICATIONS -> NotificationSettingsContent(
+                        state = state,
+                        viewModel = viewModel,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                    SettingsSection.MISC -> MiscSettingsContent(
+                        state = state,
+                        viewModel = viewModel,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                    SettingsSection.THEME -> ThemeSettingsContent(
+                        state = state,
+                        viewModel = viewModel,
+                        onDone = { currentSection = null },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues)
+                            .padding(horizontal = 16.dp)
+                    )
+                }
             }
         }
     }
 }
 
+private enum class SettingsSection { VOICE, NOTIFICATIONS, MISC, THEME }
+
 @Composable
-private fun WatchSettingsContent(
+private fun SettingsOverview(
+    state: WatchSettingsUiState,
+    onSectionSelected: (SettingsSection) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.padding(top = 8.dp)) {
+        SettingsCategoryCard(
+            title = "Voice",
+            subtitle = if (state.snapshot.voiceCommandsEnabled) "Commands enabled" else "Commands disabled",
+            onClick = { onSectionSelected(SettingsSection.VOICE) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsCategoryCard(
+            title = "Notifications",
+            subtitle = if (!state.bindingInstalled) "Binding not installed"
+                else if (state.snapshot.notificationsEnabled) "Enabled" else "Disabled",
+            onClick = { onSectionSelected(SettingsSection.NOTIFICATIONS) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsCategoryCard(
+            title = "Theme",
+            subtitle = state.selectedTheme.ifBlank { "Amber" }.replaceFirstChar { it.uppercase() },
+            onClick = { onSectionSelected(SettingsSection.THEME) }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsCategoryCard(
+            title = "Misc",
+            subtitle = buildString {
+                if (state.snapshot.debugMode) append("Debug on")
+                else append("Debug off")
+                if (state.backupEnabled) append(" · Backup on")
+            },
+            onClick = { onSectionSelected(SettingsSection.MISC) }
+        )
+    }
+}
+
+@Composable
+private fun SettingsCategoryCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    ElevatedCard(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun VoiceSettingsContent(
     state: WatchSettingsUiState,
     viewModel: WatchSettingsViewModel,
     modifier: Modifier = Modifier
 ) {
     val snapshot = state.snapshot
-    val backupEnabled = state.backupEnabled
     val googleTtsAvailable = state.googleTtsAvailable
+
     Column(modifier = modifier) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ─── Voice Settings ───
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Voice", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingSwitch(
-                    label = "Voice Commands",
-                    checked = snapshot.voiceCommandsEnabled,
-                    onCheckedChange = viewModel::setVoiceCommandsEnabled
-                )
-                SettingSwitch(
-                    label = "Read Aloud",
-                    checked = snapshot.readAloudEnabled,
-                    onCheckedChange = viewModel::setReadAloudEnabled
-                )
-                SettingSwitch(
-                    label = "Google TTS",
-                    checked = snapshot.useServerTts,
-                    enabled = snapshot.readAloudEnabled && googleTtsAvailable,
-                    onCheckedChange = viewModel::setUseServerTts
-                )
-                if (snapshot.useServerTts && googleTtsAvailable) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    VoicePickerDropdown(
-                        selectedVoice = snapshot.serverTtsVoice,
-                        voices = state.availableVoices,
-                        loading = state.voicesLoading,
-                        onVoiceSelected = viewModel::selectVoice
-                    )
-                }
-                if (!snapshot.useServerTts) {
-                    SettingSlider(
-                        label = "Speech Rate",
-                        value = snapshot.ttsSpeechRate,
-                        onValueChange = viewModel::setTtsSpeechRate,
-                        valueRange = 0.5f..2.0f,
-                        valueLabel = "${String.format("%.1f", snapshot.ttsSpeechRate)}x"
-                    )
-                    SettingSlider(
-                        label = "Pitch",
-                        value = snapshot.ttsPitch,
-                        onValueChange = viewModel::setTtsPitch,
-                        valueRange = 0.5f..2.0f,
-                        valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { viewModel.testVoice() },
-                    enabled = !state.testPlaying && snapshot.readAloudEnabled,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (state.testPlaying) "Playing..." else "Test Voice")
-                }
-            }
+        SettingSwitch(
+            label = "Voice Commands",
+            checked = snapshot.voiceCommandsEnabled,
+            onCheckedChange = viewModel::setVoiceCommandsEnabled
+        )
+        SettingSwitch(
+            label = "Read Aloud",
+            checked = snapshot.readAloudEnabled,
+            onCheckedChange = viewModel::setReadAloudEnabled
+        )
+        SettingSwitch(
+            label = "Google TTS",
+            checked = snapshot.useServerTts,
+            enabled = snapshot.readAloudEnabled && googleTtsAvailable,
+            onCheckedChange = viewModel::setUseServerTts
+        )
+        if (snapshot.useServerTts && googleTtsAvailable) {
+            Spacer(modifier = Modifier.height(8.dp))
+            VoicePickerDropdown(
+                selectedVoice = snapshot.serverTtsVoice,
+                voices = state.availableVoices,
+                loading = state.voicesLoading,
+                onVoiceSelected = viewModel::selectVoice
+            )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ─── Notification Settings ───
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Notifications", style = MaterialTheme.typography.titleLarge)
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("(Experimental)", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (!state.bindingInstalled) {
-                    Text(
-                        "Install the Mobile Audio binding on your openHAB server to enable push notifications to the watch.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    SettingSwitch(
-                        label = "Enabled",
-                        checked = snapshot.notificationsEnabled,
-                        onCheckedChange = viewModel::setNotificationsEnabled
-                    )
-                    SettingSwitch(
-                        label = "Read Aloud",
-                        checked = snapshot.notificationReadAloud,
-                        enabled = snapshot.notificationsEnabled,
-                        onCheckedChange = viewModel::setNotificationReadAloud
-                    )
-                    SettingSwitch(
-                        label = "Alert Sound",
-                        checked = snapshot.chimeEnabled,
-                        enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
-                        onCheckedChange = viewModel::setChimeEnabled
-                    )
-                    PriorityDropdown(
-                        label = "Read Priority",
-                        selected = snapshot.minReadAloudPriority,
-                        enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
-                        onSelected = viewModel::setMinReadAloudPriority
-                    )
-                }
-            }
+        if (!snapshot.useServerTts) {
+            SettingSlider(
+                label = "Speech Rate",
+                value = snapshot.ttsSpeechRate,
+                onValueChange = viewModel::setTtsSpeechRate,
+                valueRange = 0.5f..2.0f,
+                valueLabel = "${String.format("%.1f", snapshot.ttsSpeechRate)}x"
+            )
+            SettingSlider(
+                label = "Pitch",
+                value = snapshot.ttsPitch,
+                onValueChange = viewModel::setTtsPitch,
+                valueRange = 0.5f..2.0f,
+                valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
+            )
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ─── Debug ───
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(
+            onClick = { viewModel.testVoice() },
+            enabled = !state.testPlaying && snapshot.readAloudEnabled,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Debug", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingSwitch(
-                    label = "Debug Mode",
-                    checked = snapshot.debugMode,
-                    onCheckedChange = viewModel::setDebugMode
-                )
-            }
+            Text(if (state.testPlaying) "Playing..." else "Test Voice")
         }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ─── Backup & Restore ───
-        ElevatedCard(
-            modifier = Modifier.fillMaxWidth(),
-            elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Server Backup", style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                SettingSwitch(
-                    label = "Enable Backup",
-                    checked = backupEnabled,
-                    onCheckedChange = viewModel::setBackupEnabled
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Button(
-                    onClick = { viewModel.restoreFromBackup() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Restore from Backup")
-                }
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun NotificationSettingsContent(
+    state: WatchSettingsUiState,
+    viewModel: WatchSettingsViewModel,
+    modifier: Modifier = Modifier
+) {
+    val snapshot = state.snapshot
+
+    Column(modifier = modifier) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (!state.bindingInstalled) {
+            Text(
+                "Install the Mobile Audio binding on your openHAB server to enable push notifications to the watch.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            SettingSwitch(
+                label = "Enabled",
+                checked = snapshot.notificationsEnabled,
+                onCheckedChange = viewModel::setNotificationsEnabled
+            )
+            SettingSwitch(
+                label = "Read Aloud",
+                checked = snapshot.notificationReadAloud,
+                enabled = snapshot.notificationsEnabled,
+                onCheckedChange = viewModel::setNotificationReadAloud
+            )
+            SettingSwitch(
+                label = "Alert Sound",
+                checked = snapshot.chimeEnabled,
+                enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
+                onCheckedChange = viewModel::setChimeEnabled
+            )
+            PriorityDropdown(
+                label = "Read Priority",
+                selected = snapshot.minReadAloudPriority,
+                enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
+                onSelected = viewModel::setMinReadAloudPriority
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun MiscSettingsContent(
+    state: WatchSettingsUiState,
+    viewModel: WatchSettingsViewModel,
+    modifier: Modifier = Modifier
+) {
+    val snapshot = state.snapshot
+
+    Column(modifier = modifier) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingSwitch(
+            label = "Debug Mode",
+            checked = snapshot.debugMode,
+            onCheckedChange = viewModel::setDebugMode
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        SettingSwitch(
+            label = "Server Backup",
+            checked = state.backupEnabled,
+            onCheckedChange = viewModel::setBackupEnabled
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { viewModel.restoreFromBackup() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Restore from Backup")
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun ThemeSettingsContent(
+    state: WatchSettingsUiState,
+    viewModel: WatchSettingsViewModel,
+    onDone: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val themes = listOf("AMBER", "BLUE", "GREEN", "PURPLE", "RED")
+    val displayNames = mapOf(
+        "AMBER" to "Amber",
+        "BLUE" to "Blue",
+        "GREEN" to "Green",
+        "PURPLE" to "Purple",
+        "RED" to "Red"
+    )
+    val colors = mapOf(
+        "AMBER" to Color(0xFFFFB950),
+        "BLUE" to Color(0xFFA8C8FF),
+        "GREEN" to Color(0xFF8AD88E),
+        "PURPLE" to Color(0xFFD4BBFF),
+        "RED" to Color(0xFFFFB4AB)
+    )
+
+    Column(modifier = modifier.padding(top = 8.dp)) {
+        themes.forEach { theme ->
+            val isSelected = theme == state.selectedTheme
+            ElevatedCard(
+                onClick = {
+                    viewModel.setTheme(theme)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                elevation = CardDefaults.elevatedCardElevation(
+                    defaultElevation = if (isSelected) 4.dp else 1.dp
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Canvas(modifier = Modifier.size(24.dp)) {
+                        drawCircle(color = colors[theme] ?: Color.Gray)
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = displayNames[theme] ?: theme,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (isSelected) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text(
+                            text = "✓",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

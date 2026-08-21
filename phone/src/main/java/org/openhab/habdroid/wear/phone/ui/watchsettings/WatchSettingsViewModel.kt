@@ -46,7 +46,8 @@ data class WatchSettingsUiState(
     val voicesLoading: Boolean = false,
     val testPlaying: Boolean = false,
     val restoreState: RestoreState = RestoreState.Idle,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val selectedTheme: String = "AMBER"
 )
 
 enum class LoadState { Loading, Loaded, Error }
@@ -101,7 +102,10 @@ class WatchSettingsViewModel @Inject constructor(
         observeWatchConnection()
         checkGoogleTtsAvailability()
         checkBindingInstalled()
-        _uiState.update { it.copy(backupEnabled = credentialStore.isBackupEnabled) }
+        _uiState.update { it.copy(
+            backupEnabled = credentialStore.isBackupEnabled,
+            selectedTheme = credentialStore.getSelectedTheme()
+        ) }
     }
 
     /**
@@ -380,6 +384,20 @@ class WatchSettingsViewModel @Inject constructor(
         }
         scheduleBackupWrite()
         AppLog.d(TAG, "Debug mode set to $enabled")
+    }
+
+    // ─── Theme ───
+
+    fun setTheme(themeName: String) {
+        _uiState.update { it.copy(selectedTheme = themeName) }
+        viewModelScope.launch {
+            // Cache locally (fallback for when watch is disconnected)
+            credentialStore.saveSelectedTheme(themeName)
+            // Send to watch (source of truth)
+            dataLayerSender.sendTheme(themeName)
+                .onFailure { AppLog.w(TAG, "Failed to send theme to watch: ${it.message}") }
+        }
+        AppLog.d(TAG, "Theme set to $themeName")
     }
 
     // ─── Backup toggle ───

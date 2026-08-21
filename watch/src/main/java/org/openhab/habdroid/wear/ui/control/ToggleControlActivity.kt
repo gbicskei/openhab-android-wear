@@ -67,7 +67,10 @@ class ToggleControlActivity : ComponentActivity() {
                     passedLabel = label,
                     repository = repository,
                     themeStore = themeStore,
-                    onCommandSent = { complicationRefresher.requestUpdate() }
+                    onCommandSent = {
+                        complicationRefresher.requestUpdate()
+                        finish()
+                    }
                 )
             }
         }

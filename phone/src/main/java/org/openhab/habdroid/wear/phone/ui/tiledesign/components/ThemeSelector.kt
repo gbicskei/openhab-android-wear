@@ -52,7 +52,7 @@ fun ThemeSelector(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Tile Theme",
+            text = "Tile Theme Preview",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

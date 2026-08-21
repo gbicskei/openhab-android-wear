@@ -45,7 +45,7 @@ class ChoicePickerActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             WearOHTheme {
-                ChoicePickerScreen()
+                ChoicePickerScreen(onDone = { finish() })
             }
         }
     }
@@ -53,7 +53,8 @@ class ChoicePickerActivity : ComponentActivity() {
 
 @Composable
 fun ChoicePickerScreen(
-    viewModel: ChoicePickerViewModel = hiltViewModel()
+    viewModel: ChoicePickerViewModel = hiltViewModel(),
+    onDone: () -> Unit = {}
 ) {
     val state by viewModel.state.collectAsState()
 
@@ -114,7 +115,10 @@ fun ChoicePickerScreen(
                             isActive = isActive,
                             isSending = state.isSending,
                             themeColor = Color(state.themeColor),
-                            onClick = { viewModel.selectOption(option) }
+                            onClick = {
+                                viewModel.selectOption(option)
+                                onDone()
+                            }
                         )
                     }
                 }
