@@ -902,12 +902,19 @@ class OpenHabTileService : TileService() {
         return LayoutElementBuilders.Box.Builder()
             .setWidth(dp(boxSize))
             .setHeight(dp(boxSize))
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
                     .setClickable(clickable)
-                    .setPadding(
-                        ModifiersBuilders.Padding.Builder()
-                            .setAll(dp(2f))
+                    .setBackground(
+                        ModifiersBuilders.Background.Builder()
+                            .setColor(argb(BUTTON_CONTAINER_COLOR))
+                            .setCorner(
+                                ModifiersBuilders.Corner.Builder()
+                                    .setRadius(dp(boxSize / 2f))
+                                    .build()
+                            )
                             .build()
                     )
                     .build()
@@ -1392,5 +1399,8 @@ class OpenHabTileService : TileService() {
         private const val RESOURCE_ID_LOGO = "ic_logo"
         private const val RESOURCE_ID_PLAIN_LOGO = "ic_plain_logo"
         private const val LOGO_ICON_SIZE = 108
+
+        /** M3 Surface-Container color for button backgrounds on the tile. */
+        private const val BUTTON_CONTAINER_COLOR = 0xFF2C2C2C.toInt()
     }
 }
