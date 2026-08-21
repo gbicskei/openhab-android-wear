@@ -379,7 +379,17 @@ class WatchSettingsViewModel @Inject constructor(
             credentialStore.setDebugMode(enabled)
             // Push to watch via credentials path (PATH_CONFIG carries debugMode)
             val creds = credentialStore.credentials.first() ?: return@launch
-            dataLayerSender.sendCredentials(creds, debugMode = enabled)
+            val localConfig = credentialStore.localConfig.first()
+            dataLayerSender.sendCredentials(
+                creds,
+                debugMode = enabled,
+                localServerUrl = localConfig?.serverUrl ?: "",
+                localUsername = localConfig?.username ?: "",
+                localPassword = localConfig?.password ?: "",
+                localApiToken = localConfig?.apiToken ?: "",
+                deviceName = credentialStore.deviceName,
+                bindingInstalled = credentialStore.isBindingInstalled
+            )
                 .onFailure { AppLog.w(TAG, "Failed to sync debug mode to watch: ${it.message}") }
         }
         scheduleBackupWrite()
