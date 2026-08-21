@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -318,10 +319,11 @@ fun WatchPreview(
                         colorFilter = ColorFilter.tint(Color.White)
                     )
                 } else {
-                    Text(
-                        text = "\u2190",
-                        color = Color.White,
-                        fontSize = (14f * scale).sp
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        modifier = Modifier.size((13f * scale).dp),
+                        tint = Color.White
                     )
                 }
             }
