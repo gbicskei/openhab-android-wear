@@ -107,6 +107,16 @@ fun WatchPreview(
             val offsetX = ((cx - centerCoord) * scale).roundToInt()
             val offsetY = ((cy - centerCoord) * scale).roundToInt()
 
+            // Angle from watch center to button center (for badge placement on outer ring edge)
+            val dx = cx - centerCoord
+            val dy = cy - centerCoord
+            val badgeAngle = if (dx == 0f && dy == 0f) {
+                // Center button: place badge at bottom-right (5π/4 would overlap, π/2 = bottom)
+                Math.PI.toFloat() / 2f
+            } else {
+                kotlin.math.atan2(dy, dx)
+            }
+
             val iconState = if (slot != null && !slot.isEmpty) {
                 resolvePreviewIconState(slot, itemStates, allPages)
             } else PreviewIconState.NEUTRAL
@@ -123,6 +133,7 @@ fun WatchPreview(
                 iconAuthHeader = iconAuthHeader,
                 iconState = iconState,
                 stateText = stateText,
+                badgeAngle = badgeAngle,
                 onTap = { onSlotTap(position) },
                 modifier = Modifier.offset { IntOffset(offsetX.dp.roundToPx(), offsetY.dp.roundToPx()) }
             )
@@ -277,6 +288,7 @@ private fun TileSlotButton(
     iconAuthHeader: String?,
     iconState: PreviewIconState = PreviewIconState.NEUTRAL,
     stateText: String? = null,
+    badgeAngle: Float = 0f,
     onTap: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -332,15 +344,19 @@ private fun TileSlotButton(
             )
         }
 
-        // Position badge — bottom center, centered on the ring stroke
-        val badgeOffset = slotSize / 2  // half the badge hangs below the button edge
+        // Position badge — centered on the ring at the outward angle
+        // The ring radius is slotSize/2 (since the ring is at the edge of the composable).
+        // We offset from the Box center by (radius * cos(angle), radius * sin(angle)).
+        val ringRadius = slotSize / 2
+        val badgeOffsetX = (kotlin.math.cos(badgeAngle) * ringRadius.value).dp
+        val badgeOffsetY = (kotlin.math.sin(badgeAngle) * ringRadius.value).dp
         Text(
             text = position.toString(),
             style = MaterialTheme.typography.labelSmall,
             color = Color.White.copy(alpha = 0.85f),
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .offset(y = badgeOffset * 0.18f)
+                .align(Alignment.Center)
+                .offset(x = badgeOffsetX, y = badgeOffsetY)
                 .background(
                     color = Color(0xFF555555),
                     shape = CircleShape
