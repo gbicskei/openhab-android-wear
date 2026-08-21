@@ -39,6 +39,9 @@ security-crypto = "1.1.0-alpha06"
 # Image Loading
 coil = "2.7.0"
 
+# Reorderable (drag-and-drop)
+reorderable = "3.1.0"
+
 # DI
 hilt-navigation-compose = "1.2.0"
 navigation-compose = "2.8.5"
@@ -111,6 +114,9 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 # Image Loading
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt:coil-svg", version.ref = "coil" }
+
+# Reorderable (drag-and-drop for LazyRow/LazyColumn)
+reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 
 # Hilt DI
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hilt" }

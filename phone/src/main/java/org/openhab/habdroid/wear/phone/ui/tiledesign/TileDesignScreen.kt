@@ -198,6 +198,7 @@ fun TileDesignScreen(
                         pageUids = editor.pageNames,
                         onDeletePage = { viewModel.deletePage(it) },
                         onRenamePage = { uid, newLabel -> viewModel.renamePage(uid, newLabel) },
+                        onReorderPages = { from, to -> viewModel.reorderPages(from, to) },
                         modifier = Modifier
                     )
 

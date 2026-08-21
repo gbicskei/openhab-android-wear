@@ -36,10 +36,13 @@ data class PageConfig(
     val label: String = "",
     val layout: Double = 6.0,
     val configVersion: Double = 0.0,
-    val theme: String = ""
+    val theme: String = "",
+    val pageOrder: String = ""
 ) {
     val layoutInt: Int get() = layout.toInt().coerceIn(1, 7)
     val configVersionInt: Int get() = configVersion.toInt()
+    /** Ordered list of page UIDs (stored on main page only). Empty list if not set. */
+    val pageOrderList: List<String> get() = pageOrder.split(",").filter { it.isNotBlank() }
 }
 
 @Serializable
@@ -215,7 +218,9 @@ data class TilePageState(
     val layout: Int = 6,
     val slots: List<TileSlotState> = emptyList(),
     val configVersion: Int = 0,
-    val theme: String = ""
+    val theme: String = "",
+    /** Ordered page UIDs — only meaningful on the main page. */
+    val pageOrder: List<String> = emptyList()
 ) {
     val isMain: Boolean get() = uid == "main"
     val filledSlotCount: Int get() = slots.count { !it.isEmpty }
@@ -223,7 +228,13 @@ data class TilePageState(
     fun toDto(): WearTilePageDto = WearTilePageDto(
         uid = uid,
         component = WearTilePageDto.COMPONENT_TILE_PAGE,
-        config = PageConfig(label = label, layout = layout.toDouble(), configVersion = configVersion.toDouble(), theme = theme),
+        config = PageConfig(
+            label = label,
+            layout = layout.toDouble(),
+            configVersion = configVersion.toDouble(),
+            theme = theme,
+            pageOrder = if (isMain) pageOrder.joinToString(",") else ""
+        ),
         slots = Slots(default = slots.filter { !it.isEmpty }.map { it.toSlotDto() })
     )
 
@@ -236,7 +247,8 @@ data class TilePageState(
                 layout = dto.config.layoutInt,
                 slots = slotStates,
                 configVersion = dto.config.configVersionInt,
-                theme = dto.config.theme
+                theme = dto.config.theme,
+                pageOrder = dto.config.pageOrderList
             )
         }
     }

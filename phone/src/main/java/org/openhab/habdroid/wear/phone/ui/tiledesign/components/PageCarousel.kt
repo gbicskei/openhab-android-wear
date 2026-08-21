@@ -1,5 +1,6 @@
 package org.openhab.habdroid.wear.phone.ui.tiledesign.components
 
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,17 +37,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 /**
  * Two-row page selector:
  * 1. Title row: current page name (centered) + action icons (right)
- * 2. Chip row: LazyRow with all pages as chips, selected page shown as a dot
+ * 2. Chip row: Reorderable LazyRow with all pages as chips, selected page shown as a dot.
+ *    Long-press a chip to drag and reorder pages. The "main" page cannot be moved.
  *
  * Full-page swipe handled by invisible pager in TileDesignScreen.
  */
@@ -54,6 +62,7 @@ fun PageCarousel(
     pageLabels: List<String>,
     onDeletePage: (String) -> Unit,
     onRenamePage: (String, String) -> Unit,
+    onReorderPages: (fromIndex: Int, toIndex: Int) -> Unit,
     pageUids: List<String>,
     modifier: Modifier = Modifier
 ) {
@@ -62,6 +71,7 @@ fun PageCarousel(
     val currentLabel = pageLabels.getOrElse(currentIndex) { "" }
     val isMain = currentUid == "main"
     val coroutineScope = rememberCoroutineScope()
+    val hapticFeedback = LocalHapticFeedback.current
 
     var showRenameDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -120,8 +130,13 @@ fun PageCarousel(
             }
         }
 
-        // Row 2: LazyRow chips with dot replacing the selected item
+        // Row 2: Reorderable LazyRow chips with dot replacing the selected item
         val lazyListState = rememberLazyListState()
+
+        val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+            onReorderPages(from.index, to.index)
+            hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+        }
 
         LaunchedEffect(currentIndex) {
             lazyListState.scrollToItem(
@@ -138,41 +153,75 @@ fun PageCarousel(
             verticalAlignment = Alignment.CenterVertically,
             contentPadding = PaddingValues(horizontal = 16.dp)
         ) {
-            items(pageLabels.size, key = { pageUids[it] }) { index ->
+            items(pageUids.size, key = { pageUids[it] }) { index ->
+                val uid = pageUids[index]
                 val isSelected = index == currentIndex
+                val isMainChip = uid == "main"
 
-                // Dot replaces label immediately when selected
-                val showDot = isSelected
+                ReorderableItem(
+                    reorderableLazyListState,
+                    key = uid,
+                    enabled = !isMainChip // main page cannot be reordered
+                ) { isDragging ->
+                    val elevation by animateDpAsState(
+                        if (isDragging) 4.dp else 0.dp,
+                        label = "chipElevation"
+                    )
 
-                Box(
-                    modifier = Modifier
-                        .background(
-                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                            shape = MaterialTheme.shapes.small
-                        )
-                        .clickable {
-                            if (!isSelected) {
-                                coroutineScope.launch { pagerState.animateScrollToPage(index) }
+                    Surface(
+                        shadowElevation = elevation,
+                        tonalElevation = if (isDragging) 2.dp else 0.dp,
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(
+                            alpha = if (isDragging) 0.9f else 0.5f
+                        ),
+                        modifier = Modifier
+                            .longPressDraggableHandle(
+                                onDragStarted = {
+                                    hapticFeedback.performHapticFeedback(
+                                        HapticFeedbackType.LongPress
+                                    )
+                                },
+                                onDragStopped = {
+                                    hapticFeedback.performHapticFeedback(
+                                        HapticFeedbackType.GestureEnd
+                                    )
+                                }
+                            )
+                            .clickable {
+                                if (!isSelected) {
+                                    coroutineScope.launch {
+                                        pagerState.animateScrollToPage(index)
+                                    }
+                                }
+                            }
+                    ) {
+                        Box(
+                            modifier = Modifier.padding(
+                                horizontal = if (isSelected) 4.dp else 8.dp,
+                                vertical = if (isSelected) 4.dp else 2.dp
+                            ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(
+                                            MaterialTheme.colorScheme.primary,
+                                            shape = CircleShape
+                                        )
+                                )
+                            } else {
+                                Text(
+                                    text = pageLabels[index],
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
                             }
                         }
-                        .padding(horizontal = if (showDot) 4.dp else 8.dp, vertical = if (showDot) 4.dp else 2.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (showDot) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                        )
-                    } else {
-                        Text(
-                            text = pageLabels[index],
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1
-                        )
                     }
                 }
             }

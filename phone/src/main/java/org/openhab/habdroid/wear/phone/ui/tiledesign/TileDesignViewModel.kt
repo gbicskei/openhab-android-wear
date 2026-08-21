@@ -180,10 +180,17 @@ class TileDesignViewModel @Inject constructor(
                 }
             }
 
-            // Ensure main is first
-            val sortedPages = pages.sortedWith(
-                compareBy { if (it.uid == "main") 0 else 1 }
-            )
+            // Sort pages: use pageOrder from main if available, else main-first stable order
+            val mainPage = pages.find { it.uid == "main" }
+            val orderList = mainPage?.pageOrder ?: emptyList()
+            val sortedPages = if (orderList.isNotEmpty()) {
+                // Explicit order from main page's config
+                val orderMap = orderList.withIndex().associate { (i, uid) -> uid to i }
+                pages.sortedWith(compareBy { orderMap[it.uid] ?: Int.MAX_VALUE })
+            } else {
+                // Default: main first, rest in API order
+                pages.sortedWith(compareBy { if (it.uid == "main") 0 else 1 })
+            }
 
             val isReadOnly = false // local server always allows writes
 
@@ -215,6 +222,35 @@ class TileDesignViewModel @Inject constructor(
                 currentPageIndex = index.coerceIn(0, state.editor.pages.lastIndex)
             )
         )
+    }
+
+    /** Reorder pages by moving a page from [fromIndex] to [toIndex]. Main always stays first. */
+    fun reorderPages(fromIndex: Int, toIndex: Int) {
+        if (fromIndex == toIndex) return
+        val state = (_uiState.value as? TileDesignUiState.Success) ?: return
+        val pages = state.editor.pages.toMutableList()
+
+        // Never move the main page (index 0)
+        if (fromIndex == 0 || toIndex == 0) return
+        if (fromIndex !in pages.indices || toIndex !in pages.indices) return
+
+        val moved = pages.removeAt(fromIndex)
+        pages.add(toIndex, moved)
+
+        // Persist the new order on the main page
+        val pageOrder = pages.map { it.uid }
+        val mainPage = pages.find { it.uid == "main" } ?: return
+        val updatedMain = mainPage.copy(pageOrder = pageOrder)
+        val finalPages = pages.map { if (it.uid == "main") updatedMain else it }
+
+        _uiState.value = state.copy(
+            editor = state.editor.copy(
+                pages = finalPages,
+                currentPageIndex = state.editor.currentPageIndex
+            )
+        )
+
+        savePage(updatedMain)
     }
 
     fun onLayoutChanged(newLayout: Int) {

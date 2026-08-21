@@ -138,6 +138,9 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.svg)
 
+    // Reorderable (drag-and-drop for page carousel)
+    implementation(libs.reorderable)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
