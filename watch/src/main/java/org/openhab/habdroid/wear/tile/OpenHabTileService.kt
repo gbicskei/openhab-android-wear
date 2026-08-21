@@ -1139,7 +1139,7 @@ class OpenHabTileService : TileService() {
                     )
                     .build()
             }
-            item.commandDescription?.commandOptions?.isNotEmpty() == true -> {
+            item.commandDescription?.commandOptions?.isNotEmpty() == true && !tileItem.isForcedToggle -> {
                 // Item with command options → open choice picker
                 ModifiersBuilders.Clickable.Builder()
                     .setId("choice_${item.name}")
