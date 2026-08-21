@@ -1007,13 +1007,17 @@ class OpenHabTileService : TileService() {
                                     .addKeyToExtraMapping(
                                         QuickActionActivity.EXTRA_DOUBLE_PRESS_ACTION,
                                         ActionBuilders.AndroidStringExtra.Builder()
-                                            .setValue(tileItem.doubleTapAction ?: "auto")
+                                            .setValue(
+                                                tileItem.doubleTapAction
+                                                    ?: tileItem.complementDoubleTapAction
+                                                    ?: "auto"
+                                            )
                                             .build()
                                     )
                                     .addKeyToExtraMapping(
                                         QuickActionActivity.EXTRA_DOUBLE_PRESS_ITEM,
                                         ActionBuilders.AndroidStringExtra.Builder()
-                                            .setValue(tileItem.doubleTapItem!!)
+                                            .setValue(tileItem.doubleTapItem ?: tileItem.commandTargetName)
                                             .build()
                                     )
                                     .apply {

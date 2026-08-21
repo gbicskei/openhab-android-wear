@@ -112,7 +112,7 @@ class TileActionReceiver : ComponentActivity() {
                 // Fixed command from tile builder
                 AppLog.d(TAG, "Sending fixed command: $command")
                 repository.sendCommand(itemName, command)
-                    .onSuccess { itemCache.updateItemState(itemName, command) }
+                    .onSuccess { itemCache.updateItemState(itemName, normalizeStateForCache(itemName, command)) }
             } else {
                 // Toggle: check local cache first (fast), fall back to API
                 val cachedState = repository.getCachedItemState(itemName)
@@ -120,7 +120,7 @@ class TileActionReceiver : ComponentActivity() {
                     val toggleCommand = if (cachedState == "ON" || cachedState.toDoubleOrNull()?.let { it > 0 } == true) "OFF" else "ON"
                     AppLog.d(TAG, "Cached state: $cachedState, sending: $toggleCommand")
                     repository.sendCommand(itemName, toggleCommand)
-                        .onSuccess { itemCache.updateItemState(itemName, toggleCommand) }
+                        .onSuccess { itemCache.updateItemState(itemName, normalizeStateForCache(itemName, toggleCommand)) }
                 } else {
                     // No cache — fetch from server
                     repository.getItem(itemName)
@@ -128,7 +128,7 @@ class TileActionReceiver : ComponentActivity() {
                             val toggleCommand = if (item.isOn) "OFF" else "ON"
                             AppLog.d(TAG, "Fetched state: ${item.state}, sending: $toggleCommand")
                             repository.sendCommand(itemName, toggleCommand)
-                                .onSuccess { itemCache.updateItemState(itemName, toggleCommand) }
+                                .onSuccess { itemCache.updateItemState(itemName, normalizeStateForCache(itemName, toggleCommand)) }
                         }
                         .onFailure { error ->
                             val fallbackCommand = "ON"
@@ -145,6 +145,28 @@ class TileActionReceiver : ComponentActivity() {
             // Request tile refresh
             TileService.getUpdater(this@TileActionReceiver)
                 .requestUpdate(OpenHabTileService::class.java)
+        }
+    }
+
+    /**
+     * Normalizes ON/OFF commands to numeric equivalents for Dimmer items so the
+     * optimistic cache update displays a consistent value (e.g. "100" instead of "ON").
+     * openHAB always reports Dimmer state as a number, but the toggle sends ON/OFF commands.
+     */
+    private fun normalizeStateForCache(itemName: String, command: String): String {
+        if (command != "ON" && command != "OFF") return command
+        val tileItem = itemCache.get()?.find { it.item.name == itemName || it.commandTargetName == itemName }
+        val itemType = tileItem?.item?.type ?: return command
+        return when {
+            itemType == "Dimmer" || (itemType.startsWith("Group") && tileItem.item.groupType == "Dimmer") -> {
+                if (command == "ON") "100" else "0"
+            }
+            itemType == "Color" || (itemType.startsWith("Group") && tileItem.item.groupType == "Color") -> {
+                // Color state is H,S,B — can't meaningfully represent ON/OFF as HSB,
+                // so keep the command as-is; server will report real state shortly
+                command
+            }
+            else -> command
         }
     }
 

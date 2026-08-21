@@ -308,7 +308,8 @@ class OpenHabRepository @Inject constructor(
                     doubleTapAction = config.doubleTapAction,
                     doubleTapCommand = config.doubleTapCommand,
                     doubleTapConfirmation = config.doubleTapConfirmation,
-                    doubleTapStateDisplay = org.openhab.habdroid.wear.data.model.ValueDisplay.fromString(config.doubleTapStateDisplay)
+                    doubleTapStateDisplay = org.openhab.habdroid.wear.data.model.ValueDisplay.fromString(config.doubleTapStateDisplay),
+                    complementAction = config.complementAction
                 )
             }
         }.sorted()

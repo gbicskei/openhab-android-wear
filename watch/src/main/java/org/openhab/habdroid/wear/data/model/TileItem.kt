@@ -47,7 +47,14 @@ data class TileItem(
     /** Show confirmation dialog before executing double-tap action */
     val doubleTapConfirmation: Boolean = false,
     /** State display mode for double-tap item: "color", "value", or "none" */
-    val doubleTapStateDisplay: ValueDisplay = ValueDisplay.NONE
+    val doubleTapStateDisplay: ValueDisplay = ValueDisplay.NONE,
+    /**
+     * Enable complementary double-tap action on the same item.
+     * When true (and doubleTapItem is not set), double-tap performs the complement of the
+     * primary action: e.g. if primary is toggle, double-tap opens the control activity, and vice versa.
+     * Only valid for Dimmer, Color, and Rollershutter items.
+     */
+    val complementAction: Boolean = false
 ) : Comparable<TileItem> {
     override fun compareTo(other: TileItem): Int = slot.compareTo(other.slot)
 
@@ -93,7 +100,26 @@ data class TileItem(
     val isForcedToggle: Boolean get() = action == "toggle"
 
     /** Whether this tile item has a double-tap secondary action configured */
-    val hasDoubleTap: Boolean get() = doubleTapItem != null
+    val hasDoubleTap: Boolean get() = doubleTapItem != null || hasComplementAction
+
+    /**
+     * Whether this tile item has a valid complement action enabled.
+     * Only valid for Dimmer, Color, and Rollershutter when doubleTapItem is not set.
+     */
+    val hasComplementAction: Boolean get() = complementAction && doubleTapItem == null &&
+        item.type in listOf("Dimmer", "Color", "Rollershutter")
+
+    /**
+     * The complement double-tap action for this item.
+     * If the primary action is toggle → complement is auto-detect (open control activity).
+     * If the primary action is auto-detect (range/color/shutter) → complement is toggle.
+     */
+    val complementDoubleTapAction: String? get() = when {
+        !hasComplementAction -> null
+        action == "toggle" || isForcedToggle -> null // complement = auto-detect (open activity)
+        action == null -> "toggle" // primary is auto (opens activity), complement = toggle
+        else -> null
+    }
 
     /** Raw action config string for passing to QuickActionActivity */
     val actionConfig: String? get() = action

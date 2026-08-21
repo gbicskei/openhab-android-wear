@@ -71,7 +71,8 @@ data class SlotConfig(
     val doubleTapAction: String? = null,
     val doubleTapCommand: String? = null,
     val doubleTapConfirmation: Boolean = false,
-    val doubleTapStateDisplay: String? = null
+    val doubleTapStateDisplay: String? = null,
+    val complementAction: Boolean = false
 ) {
     val positionInt: Int get() = position.toInt().coerceIn(1, 7)
 }
@@ -98,7 +99,8 @@ data class TileSlotState(
     val doubleTapAction: SlotAction? = null,
     val doubleTapCommand: String? = null,
     val doubleTapConfirmation: Boolean = false,
-    val doubleTapStateDisplay: StateDisplay = StateDisplay.NONE
+    val doubleTapStateDisplay: StateDisplay = StateDisplay.NONE,
+    val complementAction: Boolean = false
 ) {
     val isEmpty: Boolean get() = item == null && action !is SlotAction.Navigate
     val effectiveLabel: String get() = label ?: item ?: ""
@@ -134,7 +136,8 @@ data class TileSlotState(
             },
             doubleTapCommand = doubleTapCommand,
             doubleTapConfirmation = doubleTapConfirmation,
-            doubleTapStateDisplay = if (doubleTapItem != null) doubleTapStateDisplay.apiValue else null
+            doubleTapStateDisplay = if (doubleTapItem != null) doubleTapStateDisplay.apiValue else null,
+            complementAction = complementAction
         )
     )
 
@@ -170,7 +173,8 @@ data class TileSlotState(
                 },
                 doubleTapCommand = config.doubleTapCommand,
                 doubleTapConfirmation = config.doubleTapConfirmation,
-                doubleTapStateDisplay = StateDisplay.fromApi(config.doubleTapStateDisplay)
+                doubleTapStateDisplay = StateDisplay.fromApi(config.doubleTapStateDisplay),
+                complementAction = config.complementAction
             )
         }
     }

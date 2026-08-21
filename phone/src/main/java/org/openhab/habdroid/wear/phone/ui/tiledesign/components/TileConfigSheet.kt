@@ -18,13 +18,16 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.ModalBottomSheet
@@ -37,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,14 +48,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.SlotAction
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.StateDisplay
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.TileSlotState
 
 /**
  * Bottom sheet for configuring a tile slot's properties.
- * Uses MainUI naming convention for fields.
+ * Organized into card-based sections with proper headers.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,10 +72,11 @@ fun TileConfigSheet(
     onPositionSwap: (Int) -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
-    allItems: List<org.openhab.habdroid.wear.phone.ui.tiledesign.model.PhoneItem> = emptyList()
+    allItems: List<PhoneItem> = emptyList()
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // State
     var label by remember(slot) { mutableStateOf(slot.label ?: "") }
     var icon by remember(slot) { mutableStateOf(slot.icon ?: "") }
     var stateDisplay by remember(slot) { mutableStateOf(slot.stateDisplay) }
@@ -85,12 +92,16 @@ fun TileConfigSheet(
     var doubleTapCommand by remember(slot) { mutableStateOf(slot.doubleTapCommand ?: "") }
     var doubleTapConfirmation by remember(slot) { mutableStateOf(slot.doubleTapConfirmation) }
     var doubleTapStateDisplay by remember(slot) { mutableStateOf(slot.doubleTapStateDisplay) }
+    var complementAction by remember(slot) { mutableStateOf(slot.complementAction) }
     var targetPage by remember(slot) {
         mutableStateOf(
             (slot.action as? SlotAction.Navigate)?.targetPage ?: pageNames.firstOrNull() ?: "main"
         )
     }
     var showIconPicker by remember { mutableStateOf(false) }
+
+    val primaryItemType = allItems.find { it.name == slot.item }?.type ?: ""
+    val primaryIsToggleable = primaryItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -99,27 +110,26 @@ fun TileConfigSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header
-            Text(
-                text = "Configure Slot ${slot.position}",
-                style = MaterialTheme.typography.titleMedium
-            )
-            if (slot.item != null) {
+            // ── Header ──
+            Column(modifier = Modifier.padding(bottom = 4.dp)) {
                 Text(
-                    text = "Item: ${slot.item}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Slot ${slot.position}",
+                    style = MaterialTheme.typography.headlineSmall
                 )
+                if (slot.item != null) {
+                    Text(
+                        text = slot.item,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
-            HorizontalDivider()
-
-            // Position selector
-            Text("Position", style = MaterialTheme.typography.labelMedium)
+            // ── Position ──
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
@@ -130,14 +140,14 @@ fun TileConfigSheet(
                         onClick = { if (!isCurrent) onPositionSwap(pos) },
                         shape = androidx.compose.foundation.shape.CircleShape,
                         color = if (isCurrent) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                        else MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier.size(36.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                             Text(
                                 text = pos.toString(),
                                 color = if (isCurrent) MaterialTheme.colorScheme.onPrimary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
@@ -145,298 +155,319 @@ fun TileConfigSheet(
                 }
             }
 
-            // Label
-            OutlinedTextField(
-                value = label,
-                onValueChange = { label = it },
-                label = { Text("Label") },
-                placeholder = { Text(slot.item ?: "Display name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // Icon
-            OutlinedTextField(
-                value = icon,
-                onValueChange = { icon = it },
-                label = { Text("Icon") },
-                placeholder = { Text("Tap to choose icon") },
-                supportingText = { Text("openHAB / MDI / Material icon") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showIconPicker = true },
-                trailingIcon = {
-                    IconButton(onClick = { showIconPicker = true }) {
-                        Icon(Icons.Default.Search, contentDescription = "Browse icons")
-                    }
-                }
-            )
-
-            // State display (not relevant for navigation)
-            if (action !is SlotAction.Navigate) {
-                Text("State Display", style = MaterialTheme.typography.labelMedium)
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedButton(
-                        selected = stateDisplay == StateDisplay.COLOR,
-                        onClick = { stateDisplay = StateDisplay.COLOR },
-                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
-                    ) { Text("Color") }
-                    SegmentedButton(
-                        selected = stateDisplay == StateDisplay.VALUE,
-                        onClick = { stateDisplay = StateDisplay.VALUE },
-                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
-                    ) { Text("Value") }
-                    SegmentedButton(
-                        selected = stateDisplay == StateDisplay.NONE,
-                        onClick = { stateDisplay = StateDisplay.NONE },
-                        shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
-                    ) { Text("None") }
-                }
-            }
-
-            // Action
-            Text("Action", style = MaterialTheme.typography.labelMedium)
-            val primaryItemType = allItems.find { it.name == slot.item }?.type ?: ""
-            val primaryIsToggleable = primaryItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
-            ActionDropdown(
-                action = action,
-                showToggle = primaryIsToggleable,
-                onActionChange = { action = it }
-            )
-
-            // Action-specific fields
-            if (action is SlotAction.Command) {
+            // ── Appearance Section ──
+            SectionCard(title = "Appearance") {
                 OutlinedTextField(
-                    value = actionCommand,
-                    onValueChange = { actionCommand = it },
-                    label = { Text("Action Command") },
-                    placeholder = { Text("ON") },
-                    supportingText = { Text("Fixed command sent on tap") },
+                    value = label,
+                    onValueChange = { label = it },
+                    label = { Text("Label") },
+                    placeholder = { Text(slot.item ?: "Display name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
-            }
 
-            if (action is SlotAction.Navigate) {
-                PageTargetDropdown(
-                    targetPage = targetPage,
-                    pageNames = pageNames.filter { it != "complications" && it != currentPageUid },
-                    onPageChange = { targetPage = it }
+                OutlinedTextField(
+                    value = icon,
+                    onValueChange = { icon = it },
+                    label = { Text("Icon") },
+                    placeholder = { Text("Tap to choose") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showIconPicker = true },
+                    trailingIcon = {
+                        IconButton(onClick = { showIconPicker = true }) {
+                            Icon(Icons.Default.Search, contentDescription = "Browse icons")
+                        }
+                    }
                 )
+
+                if (action !is SlotAction.Navigate) {
+                    Text(
+                        text = "State Display",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = stateDisplay == StateDisplay.COLOR,
+                            onClick = { stateDisplay = StateDisplay.COLOR },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 3)
+                        ) { Text("Color") }
+                        SegmentedButton(
+                            selected = stateDisplay == StateDisplay.VALUE,
+                            onClick = { stateDisplay = StateDisplay.VALUE },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 3)
+                        ) { Text("Value") }
+                        SegmentedButton(
+                            selected = stateDisplay == StateDisplay.NONE,
+                            onClick = { stateDisplay = StateDisplay.NONE },
+                            shape = SegmentedButtonDefaults.itemShape(index = 2, count = 3)
+                        ) { Text("None") }
+                    }
+                }
             }
 
-            // Action item (not relevant for navigation)
-            if (action !is SlotAction.Navigate) {
-                var showActionItemPicker by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth().clickable { showActionItemPicker = true }) {
+            // ── Action Section ──
+            SectionCard(title = "Action") {
+                ActionDropdown(
+                    action = action,
+                    showToggle = primaryIsToggleable,
+                    onActionChange = { action = it }
+                )
+
+                if (action is SlotAction.Command) {
                     OutlinedTextField(
-                        value = actionItem.ifBlank { "None (same as main)" },
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("Action Item (optional)") },
-                        supportingText = { Text("Item that receives commands") },
+                        value = actionCommand,
+                        onValueChange = { actionCommand = it },
+                        label = { Text("Command") },
+                        placeholder = { Text("ON") },
+                        supportingText = { Text("Fixed command sent on tap") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (action is SlotAction.Navigate) {
+                    PageTargetDropdown(
+                        targetPage = targetPage,
+                        pageNames = pageNames.filter { it != "complications" && it != currentPageUid },
+                        onPageChange = { targetPage = it }
+                    )
+                }
+
+                ListItem(
+                    headlineContent = { Text("Confirmation") },
+                    supportingContent = { Text("Ask before executing") },
+                    trailingContent = {
+                        Switch(checked = actionConfirmation, onCheckedChange = { actionConfirmation = it })
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                )
+
+                if (action is SlotAction.Navigate) {
+                    ListItem(
+                        headlineContent = { Text("Aggregate State") },
+                        supportingContent = { Text("Active if any target page item is on") },
+                        trailingContent = {
+                            Switch(checked = aggregateState, onCheckedChange = { aggregateState = it })
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
+            }
+
+            // ── Advanced Section (item overrides + invert) ──
+            if (action !is SlotAction.Navigate) {
+                SectionCard(title = "Advanced") {
+                    // Action Item
+                    var showActionItemPicker by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text("Action Item") },
+                        supportingContent = {
+                            Text(actionItem.ifBlank { "Same as primary" })
+                        },
+                        trailingContent = {
                             if (actionItem.isNotBlank()) {
                                 IconButton(onClick = { actionItem = "" }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear")
                                 }
                             } else {
                                 IconButton(onClick = { showActionItemPicker = true }) {
-                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                    Icon(Icons.Default.Search, contentDescription = "Pick")
                                 }
                             }
-                        }
-                    )
-                }
-
-                if (showActionItemPicker) {
-                    ItemPickerDialog(
-                        items = allItems,
-                        pageNames = emptyList(),
-                        currentPageUid = currentPageUid,
-                        onItemSelected = { selected ->
-                            actionItem = selected.name
-                            showActionItemPicker = false
                         },
-                        onNavigateSelected = { _, _, _ -> },
-                        onDismiss = { showActionItemPicker = false }
+                        modifier = Modifier.clickable { showActionItemPicker = true },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                }
-            }
+                    if (showActionItemPicker) {
+                        ItemPickerDialog(
+                            items = allItems,
+                            pageNames = emptyList(),
+                            currentPageUid = currentPageUid,
+                            onItemSelected = { selected ->
+                                actionItem = selected.name
+                                showActionItemPicker = false
+                            },
+                            onNavigateSelected = { _, _, _ -> },
+                            onDismiss = { showActionItemPicker = false }
+                        )
+                    }
 
-            // State item (not relevant for navigation with aggregate)
-            if (action !is SlotAction.Navigate) {
-                var showStateItemPicker by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth().clickable { showStateItemPicker = true }) {
-                    OutlinedTextField(
-                        value = stateItem.ifBlank { "None (same as main)" },
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("State Item (optional)") },
-                        supportingText = { Text("Item whose state is displayed") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
+                    // State Item
+                    var showStateItemPicker by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text("State Item") },
+                        supportingContent = {
+                            Text(stateItem.ifBlank { "Same as primary" })
+                        },
+                        trailingContent = {
                             if (stateItem.isNotBlank()) {
                                 IconButton(onClick = { stateItem = "" }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear")
                                 }
                             } else {
                                 IconButton(onClick = { showStateItemPicker = true }) {
-                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                    Icon(Icons.Default.Search, contentDescription = "Pick")
                                 }
                             }
-                        }
-                    )
-                }
-
-                if (showStateItemPicker) {
-                    ItemPickerDialog(
-                        items = allItems,
-                        pageNames = emptyList(),
-                        currentPageUid = currentPageUid,
-                        onItemSelected = { selected ->
-                            stateItem = selected.name
-                            showStateItemPicker = false
                         },
-                        onNavigateSelected = { _, _, _ -> },
-                        onDismiss = { showStateItemPicker = false }
+                        modifier = Modifier.clickable { showStateItemPicker = true },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    if (showStateItemPicker) {
+                        ItemPickerDialog(
+                            items = allItems,
+                            pageNames = emptyList(),
+                            currentPageUid = currentPageUid,
+                            onItemSelected = { selected ->
+                                stateItem = selected.name
+                                showStateItemPicker = false
+                            },
+                            onNavigateSelected = { _, _, _ -> },
+                            onDismiss = { showStateItemPicker = false }
+                        )
+                    }
+
+                    // Invert State
+                    ListItem(
+                        headlineContent = { Text("Invert State") },
+                        supportingContent = { Text("Flip active/inactive display") },
+                        trailingContent = {
+                            Switch(checked = invertState, onCheckedChange = { invertState = it })
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
                 }
             }
 
-            HorizontalDivider()
-
-            // Toggles
+            // ── Double Tap Section ──
             if (action !is SlotAction.Navigate) {
-                SwitchRow(
-                    label = "Invert State",
-                    description = "Flip active/inactive interpretation",
-                    checked = invertState,
-                    onCheckedChange = { invertState = it }
-                )
-            }
+                val supportsComplement = primaryItemType in listOf("Dimmer", "Color", "Rollershutter")
 
-            SwitchRow(
-                label = "Action Confirmation",
-                description = "Show confirm dialog before command",
-                checked = actionConfirmation,
-                onCheckedChange = { actionConfirmation = it }
-            )
+                SectionCard(title = "Double Tap") {
+                    // Complement action toggle
+                    if (supportsComplement && doubleTapItem.isBlank()) {
+                        ListItem(
+                            headlineContent = { Text("Complement Action") },
+                            supportingContent = {
+                                Text(
+                                    when (action) {
+                                        is SlotAction.Toggle -> "Double-tap opens control"
+                                        else -> "Double-tap toggles ON/OFF"
+                                    }
+                                )
+                            },
+                            trailingContent = {
+                                Switch(checked = complementAction, onCheckedChange = { complementAction = it })
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                    }
 
-            if (action is SlotAction.Navigate) {
-                SwitchRow(
-                    label = "Aggregate State",
-                    description = "Show active if any item on target page is active",
-                    checked = aggregateState,
-                    onCheckedChange = { aggregateState = it }
-                )
-            }
-
-            // Double-tap section (not for navigation buttons)
-            if (action !is SlotAction.Navigate) {
-                HorizontalDivider()
-                Text("Double Tap", style = MaterialTheme.typography.labelMedium)
-
-                // Double-tap item picker
-                var showDoubleTapItemPicker by remember { mutableStateOf(false) }
-                Box(modifier = Modifier.fillMaxWidth().clickable { showDoubleTapItemPicker = true }) {
-                    OutlinedTextField(
-                        value = doubleTapItem.ifBlank { "None (disabled)" },
-                        onValueChange = {},
-                        readOnly = true,
-                        enabled = false,
-                        label = { Text("Double Tap Item") },
-                        supportingText = { Text("Tap to pick item, or clear to disable") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        trailingIcon = {
+                    // Double-tap item picker
+                    var showDoubleTapItemPicker by remember { mutableStateOf(false) }
+                    ListItem(
+                        headlineContent = { Text("Double Tap Item") },
+                        supportingContent = {
+                            Text(doubleTapItem.ifBlank { "None (use complement or disable)" })
+                        },
+                        trailingContent = {
                             if (doubleTapItem.isNotBlank()) {
                                 IconButton(onClick = { doubleTapItem = "" }) {
                                     Icon(Icons.Default.Delete, contentDescription = "Clear")
                                 }
                             } else {
                                 IconButton(onClick = { showDoubleTapItemPicker = true }) {
-                                    Icon(Icons.Default.Search, contentDescription = "Pick item")
+                                    Icon(Icons.Default.Search, contentDescription = "Pick")
                                 }
                             }
-                        }
-                    )
-                }
-
-                if (showDoubleTapItemPicker) {
-                    ItemPickerDialog(
-                        items = allItems,
-                        pageNames = emptyList(),
-                        currentPageUid = currentPageUid,
-                        onItemSelected = { selected ->
-                            doubleTapItem = selected.name
-                            showDoubleTapItemPicker = false
                         },
-                        onNavigateSelected = { _, _, _ -> },
-                        onDismiss = { showDoubleTapItemPicker = false }
+                        modifier = Modifier.clickable { showDoubleTapItemPicker = true },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                     )
-                }
-
-                if (doubleTapItem.isNotBlank()) {
-                    // Determine if double-tap item is toggleable
-                    val dblTapItemType = allItems.find { it.name == doubleTapItem }?.type ?: ""
-                    val dblTapIsToggleable = dblTapItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
-
-                    DoubleTapActionDropdown(
-                        action = doubleTapAction,
-                        showToggle = dblTapIsToggleable,
-                        onActionChange = { doubleTapAction = it }
-                    )
-
-                    if (doubleTapAction is SlotAction.Command) {
-                        OutlinedTextField(
-                            value = doubleTapCommand,
-                            onValueChange = { doubleTapCommand = it },
-                            label = { Text("Double Tap Command") },
-                            placeholder = { Text("ON") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth()
+                    if (showDoubleTapItemPicker) {
+                        ItemPickerDialog(
+                            items = allItems,
+                            pageNames = emptyList(),
+                            currentPageUid = currentPageUid,
+                            onItemSelected = { selected ->
+                                doubleTapItem = selected.name
+                                showDoubleTapItemPicker = false
+                            },
+                            onNavigateSelected = { _, _, _ -> },
+                            onDismiss = { showDoubleTapItemPicker = false }
                         )
                     }
 
-                    SwitchRow(
-                        label = "Double Tap Confirmation",
-                        description = "Show confirm dialog on double-tap",
-                        checked = doubleTapConfirmation,
-                        onCheckedChange = { doubleTapConfirmation = it }
-                    )
+                    // Extra double-tap config when item is set
+                    if (doubleTapItem.isNotBlank()) {
+                        val dblTapItemType = allItems.find { it.name == doubleTapItem }?.type ?: ""
+                        val dblTapIsToggleable = dblTapItemType in listOf("Switch", "Dimmer", "Color", "Rollershutter", "Group")
 
-                    // Double-tap state display (mutually exclusive with primary)
-                    Text("Double Tap State Display", style = MaterialTheme.typography.labelMedium)
-                    // Filter out options that conflict with primary stateDisplay
-                    val availableDblOptions = buildList {
-                        add(StateDisplay.NONE) // always available
-                        if (stateDisplay != StateDisplay.COLOR) add(StateDisplay.COLOR)
-                        if (stateDisplay != StateDisplay.VALUE) add(StateDisplay.VALUE)
-                    }
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        availableDblOptions.forEachIndexed { index, option ->
-                            SegmentedButton(
-                                selected = doubleTapStateDisplay == option,
-                                onClick = { doubleTapStateDisplay = option },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = availableDblOptions.size)
-                            ) { Text(option.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                        DoubleTapActionDropdown(
+                            action = doubleTapAction,
+                            showToggle = dblTapIsToggleable,
+                            onActionChange = { doubleTapAction = it }
+                        )
+
+                        if (doubleTapAction is SlotAction.Command) {
+                            OutlinedTextField(
+                                value = doubleTapCommand,
+                                onValueChange = { doubleTapCommand = it },
+                                label = { Text("Double Tap Command") },
+                                placeholder = { Text("ON") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        ListItem(
+                            headlineContent = { Text("Confirmation") },
+                            supportingContent = { Text("Ask before double-tap action") },
+                            trailingContent = {
+                                Switch(
+                                    checked = doubleTapConfirmation,
+                                    onCheckedChange = { doubleTapConfirmation = it }
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+
+                        Text(
+                            text = "State Display",
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        val availableDblOptions = buildList {
+                            add(StateDisplay.NONE)
+                            if (stateDisplay != StateDisplay.COLOR) add(StateDisplay.COLOR)
+                            if (stateDisplay != StateDisplay.VALUE) add(StateDisplay.VALUE)
+                        }
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            availableDblOptions.forEachIndexed { index, option ->
+                                SegmentedButton(
+                                    selected = doubleTapStateDisplay == option,
+                                    onClick = { doubleTapStateDisplay = option },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = availableDblOptions.size
+                                    )
+                                ) {
+                                    Text(option.name.lowercase().replaceFirstChar { it.uppercase() })
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Buttons
+            // ── Footer Buttons ──
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedButton(
@@ -473,14 +504,15 @@ fun TileConfigSheet(
                                 doubleTapAction = if (doubleTapItem.isBlank()) null else doubleTapAction,
                                 doubleTapCommand = doubleTapCommand.ifBlank { null },
                                 doubleTapConfirmation = if (doubleTapItem.isBlank()) false else doubleTapConfirmation,
-                                doubleTapStateDisplay = if (doubleTapItem.isBlank()) StateDisplay.NONE else doubleTapStateDisplay
+                                doubleTapStateDisplay = if (doubleTapItem.isBlank()) StateDisplay.NONE else doubleTapStateDisplay,
+                                complementAction = if (doubleTapItem.isNotBlank()) false else complementAction
                             )
                         )
                     }
                 ) { Text("Save") }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
@@ -498,6 +530,38 @@ fun TileConfigSheet(
         )
     }
 }
+
+// ─── Section Card ───
+
+@Composable
+private fun SectionCard(
+    title: String,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+        )
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            ),
+            shape = MaterialTheme.shapes.medium
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+// ─── Dropdowns ───
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -519,6 +583,7 @@ private fun ActionDropdown(
             value = actionLabel,
             onValueChange = {},
             readOnly = true,
+            label = { Text("Type") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -598,7 +663,7 @@ private fun DoubleTapActionDropdown(
             value = actionLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Double Tap Action") },
+            label = { Text("Action") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -620,29 +685,5 @@ private fun DoubleTapActionDropdown(
                 onClick = { onActionChange(SlotAction.Command); expanded = false }
             )
         }
-    }
-}
-
-@Composable
-private fun SwitchRow(
-    label: String,
-    description: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = label, style = MaterialTheme.typography.bodyMedium)
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

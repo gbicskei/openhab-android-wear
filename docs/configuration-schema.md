@@ -115,6 +115,7 @@ Each page is a document at `/rest/ui/components/{namespace}/{uid}`:
 | `doubleTapCommand` | String? | null | Command to send on double-tap when `doubleTapAction = "command"`. |
 | `doubleTapConfirmation` | Boolean | false | Show confirmation dialog before executing double-tap action. |
 | `doubleTapStateDisplay` | String? | null | State display mode for the double-tap item value shown on the button: `"value"`, `"color"`, or `"none"`. |
+| `complementAction` | Boolean | false | Enable complementary double-tap on the same item. When `true` and `doubleTapItem` is not set, double-tap performs the complement of the primary action (e.g. toggle → opens control activity, auto → toggles ON/OFF). Only valid for Dimmer, Color, and Rollershutter items. Ignored when `doubleTapItem` is set. |
 
 ### Tap action routing (watch-side)
 
