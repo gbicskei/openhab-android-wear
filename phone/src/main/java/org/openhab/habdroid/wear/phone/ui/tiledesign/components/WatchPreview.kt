@@ -1,19 +1,22 @@
 package org.openhab.habdroid.wear.phone.ui.tiledesign.components
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,13 +25,25 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,6 +51,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -47,6 +63,7 @@ import org.openhab.habdroid.wear.phone.ui.tiledesign.model.TileSlotState
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.resolvePreviewIconState
 import org.openhab.habdroid.wear.phone.ui.tiledesign.model.resolvePreviewStateText
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * Circular watch preview showing the tile layout — pixel-perfect match to the watch.
@@ -57,6 +74,7 @@ fun WatchPreview(
     layout: Int,
     slots: List<TileSlotState>,
     onSlotTap: (Int) -> Unit,
+    onSlotSwap: (fromPosition: Int, toPosition: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     watchSize: Dp = 280.dp,
     watchScreenWidthDp: Float = 226f,
@@ -72,9 +90,30 @@ fun WatchPreview(
 ) {
     val backgroundColor = Color(0xFF000000)
     val emptySlotColor = Color(0xFF2A2A2A)
+    val hapticFeedback = LocalHapticFeedback.current
+    val density = LocalDensity.current
 
     // Scale factor: watch dp → phone render dp
     val scale = watchSize.value / watchScreenWidthDp
+
+    // Drag state
+    var draggingPosition by remember { mutableIntStateOf(-1) }
+    var dragOffsetX by remember { mutableFloatStateOf(0f) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var hoveredPosition by remember { mutableIntStateOf(-1) }
+    val isDragging = draggingPosition > 0
+
+    // Shake animation for drop targets
+    val infiniteTransition = rememberInfiniteTransition(label = "shake")
+    val shakeAngle by infiniteTransition.animateFloat(
+        initialValue = -2f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(80, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "shakeRotation"
+    )
 
     Box(
         modifier = modifier
@@ -99,6 +138,12 @@ fun WatchPreview(
         // The ring is at the edge of the bitmap, so visual button size = (btnDp - 4) * scale.
         val visualBtnDp = (btnDp - 4f) * scale
 
+        // Pre-compute scaled positions for hit-testing during drag
+        val scaledPositions = positions.map { (cx, cy) ->
+            val centerCoord = watchScreenWidthDp / 2f
+            Pair((cx - centerCoord) * scale, (cy - centerCoord) * scale)
+        }
+
         positions.forEachIndexed { index, (cx, cy) ->
             val position = index + 1
             val slot = slots.find { it.position == position }
@@ -111,7 +156,6 @@ fun WatchPreview(
             val dx = cx - centerCoord
             val dy = cy - centerCoord
             val badgeAngle = if (dx == 0f && dy == 0f) {
-                // Center button: place badge at bottom-right (5π/4 would overlap, π/2 = bottom)
                 Math.PI.toFloat() / 2f
             } else {
                 kotlin.math.atan2(dy, dx)
@@ -122,6 +166,21 @@ fun WatchPreview(
             } else PreviewIconState.NEUTRAL
 
             val stateText = if (slot != null) resolvePreviewStateText(slot, itemStates, allItems) else null
+
+            val isBeingDragged = draggingPosition == position
+            val isHovered = hoveredPosition == position && isDragging && !isBeingDragged
+            val isOtherDuringDrag = isDragging && !isBeingDragged
+
+            // Scale animation for hovered target
+            val targetScale by animateFloatAsState(
+                targetValue = when {
+                    isBeingDragged -> 1.1f
+                    isHovered -> 1.15f
+                    else -> 1f
+                },
+                animationSpec = tween(150),
+                label = "slotScale"
+            )
 
             TileSlotButton(
                 slot = slot,
@@ -134,8 +193,83 @@ fun WatchPreview(
                 iconState = iconState,
                 stateText = stateText,
                 badgeAngle = badgeAngle,
-                onTap = { onSlotTap(position) },
-                modifier = Modifier.offset { IntOffset(offsetX.dp.roundToPx(), offsetY.dp.roundToPx()) }
+                onTap = { if (!isDragging) onSlotTap(position) },
+                modifier = Modifier
+                    .zIndex(if (isBeingDragged) 10f else 0f)
+                    .offset {
+                        if (isBeingDragged) {
+                            IntOffset(
+                                (offsetX.dp + with(density) { dragOffsetX.toDp() }).roundToPx(),
+                                (offsetY.dp + with(density) { dragOffsetY.toDp() }).roundToPx()
+                            )
+                        } else {
+                            IntOffset(offsetX.dp.roundToPx(), offsetY.dp.roundToPx())
+                        }
+                    }
+                    .scale(targetScale)
+                    .rotate(if (isOtherDuringDrag) shakeAngle else 0f)
+                    .pointerInput(position, layout) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                draggingPosition = position
+                                dragOffsetX = 0f
+                                dragOffsetY = 0f
+                                hoveredPosition = -1
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffsetX += dragAmount.x
+                                dragOffsetY += dragAmount.y
+
+                                // Hit-test: find which button the drag pointer is over
+                                // Current pointer position in scaled coords (relative to watch center)
+                                val pointerX = scaledPositions[index].first * density.density + dragOffsetX
+                                val pointerY = scaledPositions[index].second * density.density + dragOffsetY
+                                val hitRadius = visualBtnDp * density.density / 2f
+
+                                var closest = -1
+                                var closestDist = Float.MAX_VALUE
+                                scaledPositions.forEachIndexed { i, (sx, sy) ->
+                                    if (i != index) {
+                                        val distX = pointerX - sx * density.density
+                                        val distY = pointerY - sy * density.density
+                                        val dist = sqrt(distX * distX + distY * distY)
+                                        if (dist < hitRadius && dist < closestDist) {
+                                            closest = i + 1
+                                            closestDist = dist
+                                        }
+                                    }
+                                }
+
+                                val newHovered = closest
+                                if (newHovered != hoveredPosition) {
+                                    if (newHovered > 0) {
+                                        hapticFeedback.performHapticFeedback(
+                                            HapticFeedbackType.TextHandleMove
+                                        )
+                                    }
+                                    hoveredPosition = newHovered
+                                }
+                            },
+                            onDragEnd = {
+                                if (hoveredPosition > 0 && hoveredPosition != draggingPosition) {
+                                    onSlotSwap(draggingPosition, hoveredPosition)
+                                    hapticFeedback.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                                }
+                                draggingPosition = -1
+                                dragOffsetX = 0f
+                                dragOffsetY = 0f
+                                hoveredPosition = -1
+                            },
+                            onDragCancel = {
+                                draggingPosition = -1
+                                dragOffsetX = 0f
+                                dragOffsetY = 0f
+                                hoveredPosition = -1
+                            }
+                        )
+                    }
             )
         }
 

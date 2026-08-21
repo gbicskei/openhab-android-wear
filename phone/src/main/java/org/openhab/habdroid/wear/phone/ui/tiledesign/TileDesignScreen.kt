@@ -251,6 +251,9 @@ fun TileDesignScreen(
                                     viewModel.onFilledSlotTapped(animatedPage.uid, position)
                                 }
                             },
+                            onSlotSwap = { from, to ->
+                                viewModel.swapSlotPosition(animatedPage.uid, from, to)
+                            },
                             iconBaseUrl = state.iconBaseUrl,
                             iconAuthHeader = state.iconAuthHeader,
                             themeColor = TileThemeColor.fromName(selectedTheme).color,
