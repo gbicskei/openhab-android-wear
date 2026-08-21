@@ -136,27 +136,17 @@ fun WatchPreview(
                 .size(width = (120f * scale).dp, height = (36f * scale).dp),
             contentAlignment = Alignment.Center
         ) {
-            if (pageName == "main") {
-                // openHAB wordmark SVG — same asset as watch tile
-                val logoHeight = (36f * scale).dp
-                val logoWidth = (36f * 37.945313f / 31.791088f * scale).dp
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data("file:///android_asset/app_logo_gray.svg")
-                        .decoderFactory(SvgDecoder.Factory())
-                        .build(),
-                    contentDescription = "openHAB",
-                    modifier = Modifier.size(width = logoWidth, height = logoHeight)
-                )
-            } else {
-                Text(
-                    text = pageLabel,
-                    color = Color.White,
-                    fontSize = (12f * scale).sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-            }
+            // openHAB logo on all pages
+            val logoHeight = (36f * scale).dp
+            val logoWidth = (36f * 37.945313f / 31.791088f * scale).dp
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data("file:///android_asset/app_logo_gray.svg")
+                    .decoderFactory(SvgDecoder.Factory())
+                    .build(),
+                contentDescription = "openHAB",
+                modifier = Modifier.size(width = logoWidth, height = logoHeight)
+            )
         }
 
         // Mic button at bottom on main page, back arrow on sub-pages
