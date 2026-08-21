@@ -258,6 +258,8 @@ class WearDataLayerListenerService : WearableListenerService() {
         serviceScope.launch {
             val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
             themeStore.setTheme(theme)
+            // Update DataItem so the phone reads the correct theme on next sync check
+            watchStatusWriter.writeTheme(themeName)
             // Request tile update to reflect new theme color
             androidx.wear.tiles.TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(org.openhab.habdroid.wear.tile.OpenHabTileService::class.java)

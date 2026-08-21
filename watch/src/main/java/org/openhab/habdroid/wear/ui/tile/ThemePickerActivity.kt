@@ -62,7 +62,8 @@ class ThemePickerActivity : ComponentActivity() {
 
 @HiltViewModel
 class ThemePickerViewModel @Inject constructor(
-    private val themeStore: ThemeStore
+    private val themeStore: ThemeStore,
+    private val watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter
 ) : ViewModel() {
 
     private val themes = TileTheme.entries.toList()
@@ -91,7 +92,9 @@ class ThemePickerViewModel @Inject constructor(
 
     private fun save() {
         viewModelScope.launch {
-            themeStore.setTheme(themes[_selectedIndex.value])
+            val theme = themes[_selectedIndex.value]
+            themeStore.setTheme(theme)
+            watchStatusWriter.writeTheme(theme.name)
         }
     }
 }

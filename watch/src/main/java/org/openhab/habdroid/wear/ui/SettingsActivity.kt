@@ -514,6 +514,7 @@ class WatchSettingsViewModel @Inject constructor(
     private val repository: org.openhab.habdroid.wear.data.repository.OpenHabRepository,
     private val okHttpClient: okhttp3.OkHttpClient,
     private val serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer,
+    private val watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter,
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context
 ) : ViewModel() {
 
@@ -526,7 +527,10 @@ class WatchSettingsViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TileTheme.AMBER)
 
     fun selectTheme(theme: TileTheme) {
-        viewModelScope.launch { themeStore.setTheme(theme) }
+        viewModelScope.launch {
+            themeStore.setTheme(theme)
+            watchStatusWriter.writeTheme(theme.name)
+        }
     }
 
     // ─── Voice ───

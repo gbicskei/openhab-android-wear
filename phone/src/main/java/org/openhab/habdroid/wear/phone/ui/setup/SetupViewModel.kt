@@ -160,12 +160,8 @@ class SetupViewModel @Inject constructor(
                     return@launch
                 }
 
-                // Sync theme from watch (watch is source of truth)
-                val selectedTheme = credentialStore.getSelectedTheme()
-                if (watchTheme != null && !watchTheme.equals(selectedTheme, ignoreCase = true)) {
-                    AppLog.d("SetupVM", "Sync check: adopting watch theme=$watchTheme (was phone=$selectedTheme)")
-                    credentialStore.saveSelectedTheme(watchTheme.uppercase())
-                }
+                // Theme sync is handled by DataItem listener (PhoneWearListenerService),
+                // not by the periodic sync check.
 
                 // Fetch server's configVersion from main page
                 val creds = credentialStore.credentials.first() ?: return@launch

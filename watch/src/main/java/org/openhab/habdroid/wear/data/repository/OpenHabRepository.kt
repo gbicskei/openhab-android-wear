@@ -215,13 +215,7 @@ class OpenHabRepository @Inject constructor(
         val mainPage = tilePages.find { it.uid == "main" }
         lastConfigVersion = mainPage?.config?.configVersionInt ?: 0
 
-        // Apply theme from tile config (theme is part of tile definition)
-        val tileThemeName = mainPage?.config?.theme
-        if (!tileThemeName.isNullOrBlank()) {
-            val tileTheme = TileTheme.fromName(tileThemeName)
-            themeStore.setTheme(tileTheme)
-            AppLog.d(TAG, "coldLoad: applied theme '$tileThemeName' from tile config")
-        }
+        // Theme is managed via DataItem (watch ↔ phone), not from server config.
 
         // Capture page labels for tile title rendering
         pageLabels = tilePages.associate { it.uid to it.config.label }

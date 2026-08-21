@@ -64,6 +64,12 @@ class OpenHabWearApp : Application(), Configuration.Provider {
             watchStatusWriter.writeAppVersion(BuildConfig.VERSION_NAME)
         }
 
+        // Publish current theme to DataItem so the phone has it on connect
+        appScope.launch {
+            val theme = themeStore.getTheme()
+            watchStatusWriter.writeTheme(theme.name)
+        }
+
         // Re-register as assistant on every launch (survives reinstalls)
         assistantRegistrar.ensureRegistered(this)
     }

@@ -393,7 +393,7 @@ class WatchSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             // Cache locally (fallback for when watch is disconnected)
             credentialStore.saveSelectedTheme(themeName)
-            // Send to watch (source of truth)
+            // Send to watch — watch writes DataItem, phone picks it up via onDataChanged
             dataLayerSender.sendTheme(themeName)
                 .onFailure { AppLog.w(TAG, "Failed to send theme to watch: ${it.message}") }
         }

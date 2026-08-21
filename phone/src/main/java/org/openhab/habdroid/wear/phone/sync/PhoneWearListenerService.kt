@@ -50,6 +50,11 @@ class PhoneWearListenerService : WearableListenerService() {
                 if (!appVersion.isNullOrBlank()) {
                     WatchVersionHolder.update(appVersion)
                 }
+                // Adopt theme change from watch (watch is source of truth)
+                val theme = dataMap.getString(KEY_THEME)
+                if (!theme.isNullOrBlank()) {
+                    ThemeHolder.update(theme, applicationContext)
+                }
             }
         }
     }
@@ -60,5 +65,6 @@ class PhoneWearListenerService : WearableListenerService() {
         const val EXTRA_NAVIGATE_TO = "navigate_to"
         private const val PATH_STATUS = "/openhab/status"
         private const val KEY_APP_VERSION = "appVersion"
+        private const val KEY_THEME = "theme"
     }
 }
