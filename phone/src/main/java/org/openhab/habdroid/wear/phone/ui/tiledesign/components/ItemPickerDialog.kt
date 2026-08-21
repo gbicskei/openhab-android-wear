@@ -270,7 +270,7 @@ private fun PageNavigationList(
                 trailingContent = {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = null,
+                        contentDescription = "Navigate to group",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },

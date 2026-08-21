@@ -34,8 +34,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Color picker activity for Color items on the watch tile.
@@ -47,7 +49,9 @@ class ColorPickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ColorPickerScreen()
+            WearOHTheme {
+                ColorPickerScreen()
+            }
         }
     }
 }
@@ -72,11 +76,11 @@ fun ColorPickerScreen(
     ) {
         when {
             state.isLoading -> {
-                Text("Loading...", color = Color.White)
+                Text("Loading...", color = MaterialTheme.colorScheme.onSurface)
             }
 
             state.error != null -> {
-                Text("Error: ${state.error}", color = Color.Red, textAlign = TextAlign.Center)
+                Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
 
             else -> {
@@ -112,7 +116,7 @@ fun ColorPickerScreen(
                         text = if (state.isOn) "On" else "Off",
                         fontSize = 11.sp,
                         color = if (state.isOn) hsbToColor(state.hue, state.saturation, state.brightness)
-                            else Color(0xFF666666),
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.clickable { viewModel.toggleOnOff() }
                     )
                 }
@@ -209,7 +213,7 @@ private fun BrightnessArc(brightness: Float, hue: Float) {
 
         // Track
         drawArc(
-            color = Color(ControlStyle.ARC_TRACK_COLOR),
+            color = ControlStyle.ARC_TRACK_COLOR,
             startAngle = 0f,
             sweepAngle = 360f,
             useCenter = false,

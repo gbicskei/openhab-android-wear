@@ -17,6 +17,7 @@ import androidx.wear.compose.material3.CircularProgressIndicator
 import dagger.hilt.android.AndroidEntryPoint
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import javax.inject.Inject
 
 /**
@@ -45,7 +46,8 @@ class ComplicationTapActivity : ComponentActivity() {
         val slotNumber = intent.getIntExtra(EXTRA_SLOT_NUMBER, -1)
 
         setContent {
-            var state by remember { mutableStateOf<TapState>(TapState.Loading) }
+            WearOHTheme {
+                var state by remember { mutableStateOf<TapState>(TapState.Loading) }
 
             LaunchedEffect(complicationId) {
                 // Resolve item name: try preference store first (generic service),
@@ -106,6 +108,7 @@ class ComplicationTapActivity : ComponentActivity() {
                     }
                 }
                 is TapState.Done -> {}
+            }
             }
         }
     }

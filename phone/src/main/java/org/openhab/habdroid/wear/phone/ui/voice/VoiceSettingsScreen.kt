@@ -68,7 +68,7 @@ fun VoiceSettingsContent(viewModel: VoiceSettingsViewModel) {
         ) {
             Icon(
                 Icons.Default.Warning,
-                contentDescription = null,
+                contentDescription = "Warning",
                 tint = MaterialTheme.colorScheme.error,
                 modifier = Modifier.size(16.dp)
             )

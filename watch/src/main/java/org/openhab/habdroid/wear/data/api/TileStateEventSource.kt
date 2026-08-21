@@ -209,9 +209,11 @@ class TileStateEventSource @Inject constructor(
                     return@launch
                 }
 
-                // Re-race local vs cloud on each reconnect attempt so the watch
-                // adapts when entering/leaving the home network.
-                serverSelector.reset()
+                // Only re-race local vs cloud on first attempt or after a long-lived session dies.
+                // Quick reconnects reuse the last known-good URL to avoid DNS failures.
+                if (consecutiveQuickFailures == 0) {
+                    serverSelector.reset()
+                }
                 val baseUrl = (serverSelector.resolveUrl()).trimEnd('/')
 
                 if (consecutiveQuickFailures >= MAX_QUICK_FAILURES) {

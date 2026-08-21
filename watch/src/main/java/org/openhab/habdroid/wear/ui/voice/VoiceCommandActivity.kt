@@ -53,6 +53,7 @@ import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import java.util.Locale
 
 /**
@@ -92,22 +93,24 @@ class VoiceCommandActivity : ComponentActivity() {
         pendingStart = true
 
         setContent {
-            val vm: VoiceCommandViewModel = hiltViewModel()
-            viewModel = vm
+            WearOHTheme {
+                val vm: VoiceCommandViewModel = hiltViewModel()
+                viewModel = vm
 
-            // Start listening once the viewModel is available
-            LaunchedEffect(Unit) {
-                if (pendingStart) {
-                    pendingStart = false
-                    requestMicAndListen()
+                // Start listening once the viewModel is available
+                LaunchedEffect(Unit) {
+                    if (pendingStart) {
+                        pendingStart = false
+                        requestMicAndListen()
+                    }
                 }
-            }
 
-            VoiceCommandScreen(
-                viewModel = vm,
-                onStartListening = { requestMicAndListen() },
-                onDone = { finish() }
-            )
+                VoiceCommandScreen(
+                    viewModel = vm,
+                    onStartListening = { requestMicAndListen() },
+                    onDone = { finish() }
+                )
+            }
         }
     }
 

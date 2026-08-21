@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import javax.inject.Inject
 
 /**
@@ -59,6 +60,7 @@ class TileActionReceiver : ComponentActivity() {
         if (needsConfirmation) {
             // Show confirmation UI
             setContent {
+                WearOHTheme {
                 Column(
                     modifier = Modifier.fillMaxSize().padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -92,6 +94,7 @@ class TileActionReceiver : ComponentActivity() {
                             icon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp)) }
                         )
                     }
+                }
                 }
             }
         } else {

@@ -24,11 +24,11 @@ import androidx.compose.ui.unit.dp
  * Theme colors matching the watch tile accent themes.
  */
 enum class TileThemeColor(val displayName: String, val color: Color) {
-    AMBER("Amber", Color(0xFFFFB300)),
-    BLUE("Blue", Color(0xFF42A5F5)),
-    GREEN("Green", Color(0xFF66BB6A)),
-    PURPLE("Purple", Color(0xFFAB47BC)),
-    RED("Red", Color(0xFFF44336));
+    AMBER("Amber", Color(0xFFFFB950)),
+    BLUE("Blue", Color(0xFFA8C8FF)),
+    GREEN("Green", Color(0xFF8AD88E)),
+    PURPLE("Purple", Color(0xFFD4BBFF)),
+    RED("Red", Color(0xFFFFB4AB));
 
     companion object {
         fun fromName(name: String): TileThemeColor =

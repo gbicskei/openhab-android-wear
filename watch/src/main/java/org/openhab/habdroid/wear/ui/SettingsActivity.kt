@@ -5,27 +5,36 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.ScreenScaffold
 import androidx.wear.compose.material3.Slider
+import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.SwitchButton
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.lazy.rememberTransformationSpec
+import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
 import androidx.wear.compose.navigation.rememberSwipeDismissableNavController
@@ -40,16 +49,23 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
+import org.openhab.habdroid.wear.data.repository.ThemeStore
+import org.openhab.habdroid.wear.data.repository.TileTheme
 import org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
 import org.openhab.habdroid.wear.ui.components.AppLogoHeader
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class SettingsActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var themeStore: ThemeStore
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { SettingsNavHost() }
+        setContent { WearOHTheme(themeFlow = themeStore.theme) { AppScaffold { SettingsNavHost() } } }
     }
 }
 
@@ -58,6 +74,7 @@ private object SettingsRoutes {
     const val VOICE = "settings_voice"
     const val VOICE_PICKER = "settings_voice_picker"
     const val NOTIFICATIONS = "settings_notifications"
+    const val THEME = "settings_theme"
 }
 
 @Composable
@@ -72,7 +89,8 @@ fun SettingsNavHost(viewModel: WatchSettingsViewModel = hiltViewModel()) {
             SettingsMainScreen(
                 viewModel = viewModel,
                 onVoice = { navController.navigate(SettingsRoutes.VOICE) },
-                onNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) }
+                onNotifications = { navController.navigate(SettingsRoutes.NOTIFICATIONS) },
+                onTheme = { navController.navigate(SettingsRoutes.THEME) }
             )
         }
         composable(SettingsRoutes.VOICE) {
@@ -93,6 +111,12 @@ fun SettingsNavHost(viewModel: WatchSettingsViewModel = hiltViewModel()) {
         composable(SettingsRoutes.NOTIFICATIONS) {
             NotificationSettingsScreen(viewModel = viewModel)
         }
+        composable(SettingsRoutes.THEME) {
+            ThemeSettingsScreen(
+                viewModel = viewModel,
+                onSelected = { navController.popBackStack() }
+            )
+        }
     }
 }
 
@@ -102,69 +126,97 @@ fun SettingsNavHost(viewModel: WatchSettingsViewModel = hiltViewModel()) {
 private fun SettingsMainScreen(
     viewModel: WatchSettingsViewModel,
     onVoice: () -> Unit,
-    onNotifications: () -> Unit
+    onNotifications: () -> Unit,
+    onTheme: () -> Unit
 ) {
     val debugMode by viewModel.debugMode.collectAsState()
     val bindingInstalled by viewModel.bindingInstalled.collectAsState()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AppLogoHeader()
-
-        ScalingLazyColumn(
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
         ) {
+            item {
+                ListHeader { AppLogoHeader() }
+            }
             item {
                 Button(
                     onClick = onVoice,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Voice") },
-                icon = {
-                    Icon(
-                        Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            )
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Voice") },
+                    icon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.VolumeUp,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                Button(
+                    onClick = onNotifications,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Notifications") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    enabled = bindingInstalled,
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                Button(
+                    onClick = onTheme,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Theme") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Palette,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                Button(
+                    onClick = { /* controlled from phone */ },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Debug Mode") },
+                    secondaryLabel = { Text(if (debugMode) "On • Set on phone" else "Off • Set on phone") },
+                    icon = {
+                        Icon(
+                            Icons.Default.BugReport,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
         }
-
-        item {
-            Button(
-                onClick = onNotifications,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Notifications") },
-                icon = {
-                    Icon(
-                        Icons.Default.Notifications,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                },
-                enabled = bindingInstalled
-            )
-        }
-
-        item {
-            SwitchButton(
-                checked = debugMode,
-                onCheckedChange = { viewModel.toggleDebugMode(it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Debug Mode") },
-                enabled = false,
-                icon = {
-                    Icon(
-                        Icons.Default.BugReport,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            )
-        }
-    }
     }
 }
 
@@ -183,76 +235,95 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
 
     val hasApiKey = apiKey.isNotBlank()
     val googleTtsAvailable = hasApiKey && serverOnline
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AppLogoHeader()
-
-        ScalingLazyColumn(
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
         ) {
-        item {
-            SwitchButton(
-                checked = voiceCommands,
-                onCheckedChange = { viewModel.toggleVoiceCommands(it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Voice Commands") }
-            )
-        }
-        item {
-            SwitchButton(
-                checked = readAloud,
-                onCheckedChange = { viewModel.toggleReadAloud(it) },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("Read Aloud") }
-            )
-        }
-        item {
-            SwitchButton(
-                checked = serverTts,
-                onCheckedChange = { viewModel.toggleServerTts(it) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = readAloud && googleTtsAvailable,
-                label = { Text("Google TTS") }
-            )
-        }
-        if (serverTts && googleTtsAvailable) {
+            item {
+                ListHeader { AppLogoHeader() }
+            }
+            item {
+                SwitchButton(
+                    checked = voiceCommands,
+                    onCheckedChange = { viewModel.toggleVoiceCommands(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Voice Commands") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                SwitchButton(
+                    checked = readAloud,
+                    onCheckedChange = { viewModel.toggleReadAloud(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Read Aloud") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                SwitchButton(
+                    checked = serverTts,
+                    onCheckedChange = { viewModel.toggleServerTts(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    enabled = readAloud && googleTtsAvailable,
+                    label = { Text("Google TTS") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            if (serverTts && googleTtsAvailable) {
+                item {
+                    Button(
+                        onClick = onPickVoice,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        label = { Text(ttsVoice.ifBlank { "Select voice" }) },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+            }
+            if (!serverTts) {
+                item {
+                    Text(
+                        "Speed: ${String.format("%.1f", ttsSpeechRate)}x",
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                item {
+                    Slider(
+                        value = ttsSpeechRate,
+                        onValueChange = { viewModel.setTtsSpeechRate(it) },
+                        valueRange = 0.5f..2.0f,
+                        steps = 5
+                    )
+                }
+            }
             item {
                 Button(
-                    onClick = onPickVoice,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(ttsVoice.ifBlank { "Select voice" }) }
+                    onClick = { viewModel.testVoice() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    enabled = !testPlaying && readAloud,
+                    label = { Text(if (testPlaying) "Playing..." else "Test Voice") },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
         }
-        if (!serverTts) {
-            item {
-                Text(
-                    "Speed: ${String.format("%.1f", ttsSpeechRate)}x",
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-            item {
-                Slider(
-                    value = ttsSpeechRate,
-                    onValueChange = { viewModel.setTtsSpeechRate(it) },
-                    valueRange = 0.5f..2.0f,
-                    steps = 5
-                )
-            }
-        }
-        item {
-            Button(
-                onClick = { viewModel.testVoice() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !testPlaying && readAloud,
-                label = { Text(if (testPlaying) "Playing..." else "Test Voice") }
-            )
-        }
-    }
     }
 }
 
@@ -263,41 +334,47 @@ private fun VoicePickerScreen(viewModel: WatchSettingsViewModel, onBack: () -> U
     val voices by viewModel.voices.collectAsState()
     val loading by viewModel.voicesLoading.collectAsState()
     val currentVoice by viewModel.serverTtsVoice.collectAsState()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AppLogoHeader()
-
-        ScalingLazyColumn(
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
         ) {
-
-        if (loading) {
-            item { Text("Loading voices...") }
-        } else if (voices.isEmpty()) {
-            item { Text("No voices available") }
-        } else {
-            items(voices.size) { index ->
-                val voice = voices[index]
-                val isSelected = voice == currentVoice
-                Button(
-                    onClick = {
-                        viewModel.selectVoice(voice)
-                        onBack()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(voice) },
-                    colors = if (isSelected)
-                        androidx.wear.compose.material3.ButtonDefaults.buttonColors()
-                    else
-                        androidx.wear.compose.material3.ButtonDefaults.filledTonalButtonColors()
-                )
+            item {
+                ListHeader { AppLogoHeader() }
+            }
+            if (loading) {
+                item { Text("Loading voices...") }
+            } else if (voices.isEmpty()) {
+                item { Text("No voices available") }
+            } else {
+                items(voices.size) { index ->
+                    val voice = voices[index]
+                    val isSelected = voice == currentVoice
+                    Button(
+                        onClick = {
+                            viewModel.selectVoice(voice)
+                            onBack()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        label = { Text(voice) },
+                        colors = if (isSelected)
+                            ButtonDefaults.buttonColors()
+                        else
+                            ButtonDefaults.filledTonalButtonColors(),
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
             }
         }
-    }
     }
 }
 
@@ -309,52 +386,120 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
     val notifReadAloud by viewModel.notifReadAloudEnabled.collectAsState()
     val chime by viewModel.chimeEnabled.collectAsState()
     val minPriority by viewModel.minReadAloudPriority.collectAsState()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AppLogoHeader()
-
-        ScalingLazyColumn(
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
         ) {
+            item {
+                ListHeader { AppLogoHeader() }
+            }
             item {
                 SwitchButton(
                     checked = notificationsEnabled,
                     onCheckedChange = { viewModel.toggleNotifications(it) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Enabled") }
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text("Enabled") },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
             item {
-            SwitchButton(
-                checked = notifReadAloud,
-                onCheckedChange = { viewModel.toggleNotifReadAloud(it) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = notificationsEnabled,
-                label = { Text("Read Aloud") }
-            )
-        }
-        item {
-            SwitchButton(
-                checked = chime,
-                onCheckedChange = { viewModel.toggleChime(it) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = notificationsEnabled && notifReadAloud,
-                label = { Text("Alert Sound") }
-            )
-        }
-        item {
-            Button(
-                onClick = { viewModel.cycleMinReadAloudPriority() },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = notificationsEnabled && notifReadAloud,
-                label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") }
-            )
+                SwitchButton(
+                    checked = notifReadAloud,
+                    onCheckedChange = { viewModel.toggleNotifReadAloud(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    enabled = notificationsEnabled,
+                    label = { Text("Read Aloud") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                SwitchButton(
+                    checked = chime,
+                    onCheckedChange = { viewModel.toggleChime(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    enabled = notificationsEnabled && notifReadAloud,
+                    label = { Text("Alert Sound") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+            item {
+                Button(
+                    onClick = { viewModel.cycleMinReadAloudPriority() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    enabled = notificationsEnabled && notifReadAloud,
+                    label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
         }
     }
+}
+
+// ─── Theme Settings (sub-screen) ───
+
+@Composable
+private fun ThemeSettingsScreen(viewModel: WatchSettingsViewModel, onSelected: () -> Unit) {
+    val selectedTheme by viewModel.selectedTheme.collectAsState()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
+
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
+        ) {
+            item {
+                ListHeader { Text("Accent Color") }
+            }
+            items(TileTheme.entries.size) { index ->
+                val theme = TileTheme.entries[index]
+                val isSelected = theme == selectedTheme
+                Button(
+                    onClick = {
+                        viewModel.selectTheme(theme)
+                        onSelected()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
+                    label = { Text(theme.displayName) },
+                    colors = if (isSelected)
+                        ButtonDefaults.buttonColors()
+                    else
+                        ButtonDefaults.filledTonalButtonColors(),
+                    icon = {
+                        androidx.compose.foundation.Canvas(modifier = Modifier.size(16.dp)) {
+                            drawCircle(
+                                color = androidx.compose.ui.graphics.Color(
+                                    theme.color.toLong() or 0xFF000000L
+                                )
+                            )
+                        }
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
+                )
+            }
+        }
     }
 }
 
@@ -365,6 +510,7 @@ class WatchSettingsViewModel @Inject constructor(
     private val voicePrefs: VoicePreferenceStore,
     private val notificationPrefs: NotificationPreferenceStore,
     private val credentialStore: CredentialStore,
+    private val themeStore: ThemeStore,
     private val repository: org.openhab.habdroid.wear.data.repository.OpenHabRepository,
     private val okHttpClient: okhttp3.OkHttpClient,
     private val serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer,
@@ -373,6 +519,14 @@ class WatchSettingsViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "WatchSettingsVM"
+    }
+
+    // ─── Theme ───
+    val selectedTheme = themeStore.theme
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TileTheme.AMBER)
+
+    fun selectTheme(theme: TileTheme) {
+        viewModelScope.launch { themeStore.setTheme(theme) }
     }
 
     // ─── Voice ───

@@ -62,7 +62,7 @@ fun WatchPreview(
     watchScreenWidthDp: Float = 226f,
     iconBaseUrl: String? = null,
     iconAuthHeader: String? = null,
-    themeColor: Color = Color(0xFFFFB300),
+    themeColor: Color = Color(0xFFFFB950),
     itemStates: Map<String, String> = emptyMap(),
     allPages: List<TilePageState> = emptyList(),
     allItems: List<PhoneItem> = emptyList(),

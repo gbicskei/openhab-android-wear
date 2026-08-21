@@ -15,12 +15,17 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.openhab.habdroid.wear.phone.BuildConfig
+import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
 import org.openhab.habdroid.wear.phone.ui.navigation.AppNavHost
 import org.openhab.habdroid.wear.phone.ui.theme.OpenHabWearPhoneTheme
 import org.openhab.habdroid.wear.shared.sync.VersionCompat
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var credentialStore: PhoneCredentialStore
 
     private val appUpdateManager by lazy { AppUpdateManagerFactory.create(this) }
 
@@ -42,7 +47,7 @@ class MainActivity : ComponentActivity() {
         )
 
         setContent {
-            OpenHabWearPhoneTheme {
+            OpenHabWearPhoneTheme(accentName = credentialStore.getSelectedTheme()) {
                 val navController = rememberNavController()
                 AppNavHost(navController = navController)
 

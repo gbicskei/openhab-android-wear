@@ -28,8 +28,10 @@ import androidx.compose.ui.input.rotary.onRotaryScrollEvent
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Dedicated control screen for range/dimmer items.
@@ -41,7 +43,9 @@ class RotaryControlActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            RotaryControlScreen()
+            WearOHTheme {
+                RotaryControlScreen()
+            }
         }
     }
 }
@@ -66,11 +70,11 @@ fun RotaryControlScreen(
     ) {
         when {
             state.isLoading -> {
-                Text("Loading...", color = Color.White)
+                Text("Loading...", color = MaterialTheme.colorScheme.onSurface)
             }
 
             state.error != null -> {
-                Text("Error: ${state.error}", color = Color.Red, textAlign = TextAlign.Center)
+                Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
 
             else -> {
@@ -115,7 +119,7 @@ fun RotaryControlScreen(
 @Composable
 private fun EdgeProgressIndicator(
     progress: Float,
-    trackColor: Color = Color(ControlStyle.ARC_TRACK_COLOR),
+    trackColor: Color = ControlStyle.ARC_TRACK_COLOR,
     progressColor: Color = Color(ControlStyle.DEFAULT_THEME_COLOR)
 ) {
     Canvas(modifier = Modifier.fillMaxSize()) {

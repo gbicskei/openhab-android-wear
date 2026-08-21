@@ -5,10 +5,9 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -20,22 +19,30 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
+import androidx.wear.compose.material3.AppScaffold
 import androidx.wear.compose.material3.Button
+import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
 import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
+import androidx.wear.compose.material3.lazy.rememberTransformationSpec
+import androidx.wear.compose.material3.lazy.transformedHeight
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.ui.components.AppLogoHeader
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
+import javax.inject.Inject
 
 /**
  * Main launcher activity for the wearOH app.
@@ -46,6 +53,9 @@ import org.openhab.habdroid.wear.ui.components.AppLogoHeader
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject
+    lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
+
     private val notificationPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { /* no-op: we just need to prompt, user decides */ }
@@ -54,14 +64,18 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
         setContent {
-            MainScreen(
-                onAbout = {
-                    startActivity(Intent(this@MainActivity, AboutActivity::class.java))
-                },
-                onSettings = {
-                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+            WearOHTheme(themeFlow = themeStore.theme) {
+                AppScaffold {
+                    MainScreen(
+                        onAbout = {
+                            startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                        },
+                        onSettings = {
+                            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                        }
+                    )
                 }
-            )
+            }
         }
     }
 
@@ -102,17 +116,21 @@ fun MainScreen(
         }
     }
 
-    androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        AppLogoHeader(serverOnline = serverOnline)
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-        // Scrollable buttons underneath
-        ScalingLazyColumn(
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
             modifier = Modifier.fillMaxSize(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
         ) {
+            item {
+                ListHeader { AppLogoHeader(serverOnline = serverOnline) }
+            }
             item {
                 Button(
                     onClick = {
@@ -137,7 +155,9 @@ fun MainScreen(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
                     label = { Text("Setup on Phone") },
                     icon = {
                         Icon(
@@ -145,13 +165,16 @@ fun MainScreen(
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
-                    }
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
             item {
                 Button(
                     onClick = { viewModel.reloadItems() },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
                     enabled = reloadState !is ReloadState.Loading,
                     label = { Text(if (reloadState is ReloadState.Loading) "Loading..." else "Reload Items") },
                     icon = {
@@ -160,13 +183,16 @@ fun MainScreen(
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
-                    }
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
             item {
                 Button(
                     onClick = onSettings,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
                     label = { Text("Settings") },
                     icon = {
                         Icon(
@@ -174,13 +200,16 @@ fun MainScreen(
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
-                    }
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
             item {
                 Button(
                     onClick = onAbout,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .transformedHeight(this, transformationSpec),
                     label = { Text("About") },
                     icon = {
                         Icon(
@@ -188,7 +217,8 @@ fun MainScreen(
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
-                    }
+                    },
+                    transformation = SurfaceTransformation(transformationSpec)
                 )
             }
         }

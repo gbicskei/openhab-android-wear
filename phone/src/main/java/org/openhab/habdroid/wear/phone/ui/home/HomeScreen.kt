@@ -33,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,7 +42,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -79,14 +83,19 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
+        val systemBarsPadding = WindowInsets.systemBars.asPaddingValues()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+                .padding(
+                    start = 24.dp,
+                    end = 24.dp,
+                    top = systemBarsPadding.calculateTopPadding() + 16.dp,
+                    bottom = systemBarsPadding.calculateBottomPadding() + 24.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
 
             // Logo wordmark
             Image(
@@ -263,7 +272,7 @@ private fun WatchStatusChip(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = label,
                 modifier = Modifier.size(20.dp),
                 tint = when (watchStatus) {
                     WatchStatus.NotFound, WatchStatus.AppNotInstalled -> MaterialTheme.colorScheme.onErrorContainer
@@ -306,8 +315,8 @@ private fun NavigationCard(
         enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceVariant
-                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+                else MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp).copy(alpha = 0.4f)
         ),
         shape = MaterialTheme.shapes.large
     ) {
@@ -364,8 +373,8 @@ private fun ExpandableNavigationCard(
         enabled = enabled,
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceVariant
-            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+            containerColor = if (enabled) MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp)
+            else MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp).copy(alpha = 0.4f)
         ),
         shape = MaterialTheme.shapes.large
     ) {
@@ -471,7 +480,7 @@ private fun WatchOutdatedBanner(
         ) {
             Icon(
                 imageVector = Icons.Default.Warning,
-                contentDescription = null,
+                contentDescription = "Warning",
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onErrorContainer
             )

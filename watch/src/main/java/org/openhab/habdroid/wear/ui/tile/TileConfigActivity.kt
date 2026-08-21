@@ -14,9 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -26,18 +26,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.wear.compose.material3.EdgeButton
+import androidx.wear.compose.material3.EdgeButtonSize
+import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import androidx.wear.tiles.TileService
 import dagger.hilt.android.AndroidEntryPoint
 import org.openhab.habdroid.wear.data.model.TileItem
 import org.openhab.habdroid.wear.tile.OpenHabTileService
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Tile configuration activity launched by the system pencil icon
@@ -51,13 +55,15 @@ class TileConfigActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            TileConfigScreen(
-                onDone = {
-                    TileService.getUpdater(this)
-                        .requestUpdate(OpenHabTileService::class.java)
-                    finish()
-                }
-            )
+            WearOHTheme {
+                TileConfigScreen(
+                    onDone = {
+                        TileService.getUpdater(this)
+                            .requestUpdate(OpenHabTileService::class.java)
+                        finish()
+                    }
+                )
+            }
         }
     }
 }
@@ -121,7 +127,7 @@ private fun TileEditorContent(
                     text = "openHAB",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 // Push grid to center
@@ -138,20 +144,18 @@ private fun TileEditorContent(
                 // Push done button to bottom
                 Spacer(modifier = Modifier.weight(1f))
 
-                // Done button — same position as mic on the tile
-                Box(
-                    modifier = Modifier
-                        .width(48.dp)
-                        .height(28.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF4CAF50))
-                        .clickable { onDone() },
-                    contentAlignment = Alignment.Center
+                // Done button — edge-hugging, follows screen curvature
+                EdgeButton(
+                    onClick = onDone,
+                    buttonSize = EdgeButtonSize.Medium
                 ) {
-                    Text(text = "✓", fontSize = 16.sp, color = Color.White)
+                    Icon(
+                        Icons.Default.Check,
+                        contentDescription = "Done"
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(4.dp))
             }
         }
     }
@@ -212,21 +216,21 @@ private fun ItemSlot(
             modifier = Modifier
                 .size(52.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF2C2C2C)),
+                .background(MaterialTheme.colorScheme.surfaceContainer),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = tileItem.item.displayLabel.take(8),
                 fontSize = 10.sp,
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = tileItem.item.state.take(4),
                 fontSize = 9.sp,
-                color = if (tileItem.item.isOn) Color(0xFFFF9800) else Color(0xFF757575)
+                color = if (tileItem.item.isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
@@ -236,11 +240,11 @@ private fun ItemSlot(
                 .align(Alignment.TopEnd)
                 .size(22.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE53935))
+                .background(MaterialTheme.colorScheme.error)
                 .clickable { onRemove() },
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "−", fontSize = 14.sp, color = Color.White)
+            Text(text = "−", fontSize = 14.sp, color = MaterialTheme.colorScheme.onError)
         }
     }
 }
@@ -252,10 +256,10 @@ private fun AddSlot(onClick: () -> Unit) {
             .size(60.dp)
             .padding(4.dp)
             .clip(CircleShape)
-            .background(Color(0xFF1E1E1E))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text = "+", fontSize = 22.sp, color = Color(0xFF4CAF50))
+        Text(text = "+", fontSize = 22.sp, color = MaterialTheme.colorScheme.tertiary)
     }
 }

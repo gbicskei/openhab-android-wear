@@ -31,6 +31,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.ItemCache
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import javax.inject.Inject
 
 /**
@@ -365,6 +366,7 @@ class QuickActionActivity : ComponentActivity() {
         // Set opaque background for the confirmation dialog (activity theme is translucent)
         window?.decorView?.setBackgroundColor(android.graphics.Color.BLACK)
         setContent {
+            WearOHTheme {
             Column(
                 modifier = Modifier.fillMaxSize().padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -393,6 +395,7 @@ class QuickActionActivity : ComponentActivity() {
                         icon = { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(20.dp)) }
                     )
                 }
+            }
             }
         }
     }

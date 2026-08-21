@@ -38,8 +38,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.ButtonDefaults
 import androidx.wear.compose.material3.Icon
+import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Roller shutter control activity.
@@ -52,7 +54,9 @@ class RollerShutterActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            RollerShutterScreen()
+            WearOHTheme {
+                RollerShutterScreen()
+            }
         }
     }
 }
@@ -77,11 +81,11 @@ fun RollerShutterScreen(
     ) {
         when {
             state.isLoading -> {
-                Text("Loading...", color = Color.White)
+                Text("Loading...", color = MaterialTheme.colorScheme.onSurface)
             }
 
             state.error != null -> {
-                Text("Error: ${state.error}", color = Color.Red, textAlign = TextAlign.Center)
+                Text("Error: ${state.error}", color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
             }
 
             else -> {
@@ -178,7 +182,7 @@ private fun PositionArc(position: Float, progressColor: Color = Color(ControlSty
 
         // Track
         drawArc(
-            color = Color(ControlStyle.ARC_TRACK_COLOR),
+            color = ControlStyle.ARC_TRACK_COLOR,
             startAngle = 0f,
             sweepAngle = 360f,
             useCenter = false,

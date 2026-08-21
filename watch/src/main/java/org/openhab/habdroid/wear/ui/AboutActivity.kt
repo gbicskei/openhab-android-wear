@@ -21,6 +21,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import org.openhab.habdroid.wear.BuildConfig
 import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.ui.components.AppLogoHeader
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 @AndroidEntryPoint
 class AboutActivity : ComponentActivity() {
@@ -28,7 +29,9 @@ class AboutActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            AboutScreen()
+            WearOHTheme {
+                AboutScreen()
+            }
         }
     }
 }

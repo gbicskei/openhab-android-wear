@@ -9,6 +9,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,21 +32,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.Button
 import androidx.wear.compose.material3.CircularProgressIndicator
 import androidx.wear.compose.material3.ListHeader
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TitleCard
+import androidx.wear.compose.material3.lazy.rememberTransformationSpec
+import androidx.wear.compose.material3.lazy.transformedHeight
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceService
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.data.model.Item
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Configuration activity for the complication data source.
@@ -74,20 +80,22 @@ class ComplicationConfigActivity : ComponentActivity() {
         setResult(Activity.RESULT_CANCELED) // Default to canceled until selection is made
 
         setContent {
-            ComplicationConfigScreen(
-                complicationId = complicationId,
-                onItemSelected = {
-                    // Request complication data refresh
-                    ComplicationDataSourceUpdateRequester.create(
-                        this, ComponentName(this, OpenHabComplicationService::class.java)
-                    ).requestUpdateAll()
-                    setResult(Activity.RESULT_OK)
-                    finish()
-                },
-                onCancel = {
-                    finish()
-                }
-            )
+            WearOHTheme {
+                ComplicationConfigScreen(
+                    complicationId = complicationId,
+                    onItemSelected = {
+                        // Request complication data refresh
+                        ComplicationDataSourceUpdateRequester.create(
+                            this, ComponentName(this, OpenHabComplicationService::class.java)
+                        ).requestUpdateAll()
+                        setResult(Activity.RESULT_OK)
+                        finish()
+                    },
+                    onCancel = {
+                        finish()
+                    }
+                )
+            }
         }
     }
 }
@@ -138,28 +146,34 @@ private fun ItemPickerContent(
     iconResolver: org.openhab.habdroid.wear.data.icon.IconResolver,
     onItemSelected: (Item) -> Unit
 ) {
-    val listState = rememberScalingLazyListState()
+    val columnState = rememberTransformingLazyColumnState()
+    val transformationSpec = rememberTransformationSpec()
 
-    ScalingLazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        item {
-            ListHeader {
-                Text(
-                    text = stringResource(R.string.complication_config_title),
-                    style = MaterialTheme.typography.titleSmall
+    ScreenScaffold(scrollState = columnState) { contentPadding ->
+        TransformingLazyColumn(
+            state = columnState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = contentPadding.calculateTopPadding(),
+                bottom = contentPadding.calculateBottomPadding() + 48.dp
+            )
+        ) {
+            item {
+                ListHeader {
+                    Text(
+                        text = stringResource(R.string.complication_config_title),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                }
+            }
+
+            items(items, key = { it.name }) { item ->
+                ComplicationItemCard(
+                    item = item,
+                    iconResolver = iconResolver,
+                    onClick = { onItemSelected(item) }
                 )
             }
-        }
-
-        items(items, key = { it.name }) { item ->
-            ComplicationItemCard(
-                item = item,
-                iconResolver = iconResolver,
-                onClick = { onItemSelected(item) }
-            )
         }
     }
 }

@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,13 +20,19 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.TransformingLazyColumn
 import androidx.wear.compose.foundation.lazy.items
-import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
+import androidx.wear.compose.foundation.lazy.rememberTransformingLazyColumnState
 import androidx.wear.compose.material3.ListHeader
+import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.ScreenScaffold
+import androidx.wear.compose.material3.SurfaceTransformation
 import androidx.wear.compose.material3.Text
 import androidx.wear.compose.material3.TitleCard
+import androidx.wear.compose.material3.lazy.rememberTransformationSpec
+import androidx.wear.compose.material3.lazy.transformedHeight
 import dagger.hilt.android.AndroidEntryPoint
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Choice picker activity for items with commandOptions or stateOptions.
@@ -37,7 +44,9 @@ class ChoicePickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ChoicePickerScreen()
+            WearOHTheme {
+                ChoicePickerScreen()
+            }
         }
     }
 }
@@ -54,7 +63,7 @@ fun ChoicePickerScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Loading...", color = Color.White)
+                Text("Loading...", color = MaterialTheme.colorScheme.onSurface)
             }
         }
 
@@ -65,7 +74,7 @@ fun ChoicePickerScreen(
             ) {
                 Text(
                     text = "Error: ${state.error}",
-                    color = Color.Red,
+                    color = MaterialTheme.colorScheme.error,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(16.dp)
                 )
@@ -73,35 +82,41 @@ fun ChoicePickerScreen(
         }
 
         else -> {
-            val listState = rememberScalingLazyListState()
+            val columnState = rememberTransformingLazyColumnState()
+            val transformationSpec = rememberTransformationSpec()
 
-            ScalingLazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = listState,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                // Header with logo and item label
-                item {
-                    ListHeader {
-                        androidx.compose.foundation.layout.Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            ControlLogo()
-                            ControlLabel(text = state.label)
+            ScreenScaffold(scrollState = columnState) { contentPadding ->
+                TransformingLazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    state = columnState,
+                    contentPadding = PaddingValues(
+                        top = contentPadding.calculateTopPadding(),
+                        bottom = contentPadding.calculateBottomPadding() + 48.dp
+                    )
+                ) {
+                    // Header with logo and item label
+                    item {
+                        ListHeader {
+                            androidx.compose.foundation.layout.Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                ControlLogo()
+                                ControlLabel(text = state.label)
+                            }
                         }
                     }
-                }
 
-                // Option cards
-                items(state.options) { option ->
-                    val isActive = option.command == state.currentValue
-                    OptionCard(
-                        option = option,
-                        isActive = isActive,
-                        isSending = state.isSending,
-                        themeColor = Color(state.themeColor),
-                        onClick = { viewModel.selectOption(option) }
-                    )
+                    // Option cards
+                    items(state.options) { option ->
+                        val isActive = option.command == state.currentValue
+                        OptionCard(
+                            option = option,
+                            isActive = isActive,
+                            isSending = state.isSending,
+                            themeColor = Color(state.themeColor),
+                            onClick = { viewModel.selectOption(option) }
+                        )
+                    }
                 }
             }
         }
@@ -122,7 +137,7 @@ private fun OptionCard(
             Text(
                 text = option.label,
                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
-                color = if (isActive) themeColor else Color.White,
+                color = if (isActive) themeColor else MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -136,7 +151,7 @@ private fun OptionCard(
             Text(
                 text = option.command,
                 fontSize = 11.sp,
-                color = Color(0xFF888888),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
         }

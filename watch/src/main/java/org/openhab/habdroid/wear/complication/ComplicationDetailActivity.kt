@@ -29,6 +29,7 @@ import androidx.wear.compose.material3.Text
 import dagger.hilt.android.AndroidEntryPoint
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import javax.inject.Inject
 
 /**
@@ -51,11 +52,13 @@ class ComplicationDetailActivity : ComponentActivity() {
         val complicationId = intent.getIntExtra(EXTRA_COMPLICATION_ID, -1)
 
         setContent {
-            ComplicationDetailScreen(
-                complicationId = complicationId,
-                repository = repository,
-                preferenceStore = complicationPreferenceStore
-            )
+            WearOHTheme {
+                ComplicationDetailScreen(
+                    complicationId = complicationId,
+                    repository = repository,
+                    preferenceStore = complicationPreferenceStore
+                )
+            }
         }
     }
 

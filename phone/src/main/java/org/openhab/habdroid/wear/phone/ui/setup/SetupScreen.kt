@@ -263,7 +263,7 @@ fun SetupScreen(
                         Text("Syncing...")
                     }
                     saveStatus == SaveStatus.Success || syncResult == SyncResult.Success -> {
-                        Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.CheckCircle, contentDescription = "Synced", modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.size(8.dp))
                         Text("Synced")
                     }

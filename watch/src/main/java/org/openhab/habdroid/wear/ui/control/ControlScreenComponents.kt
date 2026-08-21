@@ -16,6 +16,7 @@ import androidx.wear.compose.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import org.openhab.habdroid.wear.ui.theme.ArcTrack
 
 /**
  * Shared styling constants and composables for control activities
@@ -29,11 +30,11 @@ object ControlStyle {
     val LabelFontSize = 14.sp
     val ValueFontSize = 32.sp
 
-    /** Default theme color (amber) used before the actual theme loads from ThemeStore. */
-    const val DEFAULT_THEME_COLOR = 0xFFFFB300L
+    /** Default theme color (amber tone-80) used before the actual theme loads from ThemeStore. */
+    const val DEFAULT_THEME_COLOR = 0xFFFFB950L
 
     /** Dark gray used for arc/progress track backgrounds. */
-    const val ARC_TRACK_COLOR = 0xFF333333L
+    val ARC_TRACK_COLOR = ArcTrack
 }
 
 /**
@@ -92,7 +93,7 @@ fun ControlValue(
         fontSize = ControlStyle.ValueFontSize,
         fontWeight = FontWeight.Bold,
         textAlign = TextAlign.Center,
-        color = if (highlighted) highlightColor else Color.White,
+        color = if (highlighted) highlightColor else MaterialTheme.colorScheme.onSurface,
         modifier = modifier
     )
 }

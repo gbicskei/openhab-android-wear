@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.wear.compose.material3.MaterialTheme
 import androidx.wear.compose.material3.Text
 import org.openhab.habdroid.wear.R
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Lightweight Activity that displays the notification message text
@@ -47,7 +48,9 @@ class SpeakDisplayActivity : ComponentActivity() {
         setShowWhenLocked(true)
 
         setContent {
-            SpeakDisplayScreen(title = title, message = message)
+            WearOHTheme {
+                SpeakDisplayScreen(title = title, message = message)
+            }
         }
     }
 

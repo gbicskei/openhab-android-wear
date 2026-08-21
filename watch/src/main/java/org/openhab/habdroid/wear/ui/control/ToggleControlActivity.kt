@@ -31,6 +31,7 @@ import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.complication.ComplicationRefresher
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.data.repository.ThemeStore
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 
@@ -60,13 +61,15 @@ class ToggleControlActivity : ComponentActivity() {
         val label = intent.getStringExtra("label") ?: ""
 
         setContent {
-            ToggleControlScreen(
-                itemName = itemName,
-                passedLabel = label,
-                repository = repository,
-                themeStore = themeStore,
-                onCommandSent = { complicationRefresher.requestUpdate() }
-            )
+            WearOHTheme {
+                ToggleControlScreen(
+                    itemName = itemName,
+                    passedLabel = label,
+                    repository = repository,
+                    themeStore = themeStore,
+                    onCommandSent = { complicationRefresher.requestUpdate() }
+                )
+            }
         }
     }
 }

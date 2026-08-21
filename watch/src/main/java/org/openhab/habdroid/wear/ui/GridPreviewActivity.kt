@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 
 /**
  * Debug activity to visualize the 3x3 concentric grid layout.
@@ -24,7 +25,9 @@ class GridPreviewActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ReferenceGrid()
+            WearOHTheme {
+                ReferenceGrid()
+            }
         }
     }
 }

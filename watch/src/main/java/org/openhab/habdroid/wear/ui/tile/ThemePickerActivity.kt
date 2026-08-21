@@ -33,6 +33,7 @@ import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.data.repository.TileTheme
 import org.openhab.habdroid.wear.tile.OpenHabTileService
+import org.openhab.habdroid.wear.ui.theme.WearOHTheme
 import javax.inject.Inject
 import androidx.hilt.navigation.compose.hiltViewModel
 
@@ -46,13 +47,15 @@ class ThemePickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            ThemePickerScreen(
-                onDone = {
-                    TileService.getUpdater(this)
-                        .requestUpdate(OpenHabTileService::class.java)
-                    finish()
-                }
-            )
+            WearOHTheme {
+                ThemePickerScreen(
+                    onDone = {
+                        TileService.getUpdater(this)
+                            .requestUpdate(OpenHabTileService::class.java)
+                        finish()
+                    }
+                )
+            }
         }
     }
 }

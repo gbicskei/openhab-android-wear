@@ -539,59 +539,68 @@ class OpenHabTileService : TileService() {
             )
         }
 
-        // Title overlay (top center) with logo as background — positioned absolutely
-        val titleCenterX = screenW / 2f
-        val titleCenterY = 22f // Push group toward very top
-        val titleBoxW = 120f
-        val titleBoxH = 36f
-        val titlePadLeft = (titleCenterX - titleBoxW / 2f).coerceAtLeast(0f)
-        val titlePadTop = (titleCenterY - titleBoxH / 2f).coerceAtLeast(0f)
+        // Title overlay (top center) with wearOH logo — positioned absolutely
+        // M3 guideline: hide title on small screens with dense layouts to ensure minimum tap targets
+        val isSmallScreen = screenW < 225f
+        val isDenseLayout = count >= 5
+        val showTitle = !(isSmallScreen && isDenseLayout)
 
-        root.addContent(
-            LayoutElementBuilders.Box.Builder()
-                .setWidth(dp(screenW))
-                .setHeight(dp(screenH))
-                .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
-                .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
-                .setModifiers(
-                    ModifiersBuilders.Modifiers.Builder()
-                        .setPadding(
-                            ModifiersBuilders.Padding.Builder()
-                                .setStart(dp(titlePadLeft))
-                                .setTop(dp(titlePadTop))
-                                .build()
-                        )
-                        .build()
-                )
-                .addContent(
-                    LayoutElementBuilders.Box.Builder()
-                        .setWidth(dp(titleBoxW))
-                        .setHeight(dp(titleBoxH))
-                        .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
-                        .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
-                        .addContent(
-                            // Same logo on all pages (no title text)
-                            LayoutElementBuilders.Image.Builder()
-                                .setResourceId(RESOURCE_ID_LOGO)
-                                .setWidth(dp(36f))
-                                .setHeight(dp(36f))
-                                .build()
-                        )
-                        .build()
-                )
-                .build()
-        )
+        if (showTitle) {
+            val titleCenterX = screenW / 2f
+            val titleCenterY = 22f // Push group toward very top
+            val titleBoxW = 120f
+            val titleBoxH = 36f
+            val titlePadLeft = (titleCenterX - titleBoxW / 2f).coerceAtLeast(0f)
+            val titlePadTop = (titleCenterY - titleBoxH / 2f).coerceAtLeast(0f)
+
+            root.addContent(
+                LayoutElementBuilders.Box.Builder()
+                    .setWidth(dp(screenW))
+                    .setHeight(dp(screenH))
+                    .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_TOP)
+                    .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_START)
+                    .setModifiers(
+                        ModifiersBuilders.Modifiers.Builder()
+                            .setPadding(
+                                ModifiersBuilders.Padding.Builder()
+                                    .setStart(dp(titlePadLeft))
+                                    .setTop(dp(titlePadTop))
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .addContent(
+                        LayoutElementBuilders.Box.Builder()
+                            .setWidth(dp(titleBoxW))
+                            .setHeight(dp(titleBoxH))
+                            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+                            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+                            .addContent(
+                                LayoutElementBuilders.Image.Builder()
+                                    .setResourceId(RESOURCE_ID_LOGO)
+                                    .setWidth(dp(36f))
+                                    .setHeight(dp(36f))
+                                    .build()
+                            )
+                            .build()
+                    )
+                    .build()
+            )
+        }
 
         // Bottom overlay: mic on main page (if voice enabled), back button on sub-pages
         val showBottomButton = currentPage != TileItem.PAGE_MAIN || voiceEnabled
 
         // Connection status indicator dot (bottom-right of logo in title area)
-        val dotColor = if (isLive) 0xFF4CAF50.toInt() else 0xFFF44336.toInt()
-        val dotSize = 5f
-        val logoDisplaySize = 36f
-        val dotX = titleCenterX + (logoDisplaySize / 2f) - dotSize  // right edge of logo
-        val dotY = titleCenterY + (logoDisplaySize * 0.25f)  // align with visual bottom of icon content
-        root.addContent(
+        if (showTitle) {
+            val titleCenterX = screenW / 2f
+            val titleCenterY = 22f
+            val dotColor = if (isLive) 0xFF4CAF50.toInt() else 0xFFF44336.toInt()
+            val dotSize = 5f
+            val logoDisplaySize = 36f
+            val dotX = titleCenterX + (logoDisplaySize / 2f) - dotSize  // right edge of logo
+            val dotY = titleCenterY + (logoDisplaySize * 0.25f)  // align with visual bottom of icon content
+            root.addContent(
             LayoutElementBuilders.Box.Builder()
                 .setWidth(dp(screenW))
                 .setHeight(dp(screenH))
@@ -629,6 +638,7 @@ class OpenHabTileService : TileService() {
                 )
                 .build()
         )
+        } // end showTitle (dot)
 
         if (showBottomButton) {
             root.addContent(

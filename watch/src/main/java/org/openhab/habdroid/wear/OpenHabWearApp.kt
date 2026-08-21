@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.data.repository.CredentialStore
+import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.sync.DebugLogWriter
 import org.openhab.habdroid.wear.ui.voice.AssistantRegistrar
 import org.openhab.habdroid.wear.util.AppLog
@@ -30,6 +31,9 @@ class OpenHabWearApp : Application(), Configuration.Provider {
     lateinit var credentialStore: CredentialStore
 
     @Inject
+    lateinit var themeStore: ThemeStore
+
+    @Inject
     lateinit var watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -37,6 +41,9 @@ class OpenHabWearApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         AppLog.onErrorLogged = { debugLogWriter.publish() }
+
+        // Warm the theme cache so activities render the correct color on first frame
+        themeStore.getThemeBlocking()
 
         // Capture uncaught exceptions to DebugLog (sent to phone in debug mode)
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()

@@ -14,11 +14,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import org.openhab.habdroid.wear.R
+import org.openhab.habdroid.wear.ui.theme.StatusChecking
+import org.openhab.habdroid.wear.ui.theme.StatusOffline
+import org.openhab.habdroid.wear.ui.theme.StatusOnline
 import org.openhab.habdroid.wear.ui.MainViewModel
 
 /**
@@ -56,9 +58,9 @@ fun AppLogoHeader(serverOnline: Boolean? = null, showIndicator: Boolean = true) 
                     .clip(CircleShape)
                     .background(
                         when (serverOnline) {
-                            true -> Color(0xFF4CAF50)   // green
-                            false -> Color(0xFFF44336)  // red
-                            else -> Color(0xFF9E9E9E)   // gray (checking)
+                            true -> StatusOnline
+                            false -> StatusOffline
+                            else -> StatusChecking
                         }
                     )
             )
