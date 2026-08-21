@@ -393,9 +393,11 @@ class TileDesignViewModel @Inject constructor(
             layout = 6
         )
 
-        val newPages = state.editor.pages + newPage
+        // Insert after the currently selected page
+        val insertIndex = state.editor.currentPageIndex + 1
+        val newPages = state.editor.pages.toMutableList().apply { add(insertIndex, newPage) }
         _uiState.value = state.copy(
-            editor = state.editor.copy(pages = newPages, currentPageIndex = newPages.lastIndex)
+            editor = state.editor.copy(pages = newPages, currentPageIndex = insertIndex)
         )
 
         // Create on server
@@ -406,6 +408,7 @@ class TileDesignViewModel @Inject constructor(
                 .onFailure { _snackbarMessage.value = "Failed to create page: ${it.message}" }
                 .onSuccess { _snackbarMessage.value = "Page created" }
         }
+        persistPageOrder()
     }
 
     /** Duplicate a page with all its slots. */
@@ -430,9 +433,11 @@ class TileDesignViewModel @Inject constructor(
             configVersion = 0
         )
 
-        val newPages = state.editor.pages + newPage
+        // Insert after the currently selected page
+        val insertIndex = state.editor.currentPageIndex + 1
+        val newPages = state.editor.pages.toMutableList().apply { add(insertIndex, newPage) }
         _uiState.value = state.copy(
-            editor = state.editor.copy(pages = newPages, currentPageIndex = newPages.lastIndex)
+            editor = state.editor.copy(pages = newPages, currentPageIndex = insertIndex)
         )
 
         // Create on server
@@ -443,6 +448,7 @@ class TileDesignViewModel @Inject constructor(
                 .onFailure { _snackbarMessage.value = "Failed to duplicate page: ${it.message}" }
                 .onSuccess { _snackbarMessage.value = "Page duplicated" }
         }
+        persistPageOrder()
     }
 
     /** Delete a non-main page. */
@@ -463,6 +469,7 @@ class TileDesignViewModel @Inject constructor(
                 .onFailure { _snackbarMessage.value = "Failed to delete page: ${it.message}" }
                 .onSuccess { _snackbarMessage.value = "Page deleted" }
         }
+        persistPageOrder()
     }
 
     /** Rename a page's display label. The uid remains unchanged. */
@@ -632,6 +639,16 @@ class TileDesignViewModel @Inject constructor(
         val state = (_uiState.value as? TileDesignUiState.Success) ?: return
         val newPages = state.editor.pages.map { if (it.uid == updatedPage.uid) updatedPage else it }
         _uiState.value = state.copy(editor = state.editor.copy(pages = newPages))
+    }
+
+    /** Update the main page's pageOrder to reflect current pages list and persist. */
+    private fun persistPageOrder() {
+        val state = (_uiState.value as? TileDesignUiState.Success) ?: return
+        val pageOrder = state.editor.pages.map { it.uid }
+        val mainPage = state.editor.pages.find { it.uid == "main" } ?: return
+        val updatedMain = mainPage.copy(pageOrder = pageOrder)
+        updatePageInState(updatedMain)
+        savePage(updatedMain)
     }
 
     private fun savePage(page: TilePageState) {
