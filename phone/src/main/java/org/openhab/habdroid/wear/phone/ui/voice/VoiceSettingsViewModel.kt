@@ -106,7 +106,7 @@ class VoiceSettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val languageTag = java.util.Locale.getDefault().toLanguageTag()
+                val languageTag = java.util.Locale.getDefault().language
                 val voices = connectionTester.fetchGoogleVoices(apiKey, languageTag)
                 if (voices.isEmpty()) {
                     AppLog.w(TAG, "No voices returned for locale $languageTag")

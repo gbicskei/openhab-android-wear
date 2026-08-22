@@ -247,7 +247,7 @@ class WatchSettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(voicesLoading = false, availableVoices = emptyList()) }
                     return@launch
                 }
-                val lang = java.util.Locale.getDefault().toLanguageTag()
+                val lang = java.util.Locale.getDefault().language
                 val voices = connectionTester.fetchGoogleVoices(apiKey, lang)
                 _uiState.update { it.copy(voicesLoading = false, availableVoices = voices.map { v -> v.id }) }
             } catch (e: Exception) {

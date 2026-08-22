@@ -651,7 +651,7 @@ class WatchSettingsViewModel @Inject constructor(
                     _voices.value = emptyList()
                     return@launch
                 }
-                val lang = java.util.Locale.getDefault().toLanguageTag()
+                val lang = java.util.Locale.getDefault().language
                 val fetchedVoices = fetchGoogleVoices(apiKey, lang)
                 _voices.value = fetchedVoices
                 AppLog.d(TAG, "← loadVoices() got ${fetchedVoices.size} voices (lang=$lang)")
