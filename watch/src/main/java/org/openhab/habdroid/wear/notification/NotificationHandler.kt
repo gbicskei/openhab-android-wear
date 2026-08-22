@@ -80,6 +80,12 @@ class NotificationHandler @Inject constructor(
             showNotification(title, message, tag, referenceId, timestamp, priority)
         }
 
+        // Skip all audio/TTS if the device has no speaker
+        if (!ttsManager.hasAudioOutput) {
+            AppLog.d(TAG, "No audio output — skipping audio/TTS for tag=$tag")
+            return
+        }
+
         // Branch by tag: audio-sink plays a URL, audio-tts speaks text, others are user notifications
         when (tag) {
             TAG_AUDIO_SINK -> {

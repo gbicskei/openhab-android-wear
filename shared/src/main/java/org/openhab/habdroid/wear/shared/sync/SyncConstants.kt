@@ -37,10 +37,10 @@ object SyncConstants {
     /** Message path for requesting TTS test playback on watch (phone → watch) */
     const val PATH_TTS_TEST = "/openhab/tts-test"
 
-    /** Message path for requesting current watch settings (phone → watch) */
+    /** Message path for requesting current watch settings (phone → watch). @deprecated Use DataItem at WatchSettingsPayload.DATA_PATH instead. */
     const val PATH_SETTINGS_REQUEST = "/openhab/settings-request"
 
-    /** Message path for watch settings response (watch → phone) */
+    /** Message path for watch settings response (watch → phone). @deprecated Use DataItem at WatchSettingsPayload.DATA_PATH instead. */
     const val PATH_SETTINGS_RESPONSE = "/openhab/settings-response"
 
     /** Message path for requesting the watch app version (phone → watch) */

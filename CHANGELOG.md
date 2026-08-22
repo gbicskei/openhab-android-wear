@@ -4,20 +4,23 @@
 
 ### Summary
 
-Architecture refactor: settings sync split into two atomic payloads, eliminating a class of bugs where changing one setting could accidentally wipe another.
+Architecture refactor: settings sync split into two atomic payloads, then migrated to a persistent DataItem for instant offline access.
 
 ### Changed
 
-- **Atomic settings sync**: Phone-to-watch sync now uses two self-contained payloads:
-  - `ConnectionPayload` (PATH_CONNECTION) — credentials, URLs, device identity, TTS API key. Managed by Setup screen. Never backed up.
-  - `WatchSettingsPayload` (PATH_SETTINGS) — voice, notifications, theme, debug. Managed by Watch Settings screen. Backed up to server.
+- **DataItem-based settings sync**: Watch settings are now stored in a shared DataItem at `/openhab/watch-settings` instead of MessageClient messages. Both phone and watch can read settings offline (persisted by Google Play Services). Phone writes settings → watch applies via `onDataChanged`. Watch writes status → phone reads instantly. No more 5-second round-trip timeout on Watch Settings screen open.
+- **Atomic settings payloads**: Phone-to-watch sync uses two self-contained mechanisms:
+  - `ConnectionPayload` (MessageClient, PATH_CONNECTION) — credentials, URLs, device ID, TTS key. Contains secrets, not persisted in DataItem.
+  - `WatchSettingsPayload` (DataItem, `/openhab/watch-settings`) — voice, notifications, theme, debug + watch status (configTimestamp, screenWidthDp, appVersion, hasSpeaker). Backed up to server.
 - **Server backup** uses `WatchSettingsPayload` directly (schema version 2, includes theme)
-- Old fragmented paths (PATH_CONFIG, PATH_VOICE_SETTINGS, PATH_NOTIFICATION_SETTINGS, PATH_THEME) marked deprecated, kept for backward compatibility
+- Old fragmented paths (PATH_CONFIG, PATH_VOICE_SETTINGS, PATH_NOTIFICATION_SETTINGS, PATH_THEME, PATH_SETTINGS, PATH_SETTINGS_REQUEST/RESPONSE) all deprecated, kept for backward compatibility
+- Legacy `/openhab/status` DataItem still written for backward compat with older phone versions
 
 ### Fixed
 
 - Toggling debug mode no longer wipes local server URL on the watch
 - Any settings change in one domain cannot overwrite fields in the other domain
+- Watch Settings screen opens instantly (no "Loading..." spinner waiting for watch response)
 
 ---
 

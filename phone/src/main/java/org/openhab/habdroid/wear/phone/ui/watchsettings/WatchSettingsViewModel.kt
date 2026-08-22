@@ -3,8 +3,6 @@ package org.openhab.habdroid.wear.phone.ui.watchsettings
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.android.gms.wearable.MessageClient
-import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -16,20 +14,16 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
 import org.openhab.habdroid.wear.phone.data.ServerBackupRepository
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
+import org.openhab.habdroid.wear.phone.sync.WatchSettingsDataItemClient
 import org.openhab.habdroid.wear.phone.util.AppLog
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
-import kotlin.coroutines.resume
 
 /**
  * UI state for the Watch Settings screen on the phone.
@@ -46,7 +40,9 @@ data class WatchSettingsUiState(
     val testPlaying: Boolean = false,
     val restoreState: RestoreState = RestoreState.Idle,
     val errorMessage: String? = null,
-    val selectedTheme: String = "AMBER"
+    val selectedTheme: String = "AMBER",
+    /** Whether the watch has a speaker. Defaults to true until synced. */
+    val watchHasSpeaker: Boolean = true
 )
 
 enum class LoadState { Loading, Loaded, Error }
@@ -74,7 +70,7 @@ class WatchSettingsViewModel @Inject constructor(
     private val credentialStore: PhoneCredentialStore,
     private val backupRepository: ServerBackupRepository,
     private val connectionTester: org.openhab.habdroid.wear.phone.data.ConnectionTester,
-    private val json: Json
+    private val watchSettingsClient: WatchSettingsDataItemClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WatchSettingsUiState())
@@ -135,7 +131,8 @@ class WatchSettingsViewModel @Inject constructor(
     }
 
     /**
-     * Send the full settings payload to the watch. Called after every setting change.
+     * Send the full settings payload to the watch via DataItem write.
+     * The watch receives onDataChanged and applies atomically.
      */
     private fun syncToWatch(
         snapshot: WatchSettingsSnapshot = _uiState.value.snapshot,
@@ -143,8 +140,8 @@ class WatchSettingsViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             val payload = buildSettingsPayload(snapshot, theme)
-            dataLayerSender.sendSettings(payload)
-                .onFailure { AppLog.w(TAG, "Failed to sync settings to watch: ${it.message}") }
+            watchSettingsClient.writeSettings(payload)
+                .onFailure { AppLog.w(TAG, "Failed to write settings DataItem: ${it.message}") }
         }
     }
 
@@ -198,53 +195,46 @@ class WatchSettingsViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val node = dataLayerSender.getConnectedWatch()
-                if (node == null) {
-                    _uiState.update { it.copy(loadState = LoadState.Error, errorMessage = "Watch not connected") }
-                    _watchDisconnected.value = true
-                    return@launch
-                }
-
-                val response = withTimeoutOrNull(SETTINGS_TIMEOUT_MS) {
-                    suspendCancellableCoroutine { cont ->
-                        val listener = MessageClient.OnMessageReceivedListener { event: MessageEvent ->
-                            if (event.path == SyncConstants.PATH_SETTINGS_RESPONSE) {
-                                try {
-                                    val snapshot = json.decodeFromString<WatchSettingsSnapshot>(
-                                        String(event.data, Charsets.UTF_8)
-                                    )
-                                    if (cont.isActive) {
-                                        cont.resume(snapshot)
-                                    }
-                                } catch (e: Exception) {
-                                    AppLog.e(TAG, "Failed to parse settings response", e)
-                                }
-                            }
-                        }
-                        messageClient.addListener(listener)
-                        cont.invokeOnCancellation { messageClient.removeListener(listener) }
-
-                        viewModelScope.launch {
-                            messageClient.sendMessage(
-                                node.id,
-                                SyncConstants.PATH_SETTINGS_REQUEST,
-                                ByteArray(0)
-                            ).await()
-                        }
-                    }
-                }
-
-                if (response != null) {
-                    _uiState.update { it.copy(loadState = LoadState.Loaded, snapshot = response) }
-                    AppLog.d(TAG, "Settings loaded from watch")
-                    if (response.useServerTts) {
+                val payload = watchSettingsClient.read()
+                if (payload != null) {
+                    val snapshot = WatchSettingsSnapshot(
+                        debugMode = payload.debugMode,
+                        voiceCommandsEnabled = payload.voiceCommandsEnabled,
+                        readAloudEnabled = payload.readAloudEnabled,
+                        useServerTts = payload.useServerTts,
+                        serverTtsVoice = payload.serverTtsVoice,
+                        ttsSpeechRate = payload.speechRate,
+                        ttsPitch = payload.pitch,
+                        notificationsEnabled = payload.notificationsEnabled,
+                        notificationReadAloud = payload.notificationReadAloudEnabled,
+                        chimeEnabled = payload.chimeEnabled,
+                        chimeSound = payload.chimeSound,
+                        minReadAloudPriority = payload.minReadAloudPriority
+                    )
+                    _uiState.update { it.copy(
+                        loadState = LoadState.Loaded,
+                        snapshot = snapshot,
+                        selectedTheme = payload.theme.ifBlank { it.selectedTheme },
+                        watchHasSpeaker = payload.hasSpeaker
+                    ) }
+                    AppLog.d(TAG, "Settings loaded from DataItem")
+                    if (snapshot.useServerTts) {
                         loadVoices()
                     }
                 } else {
-                    _uiState.update { it.copy(loadState = LoadState.Error, errorMessage = "Watch did not respond") }
+                    // No DataItem yet — watch hasn't synced. Check if watch is connected.
+                    val node = dataLayerSender.getConnectedWatch()
+                    if (node == null) {
+                        _uiState.update { it.copy(loadState = LoadState.Error, errorMessage = "Watch not connected") }
+                        _watchDisconnected.value = true
+                    } else {
+                        // Watch connected but no DataItem — use defaults (first-time setup)
+                        _uiState.update { it.copy(loadState = LoadState.Loaded) }
+                        AppLog.d(TAG, "No DataItem yet — using defaults (watch first-time setup)")
+                    }
                 }
             } catch (e: Exception) {
-                AppLog.e(TAG, "Failed to load settings from watch", e)
+                AppLog.e(TAG, "Failed to load settings", e)
                 _uiState.update { it.copy(loadState = LoadState.Error, errorMessage = e.message) }
             }
         }

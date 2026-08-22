@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import org.openhab.habdroid.wear.phone.ui.MainActivity
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 
 /**
  * Listens for messages and data changes from the watch via Data Layer.
@@ -43,6 +44,21 @@ class PhoneWearListenerService : WearableListenerService() {
     override fun onDataChanged(dataEvents: DataEventBuffer) {
         for (event in dataEvents) {
             if (event.type == DataEvent.TYPE_CHANGED &&
+                event.dataItem.uri.path == WatchSettingsPayload.DATA_PATH
+            ) {
+                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
+                val appVersion = dataMap.getString(WatchSettingsPayload.KEY_APP_VERSION)
+                if (!appVersion.isNullOrBlank()) {
+                    WatchVersionHolder.update(appVersion)
+                }
+                // Adopt theme change from watch (watch is source of truth)
+                val theme = dataMap.getString(WatchSettingsPayload.KEY_THEME)
+                if (!theme.isNullOrBlank()) {
+                    ThemeHolder.update(theme, applicationContext)
+                }
+            }
+            // Legacy path support for older watch app versions
+            if (event.type == DataEvent.TYPE_CHANGED &&
                 event.dataItem.uri.path == PATH_STATUS
             ) {
                 val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
@@ -50,7 +66,6 @@ class PhoneWearListenerService : WearableListenerService() {
                 if (!appVersion.isNullOrBlank()) {
                     WatchVersionHolder.update(appVersion)
                 }
-                // Adopt theme change from watch (watch is source of truth)
                 val theme = dataMap.getString(KEY_THEME)
                 if (!theme.isNullOrBlank()) {
                     ThemeHolder.update(theme, applicationContext)

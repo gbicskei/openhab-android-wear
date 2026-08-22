@@ -119,7 +119,9 @@ class PhoneDataLayerSender @Inject constructor(
     /**
      * Send the complete, unified watch settings payload (non-credential preferences).
      * Called on every voice, notification, theme, or debug change.
+     * @deprecated Use [WatchSettingsDataItemClient.writeSettings] instead for DataItem-based sync.
      */
+    @Deprecated("Use WatchSettingsDataItemClient.writeSettings() for DataItem-based sync")
     suspend fun sendSettings(payload: WatchSettingsPayload): Result<Unit> = runCatching {
         if (!hasNetworkConnectivity()) {
             throw NoNetworkException()

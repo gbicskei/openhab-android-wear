@@ -233,24 +233,34 @@ openHAB Rule → MobileAudio binding action
         → Post standard notification to watch shade
 ```
 
-### Settings Sync (Phone → Watch) — Two Atomic Payloads
+### Settings Sync (DataItem — bidirectional, offline-capable)
 ```
-Connection (Setup screen saves):
-  → SetupViewModel.buildConnectionPayload()
-  → dataLayerSender.sendConnection(payload)        [PATH_CONNECTION]
-  → Watch: saves credentials, local URL, device name, binding, TTS key
-  → Watch: resets ServerSelector, restarts SSE
-  → Never backed up to server (contains secrets)
+DataItem path: /openhab/watch-settings
 
-Settings (Watch Settings screen changes):
-  → WatchSettingsViewModel.buildSettingsPayload()
-  → dataLayerSender.sendSettings(payload)          [PATH_SETTINGS]
-  → Watch: applies voice + notifications + theme + debug atomically
-  → Watch: refreshes tile
-  → Backed up to server as item metadata (debounced)
+Phone writes settings:
+  → WatchSettingsViewModel.syncToWatch()
+  → WatchSettingsDataItemClient.writeSettings(payload)
+    → PutDataMapRequest(/openhab/watch-settings)
+    → Merges settings with existing status fields
+    → dataClient.putDataItem(request)
+  → Watch: onDataChanged fires
+    → settingsEqual() check (skip if no settings change)
+    → applySettingsFromPhone() → preference stores → tile refresh
+
+Watch writes status:
+  → WatchSettingsDataStore.writeConfigTimestamp() / writeScreenWidthDp() / etc.
+    → Updates in-memory state
+    → PutDataMapRequest(/openhab/watch-settings)
+    → dataClient.putDataItem(request)
+  → Phone: onDataChanged fires
+    → WatchVersionHolder.update() / ThemeHolder.update()
+
+Both sides can read the DataItem offline (persisted by Play Services).
+No round-trip needed — phone opens Watch Settings instantly from cached DataItem.
 ```
 
-Each payload is self-contained — connection changes cannot touch voice/notification/theme settings and vice versa.
+Connection sync (Setup screen) still uses MessageClient (`PATH_CONNECTION`) because
+it contains secrets that should not persist in Google's DataItem cloud relay.
 
 ### Version Handshake (Phone ↔ Watch)
 ```

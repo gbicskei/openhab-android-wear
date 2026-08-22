@@ -77,6 +77,9 @@ class WearDataLayerListenerService : WearableListenerService() {
     @Inject
     lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
 
+    @Inject
+    lateinit var watchSettingsDataStore: WatchSettingsDataStore
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
@@ -96,6 +99,56 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_TTS_TEST -> handleTtsTest()
             SyncConstants.PATH_VERSION_REQUEST -> handleVersionRequest(messageEvent)
             else -> super.onMessageReceived(messageEvent)
+        }
+    }
+
+    override fun onDataChanged(dataEvents: com.google.android.gms.wearable.DataEventBuffer) {
+        for (event in dataEvents) {
+            if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_CHANGED &&
+                event.dataItem.uri.path == WatchSettingsPayload.DATA_PATH
+            ) {
+                AppLog.d(TAG, "DataItem changed: ${WatchSettingsPayload.DATA_PATH}")
+                val dataMap = com.google.android.gms.wearable.DataMapItem.fromDataItem(event.dataItem).dataMap
+                val incoming = WatchSettingsPayload.fromDataMap(dataMap)
+
+                serviceScope.launch {
+                    // Only apply if settings actually differ from our current state
+                    val current = watchSettingsDataStore.current
+                    if (incoming.settingsEqual(current)) {
+                        AppLog.d(TAG, "DataItem change is our own write (status update), ignoring")
+                        return@launch
+                    }
+
+                    AppLog.d(TAG, "Phone wrote settings — applying: theme=${incoming.theme}, debug=${incoming.debugMode}")
+                    watchSettingsDataStore.applySettingsFromPhone(incoming)
+
+                    // Apply to preference stores
+                    voicePreferenceStore.setVoiceCommandsEnabled(incoming.voiceCommandsEnabled)
+                    voicePreferenceStore.setVoiceResponseSpoken(incoming.readAloudEnabled)
+                    voicePreferenceStore.setServerTtsEnabled(incoming.useServerTts)
+                    voicePreferenceStore.setServerTtsVoice(incoming.serverTtsVoice)
+                    voicePreferenceStore.setTtsSpeechRate(incoming.speechRate)
+                    voicePreferenceStore.setTtsPitch(incoming.pitch)
+
+                    notificationPreferenceStore.setNotificationsEnabled(incoming.notificationsEnabled)
+                    notificationPreferenceStore.setReadAloudEnabled(incoming.notificationReadAloudEnabled)
+                    notificationPreferenceStore.setChimeEnabled(incoming.chimeEnabled)
+                    notificationPreferenceStore.setChimeSound(incoming.chimeSound)
+                    notificationPreferenceStore.setMinReadAloudPriority(incoming.minReadAloudPriority)
+
+                    if (incoming.theme.isNotBlank()) {
+                        val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(incoming.theme)
+                        themeStore.setTheme(theme)
+                    }
+
+                    AppLog.debugMode = incoming.debugMode
+                    credentialStore.setDebugMode(incoming.debugMode)
+
+                    // Refresh tile to reflect changes
+                    androidx.wear.tiles.TileService.getUpdater(this@WearDataLayerListenerService)
+                        .requestUpdate(org.openhab.habdroid.wear.tile.OpenHabTileService::class.java)
+                }
+            }
         }
     }
 

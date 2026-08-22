@@ -266,6 +266,7 @@ private fun VoiceSettingsContent(
 ) {
     val snapshot = state.snapshot
     val googleTtsAvailable = state.googleTtsAvailable
+    val hasSpeaker = state.watchHasSpeaker
 
     Column(modifier = modifier) {
         Spacer(modifier = Modifier.height(8.dp))
@@ -275,49 +276,58 @@ private fun VoiceSettingsContent(
             checked = snapshot.voiceCommandsEnabled,
             onCheckedChange = viewModel::setVoiceCommandsEnabled
         )
-        SettingSwitch(
-            label = "Read Aloud",
-            checked = snapshot.readAloudEnabled,
-            onCheckedChange = viewModel::setReadAloudEnabled
-        )
-        SettingSwitch(
-            label = "Google TTS",
-            checked = snapshot.useServerTts,
-            enabled = snapshot.readAloudEnabled && googleTtsAvailable,
-            onCheckedChange = viewModel::setUseServerTts
-        )
-        if (snapshot.useServerTts && googleTtsAvailable) {
+        if (hasSpeaker) {
+            SettingSwitch(
+                label = "Read Aloud",
+                checked = snapshot.readAloudEnabled,
+                onCheckedChange = viewModel::setReadAloudEnabled
+            )
+            SettingSwitch(
+                label = "Google TTS",
+                checked = snapshot.useServerTts,
+                enabled = snapshot.readAloudEnabled && googleTtsAvailable,
+                onCheckedChange = viewModel::setUseServerTts
+            )
+            if (snapshot.useServerTts && googleTtsAvailable) {
+                Spacer(modifier = Modifier.height(8.dp))
+                VoicePickerDropdown(
+                    selectedVoice = snapshot.serverTtsVoice,
+                    voices = state.availableVoices,
+                    loading = state.voicesLoading,
+                    onVoiceSelected = viewModel::selectVoice
+                )
+            }
+            if (!snapshot.useServerTts) {
+                SettingSlider(
+                    label = "Speech Rate",
+                    value = snapshot.ttsSpeechRate,
+                    onValueChange = viewModel::setTtsSpeechRate,
+                    valueRange = 0.5f..2.0f,
+                    valueLabel = "${String.format("%.1f", snapshot.ttsSpeechRate)}x"
+                )
+                SettingSlider(
+                    label = "Pitch",
+                    value = snapshot.ttsPitch,
+                    onValueChange = viewModel::setTtsPitch,
+                    valueRange = 0.5f..2.0f,
+                    valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { viewModel.testVoice() },
+                enabled = !state.testPlaying && snapshot.readAloudEnabled,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.testPlaying) "Playing..." else "Test Voice")
+            }
+        } else {
             Spacer(modifier = Modifier.height(8.dp))
-            VoicePickerDropdown(
-                selectedVoice = snapshot.serverTtsVoice,
-                voices = state.availableVoices,
-                loading = state.voicesLoading,
-                onVoiceSelected = viewModel::selectVoice
+            Text(
+                "Audio response settings unavailable — watch has no speaker.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-        if (!snapshot.useServerTts) {
-            SettingSlider(
-                label = "Speech Rate",
-                value = snapshot.ttsSpeechRate,
-                onValueChange = viewModel::setTtsSpeechRate,
-                valueRange = 0.5f..2.0f,
-                valueLabel = "${String.format("%.1f", snapshot.ttsSpeechRate)}x"
-            )
-            SettingSlider(
-                label = "Pitch",
-                value = snapshot.ttsPitch,
-                onValueChange = viewModel::setTtsPitch,
-                valueRange = 0.5f..2.0f,
-                valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
-            )
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { viewModel.testVoice() },
-            enabled = !state.testPlaying && snapshot.readAloudEnabled,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (state.testPlaying) "Playing..." else "Test Voice")
         }
         Spacer(modifier = Modifier.height(24.dp))
     }

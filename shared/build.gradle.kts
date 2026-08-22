@@ -24,4 +24,5 @@ android {
 
 dependencies {
     implementation(libs.kotlinx.serialization.json)
+    api(libs.play.services.wearable)
 }

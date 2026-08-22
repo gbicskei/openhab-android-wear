@@ -1,6 +1,7 @@
 package org.openhab.habdroid.wear.util
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -39,6 +40,11 @@ class AudioUrlPlayer @Inject constructor(
 
     private var mediaPlayer: MediaPlayer? = null
 
+    /** Whether this device has a speaker */
+    val hasAudioOutput: Boolean by lazy {
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)
+    }
+
     /**
      * Download and play audio from the given URL.
      * Suspends until playback completes (or fails).
@@ -47,6 +53,10 @@ class AudioUrlPlayer @Inject constructor(
      * @return true if playback completed successfully, false on error
      */
     suspend fun play(url: String): Boolean {
+        if (!hasAudioOutput) {
+            AppLog.d(TAG, "No audio output — skipping audio URL playback")
+            return false
+        }
         if (url.isBlank()) {
             AppLog.w(TAG, "Empty audio URL — nothing to play")
             return false

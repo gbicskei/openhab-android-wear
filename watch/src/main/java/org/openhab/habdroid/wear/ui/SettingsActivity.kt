@@ -233,6 +233,7 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
     val ttsSpeechRate by viewModel.ttsSpeechRate.collectAsState()
     val testPlaying by viewModel.testPlaying.collectAsState()
 
+    val hasSpeaker = viewModel.hasSpeaker
     val hasApiKey = apiKey.isNotBlank()
     val googleTtsAvailable = hasApiKey && serverOnline
     val columnState = rememberTransformingLazyColumnState()
@@ -261,67 +262,77 @@ private fun VoiceSettingsScreen(viewModel: WatchSettingsViewModel, onPickVoice: 
                     transformation = SurfaceTransformation(transformationSpec)
                 )
             }
-            item {
-                SwitchButton(
-                    checked = readAloud,
-                    onCheckedChange = { viewModel.toggleReadAloud(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    label = { Text("Read Aloud") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
-            }
-            item {
-                SwitchButton(
-                    checked = serverTts,
-                    onCheckedChange = { viewModel.toggleServerTts(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    enabled = readAloud && googleTtsAvailable,
-                    label = { Text("Google TTS") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
-            }
-            if (serverTts && googleTtsAvailable) {
+            if (hasSpeaker) {
                 item {
-                    Button(
-                        onClick = onPickVoice,
+                    SwitchButton(
+                        checked = readAloud,
+                        onCheckedChange = { viewModel.toggleReadAloud(it) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .transformedHeight(this, transformationSpec),
-                        label = { Text(ttsVoice.ifBlank { "Select voice" }) },
+                        label = { Text("Read Aloud") },
                         transformation = SurfaceTransformation(transformationSpec)
                     )
                 }
-            }
-            if (!serverTts) {
+                item {
+                    SwitchButton(
+                        checked = serverTts,
+                        onCheckedChange = { viewModel.toggleServerTts(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        enabled = readAloud && googleTtsAvailable,
+                        label = { Text("Google TTS") },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+                if (serverTts && googleTtsAvailable) {
+                    item {
+                        Button(
+                            onClick = onPickVoice,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .transformedHeight(this, transformationSpec),
+                            label = { Text(ttsVoice.ifBlank { "Select voice" }) },
+                            transformation = SurfaceTransformation(transformationSpec)
+                        )
+                    }
+                }
+                if (!serverTts) {
+                    item {
+                        Text(
+                            "Speed: ${String.format("%.1f", ttsSpeechRate)}x",
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    item {
+                        Slider(
+                            value = ttsSpeechRate,
+                            onValueChange = { viewModel.setTtsSpeechRate(it) },
+                            valueRange = 0.5f..2.0f,
+                            steps = 5
+                        )
+                    }
+                }
+                item {
+                    Button(
+                        onClick = { viewModel.testVoice() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        enabled = !testPlaying && readAloud,
+                        label = { Text(if (testPlaying) "Playing..." else "Test Voice") },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+            } else {
                 item {
                     Text(
-                        "Speed: ${String.format("%.1f", ttsSpeechRate)}x",
-                        modifier = Modifier.padding(top = 8.dp)
+                        "Audio response unavailable — no speaker detected",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = androidx.wear.compose.material3.MaterialTheme.typography.labelSmall
                     )
                 }
-                item {
-                    Slider(
-                        value = ttsSpeechRate,
-                        onValueChange = { viewModel.setTtsSpeechRate(it) },
-                        valueRange = 0.5f..2.0f,
-                        steps = 5
-                    )
-                }
-            }
-            item {
-                Button(
-                    onClick = { viewModel.testVoice() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    enabled = !testPlaying && readAloud,
-                    label = { Text(if (testPlaying) "Playing..." else "Test Voice") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
             }
         }
     }
@@ -386,6 +397,7 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
     val notifReadAloud by viewModel.notifReadAloudEnabled.collectAsState()
     val chime by viewModel.chimeEnabled.collectAsState()
     val minPriority by viewModel.minReadAloudPriority.collectAsState()
+    val hasSpeaker = viewModel.hasSpeaker
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
 
@@ -412,40 +424,50 @@ private fun NotificationSettingsScreen(viewModel: WatchSettingsViewModel) {
                     transformation = SurfaceTransformation(transformationSpec)
                 )
             }
-            item {
-                SwitchButton(
-                    checked = notifReadAloud,
-                    onCheckedChange = { viewModel.toggleNotifReadAloud(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    enabled = notificationsEnabled,
-                    label = { Text("Read Aloud") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
-            }
-            item {
-                SwitchButton(
-                    checked = chime,
-                    onCheckedChange = { viewModel.toggleChime(it) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    enabled = notificationsEnabled && notifReadAloud,
-                    label = { Text("Alert Sound") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
-            }
-            item {
-                Button(
-                    onClick = { viewModel.cycleMinReadAloudPriority() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .transformedHeight(this, transformationSpec),
-                    enabled = notificationsEnabled && notifReadAloud,
-                    label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") },
-                    transformation = SurfaceTransformation(transformationSpec)
-                )
+            if (hasSpeaker) {
+                item {
+                    SwitchButton(
+                        checked = notifReadAloud,
+                        onCheckedChange = { viewModel.toggleNotifReadAloud(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        enabled = notificationsEnabled,
+                        label = { Text("Read Aloud") },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+                item {
+                    SwitchButton(
+                        checked = chime,
+                        onCheckedChange = { viewModel.toggleChime(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        enabled = notificationsEnabled && notifReadAloud,
+                        label = { Text("Alert Sound") },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+                item {
+                    Button(
+                        onClick = { viewModel.cycleMinReadAloudPriority() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .transformedHeight(this, transformationSpec),
+                        enabled = notificationsEnabled && notifReadAloud,
+                        label = { Text("Min Priority: ${minPriority.replaceFirstChar { it.uppercase() }}") },
+                        transformation = SurfaceTransformation(transformationSpec)
+                    )
+                }
+            } else {
+                item {
+                    Text(
+                        "Audio settings unavailable — no speaker detected",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        style = androidx.wear.compose.material3.MaterialTheme.typography.labelSmall
+                    )
+                }
             }
         }
     }
@@ -515,12 +537,16 @@ class WatchSettingsViewModel @Inject constructor(
     private val okHttpClient: okhttp3.OkHttpClient,
     private val serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer,
     private val watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter,
+    private val ttsManager: org.openhab.habdroid.wear.util.TtsManager,
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context
 ) : ViewModel() {
 
     companion object {
         private const val TAG = "WatchSettingsVM"
     }
+
+    /** Whether the device has a speaker. Used to hide audio/TTS settings. */
+    val hasSpeaker: Boolean get() = ttsManager.hasAudioOutput
 
     // ─── Theme ───
     val selectedTheme = themeStore.theme

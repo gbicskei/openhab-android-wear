@@ -1,6 +1,7 @@
 package org.openhab.habdroid.wear.util
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +39,11 @@ class ServerTtsPlayer @Inject constructor(
     private var mediaPlayer: MediaPlayer? = null
     private var apiKey: String? = null
 
+    /** Whether this device has a speaker */
+    val hasAudioOutput: Boolean by lazy {
+        context.packageManager.hasSystemFeature(PackageManager.FEATURE_AUDIO_OUTPUT)
+    }
+
     /** Set the Google Cloud TTS API key */
     fun setApiKey(key: String) {
         apiKey = key
@@ -55,6 +61,11 @@ class ServerTtsPlayer @Inject constructor(
         voice: String = DEFAULT_VOICE,
         languageCode: String = DEFAULT_LANGUAGE
     ): Boolean = withContext(Dispatchers.IO) {
+        if (!hasAudioOutput) {
+            AppLog.d(TAG, "No audio output — skipping server TTS")
+            return@withContext false
+        }
+
         val key = apiKey
         if (key.isNullOrBlank()) {
             AppLog.w(TAG, "No API key configured")

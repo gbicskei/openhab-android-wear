@@ -119,22 +119,39 @@ If not configured, the phone uses the Main Server credentials for editor operati
 
 ### Protocol
 
-Credentials and settings are sent from phone to watch via the Wear Data Layer MessageClient using two atomic payloads:
+Credentials and settings are sent from phone to watch via two mechanisms:
+
+**1. Connection credentials** — via MessageClient (one-time, requires active connection):
 
 | Path | Payload | Purpose |
 |------|---------|---------|
 | `/openhab/connection` | JSON (`ConnectionPayload`) | Sync server URLs + credentials + device identity |
-| `/openhab/settings` | JSON (`WatchSettingsPayload`) | Sync voice, notifications, theme, debug preferences |
 | `/openhab/reload` | empty | Signal watch to clear cache and refresh tile |
+
+**2. Watch settings** — via DataItem (persistent, offline-capable, bidirectional):
+
+| DataItem Path | Content | Purpose |
+|---------------|---------|---------|
+| `/openhab/watch-settings` | `WatchSettingsPayload` (DataMap) | All non-credential settings + watch status |
+
+The DataItem is shared bidirectionally:
+- **Phone writes** settings fields (voice, notifications, theme, debug) → watch applies via `onDataChanged`
+- **Watch writes** status fields (configTimestamp, screenWidthDp, appVersion, hasSpeaker) → phone reads instantly
+
+The phone can read settings offline without the watch being connected or awake.
 
 **Deprecated paths** (kept for backward compatibility with watch app < 1.10.0):
 
 | Path | Payload | Replaced by |
 |------|---------|-------------|
 | `/openhab/config` | `SyncConfigPayload` | `PATH_CONNECTION` |
-| `/openhab/voice-settings` | `SyncVoiceSettingsPayload` | `PATH_SETTINGS` |
-| `/openhab/notification-settings` | `SyncNotificationSettingsPayload` | `PATH_SETTINGS` |
-| `/openhab/theme` | theme name string | `PATH_SETTINGS` |
+| `/openhab/voice-settings` | `SyncVoiceSettingsPayload` | DataItem |
+| `/openhab/notification-settings` | `SyncNotificationSettingsPayload` | DataItem |
+| `/openhab/theme` | theme name string | DataItem |
+| `/openhab/settings` | `WatchSettingsPayload` JSON | DataItem |
+| `/openhab/settings-request` | empty | DataItem (no round-trip needed) |
+| `/openhab/settings-response` | `WatchSettingsSnapshot` JSON | DataItem (no round-trip needed) |
+| `/openhab/status` | DataMap | Merged into `/openhab/watch-settings` |
 
 ### ConnectionPayload format (PATH_CONNECTION)
 
@@ -213,10 +230,12 @@ This payload contains no secrets and is backed up to the openHAB server as item 
 
 1. User changes any setting (voice toggle, theme, debug, etc.)
 2. Phone builds full `WatchSettingsPayload` from current UI state
-3. Phone sends payload via MessageClient to `/openhab/settings`
-4. Watch applies all fields atomically (voice + notifications + theme + debug)
+3. Phone writes DataItem at `/openhab/watch-settings` (merges with watch-owned status fields)
+4. Watch receives `onDataChanged`, applies all settings fields atomically
 5. Watch refreshes tile to reflect theme changes
 6. Phone schedules debounced server backup write (if backup enabled)
+
+Note: settings sync does NOT require the watch to be actively connected — the DataItem is persisted locally by Google Play Services and syncs automatically when devices reconnect.
 
 ### Requirements
 
