@@ -21,6 +21,14 @@ Architecture refactor: settings sync split into two atomic payloads, then migrat
 - Toggling debug mode no longer wipes local server URL on the watch
 - Any settings change in one domain cannot overwrite fields in the other domain
 - Watch Settings screen opens instantly (no "Loading..." spinner waiting for watch response)
+- Settings (voice, TTS, notifications) now persist correctly after DataItem sync
+- Watch initializes from existing DataItem on startup (no default overwrite)
+- TTS voice list shows all regions (not just one locale)
+
+### Improved
+
+- Phone voice dropdown shows checkmark + bold text for the currently selected voice
+- Watch voice picker auto-scrolls to the currently selected voice on open
 
 ---
 
