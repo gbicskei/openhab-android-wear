@@ -31,7 +31,7 @@ The voice command feature allows users to interact with the openHAB voice interp
 
 ## Configuration
 
-Voice settings are configured on the **phone companion app** under **General Settings > Voice Settings**. After saving, press **Sync to Watch** on the home screen to apply changes.
+Voice settings are configured on the **phone companion app** under **Watch Settings > Voice**. Changes are applied instantly to the watch — no manual sync step required.
 
 ### Settings
 
@@ -77,11 +77,13 @@ When WaveNet is disabled, the test button plays the built-in TTS engine with the
 
 ## Sync Behavior
 
-Voice settings are part of the global sync payload. When you change any voice setting and save:
+Voice settings are part of the unified `WatchSettingsPayload` sent on `PATH_SETTINGS`. Changes are applied instantly:
 
-1. The home screen shows "Watch config out of sync" above the Sync button
-2. Press **Sync to Watch** to push all settings (credentials, theme, tile config, and voice settings) to the watch
-3. The watch applies the new voice settings immediately for the next voice command
+1. User changes a voice setting on the phone's Watch Settings screen
+2. Phone immediately sends the full `WatchSettingsPayload` to the watch (no "Sync" button needed)
+3. Watch applies all settings atomically — the next voice command uses the new configuration
+
+Voice settings are also backed up to the openHAB server (as item metadata) when server backup is enabled.
 
 ## Error Scenarios
 

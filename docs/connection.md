@@ -119,15 +119,24 @@ If not configured, the phone uses the Main Server credentials for editor operati
 
 ### Protocol
 
-Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
+Credentials and settings are sent from phone to watch via the Wear Data Layer MessageClient using two atomic payloads:
 
 | Path | Payload | Purpose |
 |------|---------|---------|
-| `/openhab/config` | JSON (`SyncConfigPayload`) | Sync server URL + credentials + user key |
+| `/openhab/connection` | JSON (`ConnectionPayload`) | Sync server URLs + credentials + device identity |
+| `/openhab/settings` | JSON (`WatchSettingsPayload`) | Sync voice, notifications, theme, debug preferences |
 | `/openhab/reload` | empty | Signal watch to clear cache and refresh tile |
-| `/openhab/theme` | theme name (UTF-8 string) | Sync theme color to watch |
 
-### SyncConfigPayload format
+**Deprecated paths** (kept for backward compatibility with watch app < 1.10.0):
+
+| Path | Payload | Replaced by |
+|------|---------|-------------|
+| `/openhab/config` | `SyncConfigPayload` | `PATH_CONNECTION` |
+| `/openhab/voice-settings` | `SyncVoiceSettingsPayload` | `PATH_SETTINGS` |
+| `/openhab/notification-settings` | `SyncNotificationSettingsPayload` | `PATH_SETTINGS` |
+| `/openhab/theme` | theme name string | `PATH_SETTINGS` |
+
+### ConnectionPayload format (PATH_CONNECTION)
 
 ```json
 {
@@ -135,15 +144,15 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
   "username": "user@email.com",
   "password": "secret",
   "userKey": "joe",
-  "deviceName": "Joe's Watch",
-  "googleTtsApiKey": "",
-  "debugMode": false,
-  "bindingInstalled": true,
-  "resolvedIps": ["1.2.3.4"],
   "localServerUrl": "http://192.168.1.100:8080",
   "localUsername": "admin",
   "localPassword": "localpass",
-  "localApiToken": "oh.mytoken.abc123"
+  "localApiToken": "oh.mytoken.abc123",
+  "resolvedIps": ["1.2.3.4"],
+  "deviceName": "Joe's Watch",
+  "bindingInstalled": true,
+  "googleTtsApiKey": "AIza...",
+  "triggerReload": false
 }
 ```
 
@@ -153,30 +162,61 @@ Credentials are sent from phone to watch via the Wear Data Layer MessageClient:
 | `username` | Basic Auth username (cloud) |
 | `password` | Basic Auth password (cloud) |
 | `userKey` | Tile namespace (empty = shared) |
-| `deviceName` | Friendly watch name for audio sink binding registration |
-| `googleTtsApiKey` | Google Cloud TTS API key (optional) |
-| `debugMode` | Enable verbose logging on the watch |
-| `bindingInstalled` | Whether the Mobile Audio binding is installed on the server (controls notification UI visibility and FCM registration) |
-| `resolvedIps` | Pre-resolved DNS addresses (seeded by phone) |
 | `localServerUrl` | Config Server URL for Happy Eyeballs racing (empty = cloud-only, controlled by "Watch uses Config Server" toggle) |
 | `localUsername` | Config Server username for Basic Auth |
 | `localPassword` | Config Server password for Basic Auth |
 | `localApiToken` | Config Server API token for Bearer auth (takes priority over Basic Auth) |
+| `resolvedIps` | Pre-resolved DNS addresses (seeded by phone) |
+| `deviceName` | Friendly watch name for audio sink binding registration |
+| `bindingInstalled` | Whether the Mobile Audio binding is installed on the server (controls notification UI visibility and FCM registration) |
+| `googleTtsApiKey` | Google Cloud TTS API key (optional) |
+| `triggerReload` | When true, watch clears tile cache and reloads from server |
+
+### WatchSettingsPayload format (PATH_SETTINGS)
+
+```json
+{
+  "voiceCommandsEnabled": true,
+  "readAloudEnabled": false,
+  "useServerTts": false,
+  "serverTtsVoice": "",
+  "speechRate": 1.0,
+  "pitch": 1.0,
+  "notificationsEnabled": true,
+  "notificationReadAloudEnabled": false,
+  "chimeEnabled": true,
+  "chimeSound": "default",
+  "minReadAloudPriority": "normal",
+  "theme": "BLUE",
+  "debugMode": false
+}
+```
+
+This payload contains no secrets and is backed up to the openHAB server as item metadata.
 
 ### Sync process
 
-1. User taps "Sync to Watch" on the phone
-2. Phone saves credentials locally (if unsaved changes exist)
-3. Phone checks "Watch uses Config Server" toggle — includes local server URL + auth if enabled, empty otherwise
-4. Phone sends `SyncConfigPayload` via MessageClient to `/openhab/config`
-5. Watch `WearDataLayerListenerService` receives the message
-6. Watch deserializes payload and saves to `CredentialStore` (DataStore): server URL, credentials, local server URL + auth
-7. Watch resets `ServerSelector` (forces re-race on next request with new URLs/credentials)
-8. Watch seeds DNS cache with phone-resolved IPs (if provided)
-9. Watch saves `deviceName`, `bindingInstalled`, debug mode, Google TTS API key
-10. Watch schedules FCM registration (if `bindingInstalled=true`)
-11. Watch restarts SSE connection (picks up new server URL immediately)
-12. If `triggerReload=true`: watch clears item cache and re-fetches tile config
+**Connection sync** (Setup screen → "Send to Watch"):
+
+1. User taps "Send to Watch" on the phone (or credentials auto-sync on save)
+2. Phone builds `ConnectionPayload` from UI state + credential store
+3. Phone pre-resolves server hostname DNS (seeds watch cache)
+4. Phone sends payload via MessageClient to `/openhab/connection`
+5. Watch saves credentials, local URL, device name, binding status, TTS API key
+6. Watch resets `ServerSelector` (forces re-race on next request)
+7. Watch seeds DNS cache with phone-resolved IPs
+8. Watch schedules FCM registration (if `bindingInstalled=true`)
+9. Watch restarts SSE connection (picks up new server URL immediately)
+10. If `triggerReload=true`: watch clears item cache and re-fetches tile config
+
+**Settings sync** (Watch Settings screen — instant on every change):
+
+1. User changes any setting (voice toggle, theme, debug, etc.)
+2. Phone builds full `WatchSettingsPayload` from current UI state
+3. Phone sends payload via MessageClient to `/openhab/settings`
+4. Watch applies all fields atomically (voice + notifications + theme + debug)
+5. Watch refreshes tile to reflect theme changes
+6. Phone schedules debounced server backup write (if backup enabled)
 
 ### Requirements
 

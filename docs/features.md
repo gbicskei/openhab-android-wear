@@ -24,7 +24,7 @@ Items behave differently based on their type and metadata configuration:
 | Dimmer/Number (with min/max) | Label + current value | Opens dedicated rotary control screen |
 | Color | Label + state (HSB or color) | Opens color picker (preset chips + bezel brightness) |
 | Rollershutter | Label + position % | Opens roller shutter control (UP/STOP/DOWN + bezel) |
-| Item with commandOptions | Label + current value | Opens choice picker (scrollable option list) |
+| Item with commandOptions | Label + current value | Opens choice picker (scrollable option list). Overridden by explicit `action: "toggle"` — sends ON/OFF directly. |
 | Contact (read-only) | Label + value | No action (display only) |
 | Command button (`action: "command"`) | Label + state from `valueItem` or primary | Sends fixed `commandValue` to target item |
 | Navigation button (`action: "page:..."`) | Page label + icon | Navigate to sub-page (via LoadAction) |
@@ -103,6 +103,8 @@ Items that have `commandDescription.commandOptions` (or `stateDescription.option
 - Tap sends the command immediately
 - Useful for scene selectors, input selectors, mode switches, and any item with predefined values
 
+**Exception:** If the tile slot has `action: "toggle"` explicitly set, the choice picker is bypassed and the item is toggled directly with ON/OFF — even if commandOptions exist (e.g. MQTT switches with `true/false` options). This ensures reliable toggle behavior regardless of the item's commandDescription.
+
 ### Concentric Layout
 
 Buttons are sized per layout — larger when fewer items allow it:
@@ -128,7 +130,7 @@ Buttons are sized per layout — larger when fewer items allow it:
 The layout 3 stagger places side buttons at `centerY + 0.42*btn` and the center button at `centerY - 0.42*btn`, creating diagonal separation that allows larger buttons without horizontal overlap.
 
 Fixed zones (overlays, don't affect button positions):
-- Top: "openHAB" title (main page) or page name (sub-pages) — dims during loading
+- Top: wearOH logo + connection status dot (all pages) — dims during loading
 - Bottom: Mic button (main page, drawn SVG icon) or Back button (sub-pages, ← character)
 
 ### Tile State Machine
@@ -342,12 +344,15 @@ See [Connection](connection.md) for the full credential model, sync protocol, an
 ### Tile Design Editor
 
 Visual editor for the watch tile layout:
-- **Page tabs** at the top for switching between tile pages
-- **Long-press context menu** on any tab — Rename or Duplicate the page
-- **Page creation** — "Add Page" asks for a display label; internal uid is auto-generated (with suffix for duplicates)
+- **Carousel page selector** — horizontally scrollable page chips replacing tab row
+- **Drag-and-drop page reordering** — long-press a page chip to drag (main page pinned at position 1)
+- **Long-press context menu** on any page chip — Rename or Duplicate the page
+- **Page creation** — "Add Page" asks for a display label; internal uid is auto-generated. New pages insert after current selection and auto-focus.
 - **Page duplication** — "Save As..." dialog pre-filled with "{Label} (copy)", copies all slots to the new page
 - **Layout selector** to set the button count (1-7)
-- **Circular watch preview** rendering the actual tile layout
+- **Circular watch preview** rendering the actual tile layout with wearOH logo on all pages
+- **Position badges** on the outer ring edge toward the bezel (shows slot numbers)
+- **Drag-and-drop slot reordering** — long-press a slot on the watch preview to drag-swap positions
 - **Slot configuration** — tap any slot to open the config sheet:
   - Item selection (searchable picker)
   - Icon override (searchable bottom sheet: MDI, Material Symbols, openHAB icons)
@@ -356,9 +361,10 @@ Visual editor for the watch tile layout:
   - Action type (Toggle / Command / Navigate)
   - Action item (searchable item picker — item that receives commands)
   - State item (searchable item picker — item whose state is displayed)
+  - Complement action (secondary action for toggle items)
   - Fixed command, invert state, confirmation, aggregate
 - **Navigation target filtering** — current page is excluded from the target page list
-- **Position swap** — numbered circles in config sheet, tap to swap positions
+- Carousel chips centered when not filling full width
 
 ### Complication Editor
 

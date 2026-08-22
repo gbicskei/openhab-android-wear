@@ -98,10 +98,11 @@ Connection options:
 - Instant-apply UX: phone changes are pushed and applied immediately (no Save button)
 
 **Implementation:**
-- Watch exposes settings via MessageClient request/response
-- Phone sends `GET_SETTINGS` → watch responds with current values
-- Phone sends `UPDATE_SETTINGS` → watch applies immediately
-- Settings backed up to server as item metadata (periodic + on change)
+- Watch exposes settings via MessageClient request/response (PATH_SETTINGS_REQUEST / PATH_SETTINGS_RESPONSE)
+- Phone sends `WatchSettingsPayload` on `PATH_SETTINGS` — watch applies atomically
+- Connection secrets sent separately on `PATH_CONNECTION` — watch applies atomically
+- Neither payload can overwrite the other's domain (eliminates partial-update bugs)
+- Settings backed up to server as item metadata (periodic + on change, schema v2)
 
 ### 6. FCM Push Notifications
 
@@ -191,18 +192,21 @@ User taps complication on watch face
       → On user action: sendCommand → ComplicationRefresher.requestUpdate()
 ```
 
-### Theme Sync (Phone → Server → Watch)
+### Theme Sync (DataItem — bidirectional)
 ```
-Phone: TileDesignScreen → ThemeSelector → onThemeSelected(themeName)
-  → credentialStore.saveSelectedTheme(themeName)     [local persistence]
-  → Update main page: page.copy(theme = themeName)
-  → apiService.updateTilePage(config, page.toDto())  [writes to server]
+Phone: WatchSettingsViewModel → setTheme(themeName)
+  → buildSettingsPayload(theme = themeName)
+  → dataLayerSender.sendSettings(payload)          [PATH_SETTINGS → watch]
+  → credentialStore.saveSelectedTheme(themeName)   [local cache]
 
-Watch: OpenHabRepository.coldLoad()
-  → Fetch tile components from server
-  → Read mainPage.config.theme
-  → themeStore.setTheme(TileTheme.fromName(themeName))
-  → All control activities read from ThemeStore on launch
+Watch: handleSettingsMessage()
+  → themeStore.setTheme(TileTheme.fromName(theme))
+  → watchStatusWriter.writeTheme(theme)            [DataItem → phone reads]
+  → requestUpdate(OpenHabTileService)
+
+Phone reads theme back:
+  → PhoneWearListenerService.onDataChanged()
+  → ThemeHolder.update(themeName)                  [confirms watch applied it]
 ```
 
 ### Voice Command
@@ -229,15 +233,24 @@ openHAB Cloud → FCM → FcmMessageListenerService
       → Post standard notification to watch shade
 ```
 
-### Settings Sync (Phone → Watch)
+### Settings Sync (Phone → Watch) — Two Atomic Payloads
 ```
-Phone WatchSettingsScreen
-  → MessageClient.sendMessage(watchNode, PATH_GET_SETTINGS)
-  → Watch responds with current settings JSON
-  → User changes a value
-  → MessageClient.sendMessage(watchNode, PATH_UPDATE_SETTINGS, payload)
-  → Watch applies immediately + backs up to server metadata
+Connection (Setup screen saves):
+  → SetupViewModel.buildConnectionPayload()
+  → dataLayerSender.sendConnection(payload)        [PATH_CONNECTION]
+  → Watch: saves credentials, local URL, device name, binding, TTS key
+  → Watch: resets ServerSelector, restarts SSE
+  → Never backed up to server (contains secrets)
+
+Settings (Watch Settings screen changes):
+  → WatchSettingsViewModel.buildSettingsPayload()
+  → dataLayerSender.sendSettings(payload)          [PATH_SETTINGS]
+  → Watch: applies voice + notifications + theme + debug atomically
+  → Watch: refreshes tile
+  → Backed up to server as item metadata (debounced)
 ```
+
+Each payload is self-contained — connection changes cannot touch voice/notification/theme settings and vice versa.
 
 ### Version Handshake (Phone ↔ Watch)
 ```

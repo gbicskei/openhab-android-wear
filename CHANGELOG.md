@@ -1,12 +1,74 @@
 # Changelog
 
-## [Unreleased]
+## [1.9.1] — 2026-08-21
+
+### Summary
+
+Architecture refactor: settings sync split into two atomic payloads, eliminating a class of bugs where changing one setting could accidentally wipe another.
+
+### Changed
+
+- **Atomic settings sync**: Phone-to-watch sync now uses two self-contained payloads:
+  - `ConnectionPayload` (PATH_CONNECTION) — credentials, URLs, device identity, TTS API key. Managed by Setup screen. Never backed up.
+  - `WatchSettingsPayload` (PATH_SETTINGS) — voice, notifications, theme, debug. Managed by Watch Settings screen. Backed up to server.
+- **Server backup** uses `WatchSettingsPayload` directly (schema version 2, includes theme)
+- Old fragmented paths (PATH_CONFIG, PATH_VOICE_SETTINGS, PATH_NOTIFICATION_SETTINGS, PATH_THEME) marked deprecated, kept for backward compatibility
+
+### Fixed
+
+- Toggling debug mode no longer wipes local server URL on the watch
+- Any settings change in one domain cannot overwrite fields in the other domain
+
+---
+
+## [1.9.0] — 2026-08-21
+
+### Summary
+
+Major UX release: M3 Expressive redesign, carousel-based tile editor with drag-and-drop, faster watch connection recovery, and toggle behavior fix.
+
+### New: M3 Expressive Design
+
+- Applied Material 3 Expressive design system to both watch and phone apps
+- Surface-Container background on tile buttons (watch)
+- Updated color roles, typography, and component patterns
+
+### New: Tile Editor Redesign (Phone)
+
+- **Carousel page selector** replacing the old tab row — horizontally scrollable page chips
+- **Drag-and-drop page reordering** — long-press a page chip to drag (main page stays pinned at position 1)
+- **Drag-and-drop slot reordering** — long-press a slot on the watch preview to swap positions
+- **Position badges** on the outer ring edge of the preview (toward bezel)
+- **Complement action** support in tile config sheet
+- **wearOH logo** shown on all tile pages in preview (matches watch behavior)
+- New pages insert after current selection and auto-focus
+- Carousel chips centered when not filling full width
+- Back arrow vertically centered on sub-page preview
+
+### Improved: Watch Connection
+
+- **CachingDns in SSE client** — SSE reconnection uses cached IPs when system DNS is blocked (common on Wear OS wake), reducing reconnect time from ~20-30s to ~1-2s
+- **Immediate poll on fallback entry** — no more 15s delay before the first poll attempt when SSE is unstable
+- **Inline state refresh sets lastSuccessMillis** — first tile render after cold start shows green connection dot immediately (no false red state)
+- SSE connect timeout set to 10s for faster failure detection
+
+### Improved: Theme Sync
+
+- Simplified to use DataItem as single source of truth (watch writes, phone reads)
+- No longer depends on server tile page config for theme state
+
+### Fixed
+
+- **Toggle override for commandOptions**: When action is explicitly set to "toggle", the tile now sends ON/OFF directly instead of opening the choice picker — even if the item has commandDescription options (e.g. MQTT switches with true/false options)
+- Connection indicator stays green during normal SSE reconnect cycles
+
+---
+
+## [1.8.0] — 2026-08-20
 
 ### Summary
 
 Feature release introducing **FCM push notifications with audio sink playback**, a **redesigned settings architecture** (watch as source of truth), **app rebranding** to wearOH, and significant **tile editor UX improvements**.
-
----
 
 ### New: Push Notifications & Audio Sink
 

@@ -74,8 +74,10 @@ Colors follow the HCT tonal system. For dark-on-black (Wear OS and phone dark mo
 
 - **Watch** `ThemeStore` (DataStore) is the authoritative source
 - **Phone** caches the theme locally for display when watch is disconnected
-- On connection, phone adopts watch's reported theme
-- Theme changes from phone are sent to watch via Data Layer (`PATH_THEME`)
+- On connection, phone reads watch's theme from DataItem (`WatchStatusReader`)
+- Theme changes from phone are sent to watch via `WatchSettingsPayload` on `PATH_SETTINGS`
+- Watch writes theme to DataItem (`WatchStatusWriter`) for phone to read back
+- `PATH_THEME` (deprecated) — kept for backward compatibility with watch app < 1.10.0
 
 ---
 

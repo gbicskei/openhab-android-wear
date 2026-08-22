@@ -247,13 +247,16 @@ fun parsePosition(raw: String): Pair<String, Int> {
 ### Tile Editor Impact
 
 The tile editor provides:
-- **Page tabs** at top showing all pages (main first, then sub-pages)
-- **Long-press context menu** on any tab: Rename or Duplicate
-- **Add Page** — user enters a display label; uid is auto-generated (`label.lowercase().replace(" ", "_")`) with `_2`, `_3` suffix for duplicates
+- **Carousel page selector** — horizontally scrollable page chips (main pinned first, then sub-pages)
+- **Drag-and-drop page reordering** — long-press a chip to drag (main page stays pinned at position 1)
+- **Long-press context menu** on any chip: Rename or Duplicate
+- **Add Page** — user enters a display label; uid is auto-generated. New pages insert after current selection and auto-focus.
 - **Duplicate Page** — "Save As..." dialog pre-filled with "{Label} (copy)"; copies all slots to a new page
+- **Circular watch preview** with wearOH logo on all pages and position badges on outer ring
+- **Drag-and-drop slot reordering** — long-press a slot on the preview to drag-swap positions
 - **Navigation button creation** — in the item picker's "Navigate" tab; current page is excluded from the target list
 - **Navigation target dropdown** in config sheet — also excludes the current page
-- **Page deletion** — close button on selected non-main tab; confirmation dialog
+- **Page deletion** — close button on selected non-main chip; confirmation dialog
 
 ### Resource Version
 

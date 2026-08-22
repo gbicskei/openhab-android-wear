@@ -128,7 +128,7 @@ Based on slot config + item type, the watch determines the tap behavior:
 | item has stateDescription.minimum + maximum | Open RotaryControlActivity |
 | item.type = `"Color"` | Open ColorPickerActivity |
 | item.type = `"Rollershutter"` | Open RollerShutterActivity |
-| item has commandDescription.commandOptions | Open ChoicePickerActivity |
+| item has commandDescription.commandOptions AND action ≠ `"toggle"` | Open ChoicePickerActivity |
 | action = `"command"` | Send actionCommand to target item |
 | default | Toggle ON/OFF |
 
