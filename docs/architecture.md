@@ -9,20 +9,16 @@ The wearOH app is a **standalone watch application** that communicates directly 
 │   Galaxy Watch  │◀──WiFi──▶│  openHAB Server  │         │   OR: via cloud │
 │   (Wear OS 5+) │  / LTE   │  (direct/local)  │         │   relay proxy   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
-        ▲                                                         │
-        │ one-time sync (Data Layer API)                          │ FCM push
-        │ settings sync (MessageClient)                           ▼
-        ▼                                                 ┌─────────────────┐
-┌─────────────────┐                                       │  openHAB Cloud  │
-│   Phone App     │                                       │  (FCM relay)    │
-│  (companion)    │                                       └─────────────────┘
-└─────────────────┘                                               │
-                                                                  │ FCM
-                                                                  ▼
-                                                          ┌─────────────────┐
-                                                          │   Galaxy Watch  │
-                                                          │ (notifications) │
-                                                          └─────────────────┘
+        ▲                           │
+        │ one-time sync             │ FCM push (MobileAudio binding
+        │ (Data Layer API)          │  sends directly to watch)
+        │ settings sync             │
+        │ (MessageClient)           ▼
+        ▼                   ┌─────────────────┐
+┌─────────────────┐         │   Galaxy Watch  │
+│   Phone App     │         │ (notifications) │
+│  (companion)    │         └─────────────────┘
+└─────────────────┘
 ```
 
 Connection options:
@@ -106,16 +102,18 @@ Connection options:
 
 ### 6. FCM Push Notifications
 
-**Decision:** Receive notifications from openHAB Cloud via Firebase Cloud Messaging, with support for audio-sink playback directly on the watch.
+**Decision:** Receive notifications via Firebase Cloud Messaging sent directly from the MobileAudio binding on the openHAB server to the watch. No openHAB Cloud involvement in the push delivery path.
 
 **Rationale:**
 - Push-based is battery-friendly (no polling)
-- Leverages existing openHAB Cloud infrastructure (same FCM setup as mobile app)
+- Direct binding-to-device delivery — no cloud relay dependency
+- Users can use the wearOH shared Firebase project or configure their own
 - Audio-sink playback enables TTS announcements from rules (e.g., doorbell, alerts)
 - Watch can act as an audio sink without requiring the phone
 
 **Implementation:**
-- `FcmRegistrationWorker` registers token with openHAB Cloud
+- `FcmRegistrationWorker` registers the watch's FCM token with the MobileAudio binding on the local server (`/mobileaudio/register` endpoint)
+- MobileAudio binding sends FCM data messages directly to the watch
 - `FcmMessageListenerService` receives push messages
 - `NotificationHandler` routes by FCM tag: `audio-tts` (watch TTS), `audio-sink` (URL stream), or standard notification
 - `AudioUrlPlayer` streams pre-rendered audio from server URL
@@ -144,7 +142,7 @@ Connection options:
 | Storage | DataStore Preferences | Coroutine-native replacement for SharedPreferences |
 | Images | Coil | Compose integration, SVG decoder for openHAB icons |
 | Phone Sync | Wear Data Layer API | Standard phone↔watch messaging + settings sync |
-| Push | Firebase Cloud Messaging | Push notifications from openHAB Cloud |
+| Push | Firebase Cloud Messaging | Push notifications from MobileAudio binding (direct, no cloud relay) |
 | Audio | MediaPlayer | Streaming audio-sink URLs for TTS/announcements |
 | DNS | CachingDns | Reliable DNS on watch (reduces timeout issues) |
 | Background | WorkManager | Reliable background task scheduling |
@@ -222,15 +220,17 @@ VoiceCommandActivity
 
 ### Push Notification (Audio Sink)
 ```
-openHAB Cloud → FCM → FcmMessageListenerService
-  → NotificationHandler.handle(message)
-    → tag = "audio-sink"?
-      → AudioUrlPlayer.play(audioUrl)
-      → SpeakDisplayActivity shows message text
-    → tag = "audio-tts"?
-      → TTS engine speaks message text
-    → else
-      → Post standard notification to watch shade
+openHAB Rule → MobileAudio binding action
+  → Binding sends FCM data message directly to watch
+  → FcmMessageListenerService
+    → NotificationHandler.handle(message)
+      → tag = "audio-sink"?
+        → AudioUrlPlayer.play(audioUrl)
+        → SpeakDisplayActivity shows message text
+      → tag = "audio-tts"?
+        → TTS engine speaks message text
+      → else
+        → Post standard notification to watch shade
 ```
 
 ### Settings Sync (Phone → Watch) — Two Atomic Payloads
