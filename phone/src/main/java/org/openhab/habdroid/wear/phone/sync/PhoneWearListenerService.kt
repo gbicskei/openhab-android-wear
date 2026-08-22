@@ -11,10 +11,10 @@ import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 
 /**
- * Listens for messages and data changes from the watch via Data Layer.
- * Handles the "open app" request from the watch's "Setup on Phone" button,
- * version response for the version compatibility handshake,
- * and DataItem changes (watch status including app version).
+ * Listens for messages and DataItem changes from the watch via Data Layer.
+ *
+ * Messages: "open app" request, "open tile editor", version response.
+ * DataItem: /openhab/watch-settings — reads appVersion and theme from watch writes.
  */
 class PhoneWearListenerService : WearableListenerService() {
 
@@ -51,22 +51,7 @@ class PhoneWearListenerService : WearableListenerService() {
                 if (!appVersion.isNullOrBlank()) {
                     WatchVersionHolder.update(appVersion)
                 }
-                // Adopt theme change from watch (watch is source of truth)
                 val theme = dataMap.getString(WatchSettingsPayload.KEY_THEME)
-                if (!theme.isNullOrBlank()) {
-                    ThemeHolder.update(theme, applicationContext)
-                }
-            }
-            // Legacy path support for older watch app versions
-            if (event.type == DataEvent.TYPE_CHANGED &&
-                event.dataItem.uri.path == PATH_STATUS
-            ) {
-                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
-                val appVersion = dataMap.getString(KEY_APP_VERSION)
-                if (!appVersion.isNullOrBlank()) {
-                    WatchVersionHolder.update(appVersion)
-                }
-                val theme = dataMap.getString(KEY_THEME)
                 if (!theme.isNullOrBlank()) {
                     ThemeHolder.update(theme, applicationContext)
                 }
@@ -78,8 +63,5 @@ class PhoneWearListenerService : WearableListenerService() {
         const val PATH_OPEN_APP = "/openhab/open-app"
         const val PATH_OPEN_TILE_EDITOR = "/openhab/open-tile-editor"
         const val EXTRA_NAVIGATE_TO = "navigate_to"
-        private const val PATH_STATUS = "/openhab/status"
-        private const val KEY_APP_VERSION = "appVersion"
-        private const val KEY_THEME = "theme"
     }
 }

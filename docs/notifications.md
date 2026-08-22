@@ -169,6 +169,37 @@ Cold start issue — AudioFlinger needs time to initialize. The foreground servi
 
 The FCM token registration (`/mobileaudio/register`) only works on the local network. Ensure the watch can reach the openHAB server directly (not through the cloud proxy).
 
+## Speaker Detection (Speakerless Watches)
+
+Some Wear OS watches have no built-in speaker. The app detects this at startup via `PackageManager.FEATURE_AUDIO_OUTPUT` and disables all audio functionality:
+
+### What's disabled
+
+| Component | Behavior on speakerless watch |
+|-----------|-------------------------------|
+| `NotificationHandler` | Skips TTS, audio-sink playback, chime, and ringer unmuting. Visual notifications still show with priority colors and vibration. |
+| `ServerTtsPlayer` | `speakFromServer()` returns immediately |
+| `AudioUrlPlayer` | `play()` returns immediately |
+| `TtsManager` | `speak()` returns immediately (already had the check) |
+
+### Settings UI impact
+
+**Watch settings:**
+- Notification screen: only shows the "Enabled" toggle. Read Aloud, Alert Sound, and Min Priority are hidden.
+- Voice screen: only shows "Voice Commands" toggle (mic-based input). Read Aloud, Google TTS, voice picker, speed slider, and Test Voice are hidden.
+- Both screens show a short info message explaining the absence.
+
+**Phone companion:**
+- Same audio-related settings are hidden in the Voice and Notification sections.
+- The phone reads `hasSpeaker` from the shared `/openhab/watch-settings` DataItem (watch-owned status field, no round-trip needed).
+
+### Data flow
+
+The `hasSpeaker` flag is a status field in `WatchSettingsPayload`:
+- Written by `WatchSettingsDataStore` on watch app initialization
+- Read by `WatchSettingsDataItemClient` on the phone (offline-capable, instant)
+- Defaults to `true` if the DataItem hasn't been created yet
+
 ## Advanced: Using Your Own Firebase Project (Optional)
 
 By default, wearOH uses a shared Firebase project for FCM delivery. If you prefer to use your own Firebase project (e.g. quota control), follow these steps:

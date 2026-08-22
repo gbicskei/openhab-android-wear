@@ -4,49 +4,28 @@ package org.openhab.habdroid.wear.shared.sync
  * Constants for Data Layer communication between phone and watch.
  */
 object SyncConstants {
-    /** Message path for credential sync (phone → watch) */
-    const val PATH_CONFIG = "/openhab/config"
-
-    /** Message path for connection/credential sync (phone → watch). Replaces PATH_CONFIG. */
+    /** Message path for connection/credential sync (phone → watch, MessageClient). */
     const val PATH_CONNECTION = "/openhab/connection"
 
-    /** Message path for unified settings sync (phone → watch). Replaces voice + notification + theme paths. */
-    const val PATH_SETTINGS = "/openhab/settings"
-
-    /** Message path for requesting the watch to reload items */
+    /** Message path for requesting the watch to reload items (phone → watch, MessageClient). */
     const val PATH_RELOAD = "/openhab/reload"
 
-    /** Message path for voice settings sync (phone → watch). @deprecated Use PATH_SETTINGS. */
-    const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
-
-    /** Message path for notification settings sync (phone → watch). @deprecated Use PATH_SETTINGS. */
-    const val PATH_NOTIFICATION_SETTINGS = "/openhab/notification-settings"
-
-    /** Message path for theme selection sync (phone → watch). @deprecated Use PATH_SETTINGS. */
-    const val PATH_THEME = "/openhab/theme"
-
-    /** Message path for assistant status query (phone → watch, watch replies) */
-    const val PATH_ASSISTANT_STATUS_REQUEST = "/openhab/assistant-status-request"
-
-    /** Message path for assistant status response (watch → phone) */
-    const val PATH_ASSISTANT_STATUS_RESPONSE = "/openhab/assistant-status-response"
-
-    /** Message path for assistant setup command (phone → watch: register after ADB grant) */
-    const val PATH_ASSISTANT_REGISTER = "/openhab/assistant-register"
-
-    /** Message path for requesting TTS test playback on watch (phone → watch) */
+    /** Message path for requesting TTS test playback on watch (phone → watch, MessageClient). */
     const val PATH_TTS_TEST = "/openhab/tts-test"
 
-    /** Message path for requesting current watch settings (phone → watch). @deprecated Use DataItem at WatchSettingsPayload.DATA_PATH instead. */
-    const val PATH_SETTINGS_REQUEST = "/openhab/settings-request"
+    /** Message path for assistant status query (phone → watch, MessageClient). */
+    const val PATH_ASSISTANT_STATUS_REQUEST = "/openhab/assistant-status-request"
 
-    /** Message path for watch settings response (watch → phone). @deprecated Use DataItem at WatchSettingsPayload.DATA_PATH instead. */
-    const val PATH_SETTINGS_RESPONSE = "/openhab/settings-response"
+    /** Message path for assistant status response (watch → phone, MessageClient). */
+    const val PATH_ASSISTANT_STATUS_RESPONSE = "/openhab/assistant-status-response"
 
-    /** Message path for requesting the watch app version (phone → watch) */
+    /** Message path for assistant setup command (phone → watch: register after ADB grant). */
+    const val PATH_ASSISTANT_REGISTER = "/openhab/assistant-register"
+
+    /** Message path for requesting the watch app version (phone → watch, MessageClient). */
     const val PATH_VERSION_REQUEST = "/openhab/version-request"
 
-    /** Message path for watch app version response (watch → phone) */
+    /** Message path for watch app version response (watch → phone, MessageClient). */
     const val PATH_VERSION_RESPONSE = "/openhab/version-response"
 
     /** Default UI components namespace for wear tile config */

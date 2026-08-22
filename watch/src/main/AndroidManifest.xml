@@ -269,6 +269,13 @@
                     android:host="*"
                     android:pathPrefix="/openhab" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/openhab/watch-settings" />
+            </intent-filter>
         </service>
 
         <!-- FCM Message Listener for push notifications from openHAB Cloud -->

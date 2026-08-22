@@ -8,11 +8,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.phone.data.PhoneCredentialStore
-import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
+import org.openhab.habdroid.wear.phone.sync.WatchSettingsDataItemClient
 import org.openhab.habdroid.wear.phone.util.AppLog
-import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
 import javax.inject.Inject
 
 data class NotificationSettingsUiState(
@@ -24,8 +22,7 @@ data class NotificationSettingsUiState(
 @HiltViewModel
 class NotificationSettingsViewModel @Inject constructor(
     private val credentialStore: PhoneCredentialStore,
-    private val dataLayerSender: PhoneDataLayerSender,
-    private val json: Json
+    private val watchSettingsClient: WatchSettingsDataItemClient
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(NotificationSettingsUiState())
@@ -67,17 +64,13 @@ class NotificationSettingsViewModel @Inject constructor(
 
     private suspend fun syncToWatch() {
         val state = _uiState.value
-        val payload = json.encodeToString(
-            SyncNotificationSettingsPayload.serializer(),
-            SyncNotificationSettingsPayload(
-                notificationsEnabled = true,
-                readAloudEnabled = state.readAloudEnabled,
-                chimeEnabled = state.chimeEnabled,
-                chimeSound = "default"
-            )
+        val current = watchSettingsClient.read() ?: return
+        val updated = current.copy(
+            notificationReadAloudEnabled = state.readAloudEnabled,
+            chimeEnabled = state.chimeEnabled
         )
-        dataLayerSender.sendNotificationSettings(payload)
-            .onSuccess { AppLog.d(TAG, "Notification settings synced to watch") }
+        watchSettingsClient.writeSettings(updated)
+            .onSuccess { AppLog.d(TAG, "Notification settings synced to watch via DataItem") }
             .onFailure { AppLog.w(TAG, "Failed to sync notification settings", it) }
     }
 

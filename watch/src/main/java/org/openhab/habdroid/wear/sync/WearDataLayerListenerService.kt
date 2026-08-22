@@ -2,6 +2,9 @@ package org.openhab.habdroid.wear.sync
 
 import org.openhab.habdroid.wear.util.AppLog
 import androidx.wear.watchface.complications.datasource.ComplicationDataSourceUpdateRequester
+import com.google.android.gms.wearable.DataEvent
+import com.google.android.gms.wearable.DataEventBuffer
+import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import dagger.hilt.android.AndroidEntryPoint
@@ -13,72 +16,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.data.repository.CredentialStore
-import org.openhab.habdroid.wear.data.repository.ItemCache
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.notification.FcmRegistrationWorker
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import org.openhab.habdroid.wear.shared.sync.ConnectionPayload
-import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
-import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
-import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
-import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
 import org.openhab.habdroid.wear.tile.OpenHabTileService
 import androidx.wear.tiles.TileService
 import javax.inject.Inject
 
 /**
- * Listens for credential sync messages from the phone app via the Wear Data Layer API.
- *
- * The phone app sends a message to path "/openhab/config" containing a JSON payload
- * with server URL and credentials. This service receives it, parses it, and stores
- * the credentials locally so the watch can operate independently.
+ * Listens for:
+ * - MessageClient messages: connection credentials, reload, TTS test, assistant, version
+ * - DataItem changes: watch settings written by phone at /openhab/watch-settings
  */
 @AndroidEntryPoint
 class WearDataLayerListenerService : WearableListenerService() {
 
-    @Inject
-    lateinit var credentialStore: CredentialStore
-
-    @Inject
-    lateinit var json: Json
-
-    @Inject
-    lateinit var itemCache: ItemCache
-
-    @Inject
-    lateinit var repository: org.openhab.habdroid.wear.data.repository.OpenHabRepository
-
-    @Inject
-    lateinit var watchStatusWriter: WatchStatusWriter
-
-    @Inject
-    lateinit var serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer
-
-    @Inject
-    lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
-
-    @Inject
-    lateinit var assistantRegistrar: org.openhab.habdroid.wear.ui.voice.AssistantRegistrar
-
-    @Inject
-    lateinit var notificationPreferenceStore: org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
-
-    @Inject
-    lateinit var cachingDns: org.openhab.habdroid.wear.data.api.CachingDns
-
-    @Inject
-    lateinit var tileStateEventSource: org.openhab.habdroid.wear.data.api.TileStateEventSource
-
-    @Inject
-    lateinit var serverSelector: org.openhab.habdroid.wear.data.api.ServerSelector
-
-    @Inject
-    lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
-
-    @Inject
-    lateinit var watchSettingsDataStore: WatchSettingsDataStore
+    @Inject lateinit var credentialStore: CredentialStore
+    @Inject lateinit var json: Json
+    @Inject lateinit var repository: OpenHabRepository
+    @Inject lateinit var watchStatusWriter: WatchStatusWriter
+    @Inject lateinit var serverTtsPlayer: org.openhab.habdroid.wear.util.ServerTtsPlayer
+    @Inject lateinit var voicePreferenceStore: org.openhab.habdroid.wear.data.repository.VoicePreferenceStore
+    @Inject lateinit var assistantRegistrar: org.openhab.habdroid.wear.ui.voice.AssistantRegistrar
+    @Inject lateinit var notificationPreferenceStore: org.openhab.habdroid.wear.data.repository.NotificationPreferenceStore
+    @Inject lateinit var cachingDns: org.openhab.habdroid.wear.data.api.CachingDns
+    @Inject lateinit var tileStateEventSource: org.openhab.habdroid.wear.data.api.TileStateEventSource
+    @Inject lateinit var serverSelector: org.openhab.habdroid.wear.data.api.ServerSelector
+    @Inject lateinit var themeStore: org.openhab.habdroid.wear.data.repository.ThemeStore
+    @Inject lateinit var watchSettingsDataStore: WatchSettingsDataStore
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -87,35 +55,28 @@ class WearDataLayerListenerService : WearableListenerService() {
 
         when (messageEvent.path) {
             SyncConstants.PATH_CONNECTION -> handleConnectionMessage(messageEvent)
-            SyncConstants.PATH_SETTINGS -> handleSettingsMessage(messageEvent)
-            SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
-            SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
-            SyncConstants.PATH_NOTIFICATION_SETTINGS -> handleNotificationSettingsMessage(messageEvent)
-            SyncConstants.PATH_THEME -> handleThemeMessage(messageEvent)
             SyncConstants.PATH_ASSISTANT_STATUS_REQUEST -> handleAssistantStatusRequest(messageEvent)
             SyncConstants.PATH_ASSISTANT_REGISTER -> handleAssistantRegister()
-            SyncConstants.PATH_SETTINGS_REQUEST -> handleSettingsRequest(messageEvent)
             SyncConstants.PATH_TTS_TEST -> handleTtsTest()
             SyncConstants.PATH_VERSION_REQUEST -> handleVersionRequest(messageEvent)
             else -> super.onMessageReceived(messageEvent)
         }
     }
 
-    override fun onDataChanged(dataEvents: com.google.android.gms.wearable.DataEventBuffer) {
+    override fun onDataChanged(dataEvents: DataEventBuffer) {
         for (event in dataEvents) {
-            if (event.type == com.google.android.gms.wearable.DataEvent.TYPE_CHANGED &&
+            if (event.type == DataEvent.TYPE_CHANGED &&
                 event.dataItem.uri.path == WatchSettingsPayload.DATA_PATH
             ) {
                 AppLog.d(TAG, "DataItem changed: ${WatchSettingsPayload.DATA_PATH}")
-                val dataMap = com.google.android.gms.wearable.DataMapItem.fromDataItem(event.dataItem).dataMap
+                val dataMap = DataMapItem.fromDataItem(event.dataItem).dataMap
                 val incoming = WatchSettingsPayload.fromDataMap(dataMap)
 
                 serviceScope.launch {
-                    // Only apply if settings actually differ from our current state
                     val current = watchSettingsDataStore.current
                     if (incoming.settingsEqual(current)) {
-                        AppLog.d(TAG, "DataItem change is our own write (status update), ignoring")
+                        AppLog.d(TAG, "DataItem change is our own write, ignoring")
                         return@launch
                     }
 
@@ -144,9 +105,9 @@ class WearDataLayerListenerService : WearableListenerService() {
                     AppLog.debugMode = incoming.debugMode
                     credentialStore.setDebugMode(incoming.debugMode)
 
-                    // Refresh tile to reflect changes
-                    androidx.wear.tiles.TileService.getUpdater(this@WearDataLayerListenerService)
-                        .requestUpdate(org.openhab.habdroid.wear.tile.OpenHabTileService::class.java)
+                    // Refresh tile
+                    TileService.getUpdater(this@WearDataLayerListenerService)
+                        .requestUpdate(OpenHabTileService::class.java)
                 }
             }
         }
@@ -169,13 +130,9 @@ class WearDataLayerListenerService : WearableListenerService() {
                 credentialStore.saveCredentials(credentials)
                 AppLog.d(TAG, "Credentials saved (userKey=${connectionData.userKey.ifBlank { "<default>" }})")
 
-                // Save device name for FCM registration
                 credentialStore.saveDeviceName(connectionData.deviceName)
-
-                // Save binding installed status
                 credentialStore.saveBindingInstalled(connectionData.bindingInstalled)
 
-                // Save local server URL and credentials for Happy Eyeballs racing
                 credentialStore.saveLocalServerUrl(
                     url = connectionData.localServerUrl,
                     username = connectionData.localUsername,
@@ -186,7 +143,6 @@ class WearDataLayerListenerService : WearableListenerService() {
                     AppLog.d(TAG, "Local server URL saved: ${connectionData.localServerUrl}")
                 }
 
-                // Reset ServerSelector so next request re-races with new URLs
                 serverSelector.reset()
 
                 // Seed DNS cache with phone-resolved IPs
@@ -202,36 +158,30 @@ class WearDataLayerListenerService : WearableListenerService() {
                     }
                 }
 
-                // Save Google TTS API key if provided
+                // Save Google TTS API key
                 if (connectionData.googleTtsApiKey.isNotBlank()) {
                     voicePreferenceStore.setServerTtsApiKey(connectionData.googleTtsApiKey)
                 }
 
-                // Register FCM token with cloud for push notifications
+                // Register FCM token
                 FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
 
-                // Restart SSE so it picks up the new server URL immediately
+                // Restart SSE
                 tileStateEventSource.stop()
 
-                // Perform reload if requested (config is fully saved at this point)
+                // Reload if requested
                 if (connectionData.triggerReload) {
                     AppLog.d(TAG, "Connection includes triggerReload — clearing cache and refreshing")
                     repository.clearAndReload()
-                        .onSuccess { count ->
-                            AppLog.d(TAG, "Reload complete: $count items loaded")
-                        }
-                        .onFailure { e ->
-                            AppLog.e(TAG, "Reload failed: ${e.message}")
-                        }
+                        .onSuccess { count -> AppLog.d(TAG, "Reload complete: $count items loaded") }
+                        .onFailure { e -> AppLog.e(TAG, "Reload failed: ${e.message}") }
 
-                    // Refresh complications
                     ComplicationDataSourceUpdateRequester.create(
                         this@WearDataLayerListenerService,
                         android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
                     ).requestUpdateAll()
                 }
 
-                // Trigger tile refresh after credential update
                 TileService.getUpdater(this@WearDataLayerListenerService)
                     .requestUpdate(OpenHabTileService::class.java)
             }
@@ -240,220 +190,18 @@ class WearDataLayerListenerService : WearableListenerService() {
         }
     }
 
-    private fun handleSettingsMessage(messageEvent: MessageEvent) {
-        try {
-            val payload = String(messageEvent.data, Charsets.UTF_8)
-            AppLog.d(TAG, "Settings payload received (${payload.length} chars)")
-
-            val settings = json.decodeFromString<WatchSettingsPayload>(payload)
-
-            serviceScope.launch {
-                // Voice
-                voicePreferenceStore.setVoiceCommandsEnabled(settings.voiceCommandsEnabled)
-                voicePreferenceStore.setVoiceResponseSpoken(settings.readAloudEnabled)
-                voicePreferenceStore.setServerTtsEnabled(settings.useServerTts)
-                voicePreferenceStore.setServerTtsVoice(settings.serverTtsVoice)
-                voicePreferenceStore.setTtsSpeechRate(settings.speechRate)
-                voicePreferenceStore.setTtsPitch(settings.pitch)
-
-                // Notifications
-                notificationPreferenceStore.setNotificationsEnabled(settings.notificationsEnabled)
-                notificationPreferenceStore.setReadAloudEnabled(settings.notificationReadAloudEnabled)
-                notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
-                notificationPreferenceStore.setChimeSound(settings.chimeSound)
-                notificationPreferenceStore.setMinReadAloudPriority(settings.minReadAloudPriority)
-
-                // Theme
-                if (settings.theme.isNotBlank()) {
-                    val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(settings.theme)
-                    themeStore.setTheme(theme)
-                    watchStatusWriter.writeTheme(settings.theme)
-                }
-
-                // Debug
-                AppLog.debugMode = settings.debugMode
-                credentialStore.setDebugMode(settings.debugMode)
-
-                AppLog.d(TAG, "Settings applied atomically (voice+notifications+theme+debug)")
-
-                // Refresh tile to reflect theme change
-                TileService.getUpdater(this@WearDataLayerListenerService)
-                    .requestUpdate(OpenHabTileService::class.java)
-            }
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Failed to parse settings message", e)
-        }
-    }
-
-    private fun handleConfigMessage(messageEvent: MessageEvent) {
-        try {
-            val payload = String(messageEvent.data, Charsets.UTF_8)
-            AppLog.d(TAG, "Config payload received (${payload.length} chars)")
-
-            val configData = json.decodeFromString<SyncConfigPayload>(payload)
-
-            serviceScope.launch {
-                val credentials = ServerCredentials(
-                    serverUrl = configData.serverUrl,
-                    username = configData.username,
-                    password = configData.password,
-                    userKey = configData.userKey
-                )
-                credentialStore.saveCredentials(credentials)
-                AppLog.d(TAG, "Credentials saved from phone sync (userKey=${configData.userKey.ifBlank { "<default>" }})")
-
-                // Save device name for FCM registration
-                credentialStore.saveDeviceName(configData.deviceName)
-
-                // Save binding installed status
-                credentialStore.saveBindingInstalled(configData.bindingInstalled)
-
-                // Save local server URL and credentials for Happy Eyeballs racing
-                credentialStore.saveLocalServerUrl(
-                    url = configData.localServerUrl,
-                    username = configData.localUsername,
-                    password = configData.localPassword,
-                    apiToken = configData.localApiToken
-                )
-                if (configData.localServerUrl.isNotBlank()) {
-                    AppLog.d(TAG, "Local server URL saved: ${configData.localServerUrl}")
-                }
-
-                // Reset ServerSelector so next request re-races with new URLs
-                serverSelector.reset()
-
-                // Seed DNS cache with phone-resolved IPs
-                if (configData.resolvedIps.isNotEmpty()) {
-                    try {
-                        val host = java.net.URI(configData.serverUrl).host
-                        if (host != null) {
-                            cachingDns.seedCache(host, configData.resolvedIps)
-                            AppLog.d(TAG, "DNS cache seeded: $host → ${configData.resolvedIps.joinToString()}")
-                        }
-                    } catch (e: Exception) {
-                        AppLog.w(TAG, "Failed to seed DNS cache: ${e.message}")
-                    }
-                }
-
-                // Save Google TTS API key if provided
-                if (configData.googleTtsApiKey.isNotBlank()) {
-                    voicePreferenceStore.setServerTtsApiKey(configData.googleTtsApiKey)
-                    voicePreferenceStore.setServerTtsEnabled(true)
-                    voicePreferenceStore.setVoiceResponseSpoken(true)
-                    AppLog.d(TAG, "Google TTS API key synced from phone")
-                }
-
-                // Update debug mode (persist to DataStore)
-                AppLog.debugMode = configData.debugMode
-                credentialStore.setDebugMode(configData.debugMode)
-
-                // Register FCM token with cloud for push notifications
-                FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
-
-                // Restart SSE so it picks up the new server URL immediately
-                tileStateEventSource.stop()
-
-                // Perform reload if requested (config is fully saved at this point)
-                if (configData.triggerReload) {
-                    AppLog.d(TAG, "Config includes triggerReload — clearing cache and refreshing")
-                    repository.clearAndReload()
-                        .onSuccess { count ->
-                            AppLog.d(TAG, "Reload complete: $count items loaded")
-                        }
-                        .onFailure { e ->
-                            AppLog.e(TAG, "Reload failed: ${e.message}")
-                        }
-
-                    // Refresh complications
-                    ComplicationDataSourceUpdateRequester.create(
-                        this@WearDataLayerListenerService,
-                        android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
-                    ).requestUpdateAll()
-                }
-
-                // Trigger tile refresh after credential update
-                TileService.getUpdater(this@WearDataLayerListenerService)
-                    .requestUpdate(OpenHabTileService::class.java)
-            }
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Failed to parse config message", e)
-        }
-    }
-
     private fun handleReloadMessage() {
-        AppLog.d(TAG, "Reload message received — clearing cache and refreshing tile")
+        AppLog.d(TAG, "Reload message received")
         serviceScope.launch {
             repository.clearAndReload()
-                .onSuccess { count ->
-                    AppLog.d(TAG, "Reload complete: $count items loaded")
-                }
-                .onFailure { e ->
-                    AppLog.e(TAG, "Reload failed: ${e.message}")
-                }
+                .onSuccess { count -> AppLog.d(TAG, "Reload complete: $count items loaded") }
+                .onFailure { e -> AppLog.e(TAG, "Reload failed: ${e.message}") }
             TileService.getUpdater(this@WearDataLayerListenerService)
                 .requestUpdate(OpenHabTileService::class.java)
-
-            // Also refresh complications
             ComplicationDataSourceUpdateRequester.create(
                 this@WearDataLayerListenerService,
                 android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
             ).requestUpdateAll()
-        }
-    }
-
-    private fun handleVoiceSettingsMessage(messageEvent: MessageEvent) {
-        try {
-            val payload = String(messageEvent.data, Charsets.UTF_8)
-            AppLog.d(TAG, "Voice settings received (${payload.length} chars)")
-
-            val settings = json.decodeFromString<SyncVoiceSettingsPayload>(payload)
-
-            serviceScope.launch {
-                voicePreferenceStore.setVoiceCommandsEnabled(settings.voiceCommandsEnabled)
-                voicePreferenceStore.setVoiceResponseSpoken(settings.readAloudEnabled)
-                voicePreferenceStore.setServerTtsEnabled(settings.useServerTts)
-                voicePreferenceStore.setServerTtsVoice(settings.serverTtsVoice)
-                voicePreferenceStore.setTtsSpeechRate(settings.speechRate)
-                voicePreferenceStore.setTtsPitch(settings.pitch)
-                AppLog.d(TAG, "Voice settings saved from phone sync")
-            }
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Failed to parse voice settings message", e)
-        }
-    }
-
-    private fun handleNotificationSettingsMessage(messageEvent: MessageEvent) {
-        try {
-            val payload = String(messageEvent.data, Charsets.UTF_8)
-            AppLog.d(TAG, "Notification settings received (${payload.length} chars)")
-
-            val settings = json.decodeFromString<SyncNotificationSettingsPayload>(payload)
-
-            serviceScope.launch {
-                notificationPreferenceStore.setNotificationsEnabled(settings.notificationsEnabled)
-                notificationPreferenceStore.setReadAloudEnabled(settings.readAloudEnabled)
-                notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
-                notificationPreferenceStore.setChimeSound(settings.chimeSound)
-                notificationPreferenceStore.setMinReadAloudPriority(settings.minReadAloudPriority)
-                AppLog.d(TAG, "Notification settings saved from phone sync")
-            }
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Failed to parse notification settings message", e)
-        }
-    }
-
-    private fun handleThemeMessage(messageEvent: MessageEvent) {
-        val themeName = String(messageEvent.data, Charsets.UTF_8)
-        AppLog.d(TAG, "Theme received from phone: $themeName")
-        serviceScope.launch {
-            val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(themeName)
-            themeStore.setTheme(theme)
-            // Update DataItem so the phone reads the correct theme on next sync check
-            watchStatusWriter.writeTheme(themeName)
-            // Request tile update to reflect new theme color
-            androidx.wear.tiles.TileService.getUpdater(this@WearDataLayerListenerService)
-                .requestUpdate(org.openhab.habdroid.wear.tile.OpenHabTileService::class.java)
-            AppLog.d(TAG, "Theme updated to $themeName, tile refresh requested")
         }
     }
 
@@ -468,7 +216,6 @@ class WearDataLayerListenerService : WearableListenerService() {
                     serverTtsPlayer.setApiKey(apiKey)
                     serverTtsPlayer.speakFromServer("This is a voice test.", voice = voice)
                 } else {
-                    // System TTS
                     val rate = voicePreferenceStore.ttsSpeechRate.first()
                     val pitch = voicePreferenceStore.ttsPitch.first()
                     val tts = android.speech.tts.TextToSpeech(this@WearDataLayerListenerService, null)
@@ -486,7 +233,7 @@ class WearDataLayerListenerService : WearableListenerService() {
     }
 
     private fun handleVersionRequest(messageEvent: MessageEvent) {
-        AppLog.d(TAG, "Version request received from phone")
+        AppLog.d(TAG, "Version request received")
         serviceScope.launch {
             try {
                 val versionName = org.openhab.habdroid.wear.BuildConfig.VERSION_NAME
@@ -503,49 +250,10 @@ class WearDataLayerListenerService : WearableListenerService() {
         }
     }
 
-    companion object {
-        private const val TAG = "WearDataLayerListener"
-    }
-
-    private fun handleSettingsRequest(messageEvent: MessageEvent) {
-        AppLog.d(TAG, "Settings request received from phone")
-        serviceScope.launch {
-            try {
-                val snapshot = WatchSettingsSnapshot(
-                    debugMode = AppLog.debugMode,
-                    voiceCommandsEnabled = voicePreferenceStore.voiceCommandsEnabled.first(),
-                    readAloudEnabled = voicePreferenceStore.voiceResponseSpoken.first(),
-                    useServerTts = voicePreferenceStore.serverTtsEnabled.first(),
-                    serverTtsVoice = voicePreferenceStore.serverTtsVoice.first(),
-                    ttsSpeechRate = voicePreferenceStore.ttsSpeechRate.first(),
-                    ttsPitch = voicePreferenceStore.ttsPitch.first(),
-                    notificationsEnabled = notificationPreferenceStore.notificationsEnabled.first(),
-                    notificationReadAloud = notificationPreferenceStore.readAloudEnabled.first(),
-                    chimeEnabled = notificationPreferenceStore.chimeEnabled.first(),
-                    chimeSound = notificationPreferenceStore.chimeSound.first(),
-                    minReadAloudPriority = notificationPreferenceStore.minReadAloudPriority.first()
-                )
-
-                val responseJson = json.encodeToString(WatchSettingsSnapshot.serializer(), snapshot)
-                val responseBytes = responseJson.toByteArray(Charsets.UTF_8)
-                val messageClient = com.google.android.gms.wearable.Wearable.getMessageClient(this@WearDataLayerListenerService)
-                messageClient.sendMessage(
-                    messageEvent.sourceNodeId,
-                    SyncConstants.PATH_SETTINGS_RESPONSE,
-                    responseBytes
-                ).await()
-                AppLog.d(TAG, "Sent settings snapshot (${responseJson.length} chars, ${responseBytes.size} bytes)")
-            } catch (e: Exception) {
-                AppLog.e(TAG, "Failed to send settings response", e)
-            }
-        }
-    }
-
     private fun handleAssistantStatusRequest(messageEvent: MessageEvent) {
         AppLog.d(TAG, "Assistant status request received")
         val status = assistantRegistrar.getStatus(this)
         val response = "${status.hasPermission}|${status.isRegistered}"
-
         serviceScope.launch {
             try {
                 val messageClient = com.google.android.gms.wearable.Wearable.getMessageClient(this@WearDataLayerListenerService)
@@ -565,5 +273,9 @@ class WearDataLayerListenerService : WearableListenerService() {
         AppLog.d(TAG, "Assistant register command received")
         val success = assistantRegistrar.register(this)
         AppLog.d(TAG, "Assistant register result: $success")
+    }
+
+    companion object {
+        private const val TAG = "WearDataLayerListener"
     }
 }

@@ -120,7 +120,7 @@ class WatchSettingsDataStore @Inject constructor(
     }
 
     /**
-     * Update theme (watch-side change, e.g. from settings PATH_SETTINGS legacy handler).
+     * Update theme (watch-side change, e.g. from on-watch theme picker).
      */
     suspend fun writeTheme(theme: String) {
         if (theme.isNotBlank() && theme != current.theme) {

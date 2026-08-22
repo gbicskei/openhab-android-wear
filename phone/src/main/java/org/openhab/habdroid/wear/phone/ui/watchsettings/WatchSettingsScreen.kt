@@ -300,17 +300,17 @@ private fun VoiceSettingsContent(
             if (!snapshot.useServerTts) {
                 SettingSlider(
                     label = "Speech Rate",
-                    value = snapshot.ttsSpeechRate,
+                    value = snapshot.speechRate,
                     onValueChange = viewModel::setTtsSpeechRate,
                     valueRange = 0.5f..2.0f,
-                    valueLabel = "${String.format("%.1f", snapshot.ttsSpeechRate)}x"
+                    valueLabel = "${String.format("%.1f", snapshot.speechRate)}x"
                 )
                 SettingSlider(
                     label = "Pitch",
-                    value = snapshot.ttsPitch,
+                    value = snapshot.pitch,
                     onValueChange = viewModel::setTtsPitch,
                     valueRange = 0.5f..2.0f,
-                    valueLabel = "${String.format("%.1f", snapshot.ttsPitch)}x"
+                    valueLabel = "${String.format("%.1f", snapshot.pitch)}x"
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -340,6 +340,7 @@ private fun NotificationSettingsContent(
     modifier: Modifier = Modifier
 ) {
     val snapshot = state.snapshot
+    val hasSpeaker = state.watchHasSpeaker
 
     Column(modifier = modifier) {
         Spacer(modifier = Modifier.height(8.dp))
@@ -356,24 +357,33 @@ private fun NotificationSettingsContent(
                 checked = snapshot.notificationsEnabled,
                 onCheckedChange = viewModel::setNotificationsEnabled
             )
-            SettingSwitch(
-                label = "Read Aloud",
-                checked = snapshot.notificationReadAloud,
-                enabled = snapshot.notificationsEnabled,
-                onCheckedChange = viewModel::setNotificationReadAloud
-            )
-            SettingSwitch(
-                label = "Alert Sound",
-                checked = snapshot.chimeEnabled,
-                enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
-                onCheckedChange = viewModel::setChimeEnabled
-            )
-            PriorityDropdown(
-                label = "Read Priority",
-                selected = snapshot.minReadAloudPriority,
-                enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloud,
-                onSelected = viewModel::setMinReadAloudPriority
-            )
+            if (hasSpeaker) {
+                SettingSwitch(
+                    label = "Read Aloud",
+                    checked = snapshot.notificationReadAloudEnabled,
+                    enabled = snapshot.notificationsEnabled,
+                    onCheckedChange = viewModel::setNotificationReadAloud
+                )
+                SettingSwitch(
+                    label = "Alert Sound",
+                    checked = snapshot.chimeEnabled,
+                    enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloudEnabled,
+                    onCheckedChange = viewModel::setChimeEnabled
+                )
+                PriorityDropdown(
+                    label = "Read Priority",
+                    selected = snapshot.minReadAloudPriority,
+                    enabled = snapshot.notificationsEnabled && snapshot.notificationReadAloudEnabled,
+                    onSelected = viewModel::setMinReadAloudPriority
+                )
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Audio settings unavailable — watch has no speaker.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Spacer(modifier = Modifier.height(24.dp))
     }
