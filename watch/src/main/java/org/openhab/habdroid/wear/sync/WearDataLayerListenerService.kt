@@ -17,10 +17,12 @@ import org.openhab.habdroid.wear.data.repository.ItemCache
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
 import org.openhab.habdroid.wear.notification.FcmRegistrationWorker
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.ConnectionPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
 import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
 import org.openhab.habdroid.wear.tile.OpenHabTileService
 import androidx.wear.tiles.TileService
@@ -81,6 +83,8 @@ class WearDataLayerListenerService : WearableListenerService() {
         AppLog.d(TAG, "Message received on path: ${messageEvent.path}")
 
         when (messageEvent.path) {
+            SyncConstants.PATH_CONNECTION -> handleConnectionMessage(messageEvent)
+            SyncConstants.PATH_SETTINGS -> handleSettingsMessage(messageEvent)
             SyncConstants.PATH_CONFIG -> handleConfigMessage(messageEvent)
             SyncConstants.PATH_RELOAD -> handleReloadMessage()
             SyncConstants.PATH_VOICE_SETTINGS -> handleVoiceSettingsMessage(messageEvent)
@@ -92,6 +96,139 @@ class WearDataLayerListenerService : WearableListenerService() {
             SyncConstants.PATH_TTS_TEST -> handleTtsTest()
             SyncConstants.PATH_VERSION_REQUEST -> handleVersionRequest(messageEvent)
             else -> super.onMessageReceived(messageEvent)
+        }
+    }
+
+    private fun handleConnectionMessage(messageEvent: MessageEvent) {
+        try {
+            val payload = String(messageEvent.data, Charsets.UTF_8)
+            AppLog.d(TAG, "Connection payload received (${payload.length} chars)")
+
+            val connectionData = json.decodeFromString<ConnectionPayload>(payload)
+
+            serviceScope.launch {
+                val credentials = ServerCredentials(
+                    serverUrl = connectionData.serverUrl,
+                    username = connectionData.username,
+                    password = connectionData.password,
+                    userKey = connectionData.userKey
+                )
+                credentialStore.saveCredentials(credentials)
+                AppLog.d(TAG, "Credentials saved (userKey=${connectionData.userKey.ifBlank { "<default>" }})")
+
+                // Save device name for FCM registration
+                credentialStore.saveDeviceName(connectionData.deviceName)
+
+                // Save binding installed status
+                credentialStore.saveBindingInstalled(connectionData.bindingInstalled)
+
+                // Save local server URL and credentials for Happy Eyeballs racing
+                credentialStore.saveLocalServerUrl(
+                    url = connectionData.localServerUrl,
+                    username = connectionData.localUsername,
+                    password = connectionData.localPassword,
+                    apiToken = connectionData.localApiToken
+                )
+                if (connectionData.localServerUrl.isNotBlank()) {
+                    AppLog.d(TAG, "Local server URL saved: ${connectionData.localServerUrl}")
+                }
+
+                // Reset ServerSelector so next request re-races with new URLs
+                serverSelector.reset()
+
+                // Seed DNS cache with phone-resolved IPs
+                if (connectionData.resolvedIps.isNotEmpty()) {
+                    try {
+                        val host = java.net.URI(connectionData.serverUrl).host
+                        if (host != null) {
+                            cachingDns.seedCache(host, connectionData.resolvedIps)
+                            AppLog.d(TAG, "DNS cache seeded: $host → ${connectionData.resolvedIps.joinToString()}")
+                        }
+                    } catch (e: Exception) {
+                        AppLog.w(TAG, "Failed to seed DNS cache: ${e.message}")
+                    }
+                }
+
+                // Save Google TTS API key if provided
+                if (connectionData.googleTtsApiKey.isNotBlank()) {
+                    voicePreferenceStore.setServerTtsApiKey(connectionData.googleTtsApiKey)
+                }
+
+                // Register FCM token with cloud for push notifications
+                FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
+
+                // Restart SSE so it picks up the new server URL immediately
+                tileStateEventSource.stop()
+
+                // Perform reload if requested (config is fully saved at this point)
+                if (connectionData.triggerReload) {
+                    AppLog.d(TAG, "Connection includes triggerReload — clearing cache and refreshing")
+                    repository.clearAndReload()
+                        .onSuccess { count ->
+                            AppLog.d(TAG, "Reload complete: $count items loaded")
+                        }
+                        .onFailure { e ->
+                            AppLog.e(TAG, "Reload failed: ${e.message}")
+                        }
+
+                    // Refresh complications
+                    ComplicationDataSourceUpdateRequester.create(
+                        this@WearDataLayerListenerService,
+                        android.content.ComponentName(this@WearDataLayerListenerService, org.openhab.habdroid.wear.complication.OpenHabComplicationService::class.java)
+                    ).requestUpdateAll()
+                }
+
+                // Trigger tile refresh after credential update
+                TileService.getUpdater(this@WearDataLayerListenerService)
+                    .requestUpdate(OpenHabTileService::class.java)
+            }
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to parse connection message", e)
+        }
+    }
+
+    private fun handleSettingsMessage(messageEvent: MessageEvent) {
+        try {
+            val payload = String(messageEvent.data, Charsets.UTF_8)
+            AppLog.d(TAG, "Settings payload received (${payload.length} chars)")
+
+            val settings = json.decodeFromString<WatchSettingsPayload>(payload)
+
+            serviceScope.launch {
+                // Voice
+                voicePreferenceStore.setVoiceCommandsEnabled(settings.voiceCommandsEnabled)
+                voicePreferenceStore.setVoiceResponseSpoken(settings.readAloudEnabled)
+                voicePreferenceStore.setServerTtsEnabled(settings.useServerTts)
+                voicePreferenceStore.setServerTtsVoice(settings.serverTtsVoice)
+                voicePreferenceStore.setTtsSpeechRate(settings.speechRate)
+                voicePreferenceStore.setTtsPitch(settings.pitch)
+
+                // Notifications
+                notificationPreferenceStore.setNotificationsEnabled(settings.notificationsEnabled)
+                notificationPreferenceStore.setReadAloudEnabled(settings.notificationReadAloudEnabled)
+                notificationPreferenceStore.setChimeEnabled(settings.chimeEnabled)
+                notificationPreferenceStore.setChimeSound(settings.chimeSound)
+                notificationPreferenceStore.setMinReadAloudPriority(settings.minReadAloudPriority)
+
+                // Theme
+                if (settings.theme.isNotBlank()) {
+                    val theme = org.openhab.habdroid.wear.data.repository.TileTheme.fromName(settings.theme)
+                    themeStore.setTheme(theme)
+                    watchStatusWriter.writeTheme(settings.theme)
+                }
+
+                // Debug
+                AppLog.debugMode = settings.debugMode
+                credentialStore.setDebugMode(settings.debugMode)
+
+                AppLog.d(TAG, "Settings applied atomically (voice+notifications+theme+debug)")
+
+                // Refresh tile to reflect theme change
+                TileService.getUpdater(this@WearDataLayerListenerService)
+                    .requestUpdate(OpenHabTileService::class.java)
+            }
+        } catch (e: Exception) {
+            AppLog.e(TAG, "Failed to parse settings message", e)
         }
     }
 

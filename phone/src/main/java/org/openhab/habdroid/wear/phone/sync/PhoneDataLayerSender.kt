@@ -21,8 +21,10 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.ConnectionPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConfigPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -115,8 +117,63 @@ class PhoneDataLayerSender @Inject constructor(
     )
 
     /**
-     * Send credentials to the connected watch.
+     * Send the complete, unified watch settings payload (non-credential preferences).
+     * Called on every voice, notification, theme, or debug change.
      */
+    suspend fun sendSettings(payload: WatchSettingsPayload): Result<Unit> = runCatching {
+        if (!hasNetworkConnectivity()) {
+            throw NoNetworkException()
+        }
+
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull()
+            ?: throw NoWatchConnectedException()
+
+        val jsonPayload = json.encodeToString(WatchSettingsPayload.serializer(), payload)
+
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_SETTINGS,
+            jsonPayload.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
+
+    /**
+     * Send connection credentials and server configuration to the watch.
+     * Called when the user saves connection settings in the Setup screen.
+     * DNS pre-resolution of the cloud server hostname is performed automatically.
+     */
+    suspend fun sendConnection(payload: ConnectionPayload): Result<Unit> = runCatching {
+        if (!hasNetworkConnectivity()) {
+            throw NoNetworkException()
+        }
+
+        val nodes = nodeClient.connectedNodes.await()
+        val watchNode = nodes.firstOrNull()
+            ?: throw NoWatchConnectedException()
+
+        // Pre-resolve server hostname so the watch has cached IPs from the start
+        val resolvedIps = if (payload.serverUrl.isNotBlank()) {
+            resolveServerIps(payload.serverUrl)
+        } else {
+            emptyList()
+        }
+
+        val effectivePayload = payload.copy(resolvedIps = resolvedIps)
+        val jsonPayload = json.encodeToString(ConnectionPayload.serializer(), effectivePayload)
+
+        messageClient.sendMessage(
+            watchNode.id,
+            SyncConstants.PATH_CONNECTION,
+            jsonPayload.toByteArray(Charsets.UTF_8)
+        ).await()
+    }
+
+    /**
+     * Send credentials to the connected watch.
+     * @deprecated Use [sendSettings] with [WatchSettingsPayload] instead.
+     */
+    @Deprecated("Use sendSettings() with WatchSettingsPayload for atomic sync", replaceWith = ReplaceWith("sendSettings(payload)"))
     suspend fun sendCredentials(
         credentials: ServerCredentials,
         debugMode: Boolean = false,
@@ -214,7 +271,9 @@ class PhoneDataLayerSender @Inject constructor(
 
     /**
      * Send voice settings to the watch.
+     * @deprecated Use [sendSettings] with [WatchSettingsPayload] instead.
      */
+    @Deprecated("Use sendSettings() with WatchSettingsPayload for atomic sync", replaceWith = ReplaceWith("sendSettings(payload)"))
     suspend fun sendVoiceSettings(payloadJson: String): Result<Unit> = runCatching {
         val nodes = nodeClient.connectedNodes.await()
         val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
@@ -227,7 +286,9 @@ class PhoneDataLayerSender @Inject constructor(
 
     /**
      * Send notification settings to the watch.
+     * @deprecated Use [sendSettings] with [WatchSettingsPayload] instead.
      */
+    @Deprecated("Use sendSettings() with WatchSettingsPayload for atomic sync", replaceWith = ReplaceWith("sendSettings(payload)"))
     suspend fun sendNotificationSettings(payloadJson: String): Result<Unit> = runCatching {
         val nodes = nodeClient.connectedNodes.await()
         val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()
@@ -240,7 +301,9 @@ class PhoneDataLayerSender @Inject constructor(
 
     /**
      * Send theme selection to the watch.
+     * @deprecated Use [sendSettings] with [WatchSettingsPayload] instead.
      */
+    @Deprecated("Use sendSettings() with WatchSettingsPayload for atomic sync", replaceWith = ReplaceWith("sendSettings(payload)"))
     suspend fun sendTheme(themeName: String): Result<Unit> = runCatching {
         val nodes = nodeClient.connectedNodes.await()
         val watchNode = nodes.firstOrNull() ?: throw NoWatchConnectedException()

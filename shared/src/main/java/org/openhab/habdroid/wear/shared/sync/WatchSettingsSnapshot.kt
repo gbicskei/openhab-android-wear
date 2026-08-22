@@ -11,6 +11,9 @@ import kotlinx.serialization.Serializable
  * - Serialization to/from server item metadata for backup
  *
  * Does NOT include: credentials, server URLs, API keys, theme (part of tile config).
+ *
+ * @deprecated For backup/restore, use [WatchSettingsPayload] which includes theme.
+ * Still used for PATH_SETTINGS_REQUEST/RESPONSE (watch → phone snapshot query).
  */
 @Serializable
 data class WatchSettingsSnapshot(

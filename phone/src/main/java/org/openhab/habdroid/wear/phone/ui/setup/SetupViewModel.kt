@@ -20,7 +20,9 @@ import org.openhab.habdroid.wear.phone.sync.NoWatchConnectedException
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
 import org.openhab.habdroid.wear.phone.sync.WatchVersionHolder
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
+import org.openhab.habdroid.wear.shared.sync.ConnectionPayload
 import org.openhab.habdroid.wear.shared.sync.VersionCompat
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
 
 /**
@@ -564,38 +566,16 @@ class SetupViewModel @Inject constructor(
     }
 
     /**
-     * Pushes credentials to the watch silently after saving.
+     * Pushes connection config to the watch silently after saving.
      * Non-blocking — if watch is not connected, this is a no-op.
      */
     private suspend fun syncCredentialsToWatch(state: SetupUiState) {
         try {
             val node = dataLayerSender.getConnectedWatch() ?: return
-            val effectivePassword = getEffectivePassword()
-            val credentials = ServerCredentials(
-                serverUrl = state.serverUrl.trim(),
-                username = state.username.trim(),
-                password = effectivePassword,
-                userKey = state.userKey,
-                googleTtsApiKey = getEffectiveGoogleTtsApiKey()
-            )
-            val localConfig = if (credentialStore.isWatchUseLocalServer) {
-                credentialStore.localConfig.first()
-            } else {
-                null
-            }
-            val localUrl = localConfig?.serverUrl ?: ""
-            dataLayerSender.sendCredentials(
-                credentials,
-                debugMode = credentialStore.isDebugMode,
-                localServerUrl = localUrl,
-                localUsername = localConfig?.username ?: "",
-                localPassword = localConfig?.password ?: "",
-                localApiToken = localConfig?.apiToken ?: "",
-                deviceName = credentialStore.deviceName,
-                bindingInstalled = credentialStore.isBindingInstalled
-            )
+            val payload = buildConnectionPayload(state)
+            dataLayerSender.sendConnection(payload)
                 .onSuccess {
-                    AppLog.d("SetupVM", "Credentials auto-synced to watch on save")
+                    AppLog.d("SetupVM", "Connection auto-synced to watch on save")
                 }
                 .onFailure { e ->
                     AppLog.w("SetupVM", "Auto-sync to watch failed: ${e.message}")
@@ -617,32 +597,8 @@ class SetupViewModel @Inject constructor(
                 saveAll()
             }
 
-            val effectivePassword = getEffectivePassword()
-            val credentials = ServerCredentials(
-                serverUrl = state.serverUrl.trim(),
-                username = state.username.trim(),
-                password = effectivePassword,
-                userKey = state.userKey,
-                googleTtsApiKey = getEffectiveGoogleTtsApiKey()
-            )
-
-            val localConfig = if (credentialStore.isWatchUseLocalServer) {
-                credentialStore.localConfig.first()
-            } else {
-                null
-            }
-            val localUrl = localConfig?.serverUrl ?: ""
-            dataLayerSender.sendCredentials(
-                credentials,
-                debugMode = credentialStore.isDebugMode,
-                localServerUrl = localUrl,
-                localUsername = localConfig?.username ?: "",
-                localPassword = localConfig?.password ?: "",
-                localApiToken = localConfig?.apiToken ?: "",
-                deviceName = credentialStore.deviceName,
-                bindingInstalled = credentialStore.isBindingInstalled,
-                triggerReload = true
-            )
+            val payload = buildConnectionPayload(state, triggerReload = true)
+            dataLayerSender.sendConnection(payload)
                 .onSuccess {
                     _uiState.update { it.copy(syncResult = SyncResult.Success, watchStatus = WatchStatus.Synced, configOutOfSync = false) }
                     // Re-check sync status after giving the watch time to reload config + write DataItem
@@ -662,6 +618,34 @@ class SetupViewModel @Inject constructor(
 
     fun dismissSyncResult() {
         _uiState.update { it.copy(syncResult = null) }
+    }
+
+    /**
+     * Build a [ConnectionPayload] from the current Setup UI state.
+     */
+    private suspend fun buildConnectionPayload(
+        state: SetupUiState = _uiState.value,
+        triggerReload: Boolean = false
+    ): ConnectionPayload {
+        val effectivePassword = getEffectivePassword()
+        val localConfig = if (credentialStore.isWatchUseLocalServer) {
+            credentialStore.localConfig.first()
+        } else null
+
+        return ConnectionPayload(
+            serverUrl = state.serverUrl.trim(),
+            username = state.username.trim(),
+            password = effectivePassword,
+            userKey = state.userKey,
+            localServerUrl = localConfig?.serverUrl ?: "",
+            localUsername = localConfig?.username ?: "",
+            localPassword = localConfig?.password ?: "",
+            localApiToken = localConfig?.apiToken ?: "",
+            deviceName = credentialStore.deviceName,
+            bindingInstalled = credentialStore.isBindingInstalled,
+            googleTtsApiKey = getEffectiveGoogleTtsApiKey(),
+            triggerReload = triggerReload
+        )
     }
 
     private suspend fun getEffectivePassword(): String {

@@ -7,16 +7,22 @@ object SyncConstants {
     /** Message path for credential sync (phone → watch) */
     const val PATH_CONFIG = "/openhab/config"
 
+    /** Message path for connection/credential sync (phone → watch). Replaces PATH_CONFIG. */
+    const val PATH_CONNECTION = "/openhab/connection"
+
+    /** Message path for unified settings sync (phone → watch). Replaces voice + notification + theme paths. */
+    const val PATH_SETTINGS = "/openhab/settings"
+
     /** Message path for requesting the watch to reload items */
     const val PATH_RELOAD = "/openhab/reload"
 
-    /** Message path for voice settings sync (phone → watch) */
+    /** Message path for voice settings sync (phone → watch). @deprecated Use PATH_SETTINGS. */
     const val PATH_VOICE_SETTINGS = "/openhab/voice-settings"
 
-    /** Message path for notification settings sync (phone → watch) */
+    /** Message path for notification settings sync (phone → watch). @deprecated Use PATH_SETTINGS. */
     const val PATH_NOTIFICATION_SETTINGS = "/openhab/notification-settings"
 
-    /** Message path for theme selection sync (phone → watch) */
+    /** Message path for theme selection sync (phone → watch). @deprecated Use PATH_SETTINGS. */
     const val PATH_THEME = "/openhab/theme"
 
     /** Message path for assistant status query (phone → watch, watch replies) */

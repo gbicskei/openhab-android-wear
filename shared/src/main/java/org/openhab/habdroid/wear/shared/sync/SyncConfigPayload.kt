@@ -5,15 +5,10 @@ import kotlinx.serialization.Serializable
 /**
  * JSON payload sent from phone to watch via Data Layer for credential sync.
  *
- * Example:
- * ```json
- * {
- *   "serverUrl": "https://myopenhab.org",
- *   "username": "user@email.com",
- *   "password": "secret"
- * }
- * ```
+ * @deprecated Replaced by [ConnectionPayload] (PATH_CONNECTION) and [WatchSettingsPayload] (PATH_SETTINGS).
+ * Kept for backwards compatibility with watch app versions < 1.10.0 that only understand PATH_CONFIG.
  */
+@Deprecated("Use ConnectionPayload + WatchSettingsPayload instead")
 @Serializable
 data class SyncConfigPayload(
     val serverUrl: String,

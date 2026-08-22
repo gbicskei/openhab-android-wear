@@ -12,7 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.openhab.habdroid.wear.phone.util.AppLog
-import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -64,21 +64,21 @@ class ServerBackupRepository @Inject constructor(
     }
 
     /**
-     * Writes the settings snapshot to server as item metadata.
+     * Writes the settings payload to server as item metadata.
      */
     suspend fun writeBackup(
         localConfig: LocalServerConfig,
         deviceName: String,
-        snapshot: WatchSettingsSnapshot
+        settings: WatchSettingsPayload
     ): Result<Unit> = runCatching {
         val itemName = "${deviceName}_Config"
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName/metadata/${WatchSettingsSnapshot.METADATA_NAMESPACE}"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName/metadata/${WatchSettingsPayload.METADATA_NAMESPACE}"
 
         val metadataBody = json.encodeToString(
             MetadataPayload.serializer(),
             MetadataPayload(
-                value = WatchSettingsSnapshot.SCHEMA_VERSION,
-                config = snapshot.toMetadataConfig()
+                value = WatchSettingsPayload.SCHEMA_VERSION,
+                config = settings.toMetadataConfig()
             )
         )
 
@@ -87,15 +87,15 @@ class ServerBackupRepository @Inject constructor(
     }
 
     /**
-     * Reads the settings snapshot from server item metadata.
+     * Reads the settings payload from server item metadata.
      * Returns null if the item or metadata doesn't exist.
      */
     suspend fun readBackup(
         localConfig: LocalServerConfig,
         deviceName: String
-    ): Result<WatchSettingsSnapshot?> = runCatching {
+    ): Result<WatchSettingsPayload?> = runCatching {
         val itemName = "${deviceName}_Config"
-        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName?metadata=${WatchSettingsSnapshot.METADATA_NAMESPACE}"
+        val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName?metadata=${WatchSettingsPayload.METADATA_NAMESPACE}"
 
         val responseBody = executeGet(url, localConfig.resolveAuthHeader())
 
@@ -104,7 +104,7 @@ class ServerBackupRepository @Inject constructor(
         val metadata = itemJson["metadata"]?.jsonObject
             ?: return@runCatching null
 
-        val wearConfig = metadata[WatchSettingsSnapshot.METADATA_NAMESPACE]?.jsonObject
+        val wearConfig = metadata[WatchSettingsPayload.METADATA_NAMESPACE]?.jsonObject
             ?: return@runCatching null
 
         val configObj = wearConfig["config"]?.jsonObject
@@ -115,7 +115,7 @@ class ServerBackupRepository @Inject constructor(
             key to value.jsonPrimitive.content
         }
 
-        WatchSettingsSnapshot.fromMetadataConfig(configMap)
+        WatchSettingsPayload.fromMetadataConfig(configMap)
     }
 
     // ─── HTTP helpers ───

@@ -26,9 +26,8 @@ import org.openhab.habdroid.wear.phone.data.ServerBackupRepository
 import org.openhab.habdroid.wear.phone.sync.PhoneDataLayerSender
 import org.openhab.habdroid.wear.phone.util.AppLog
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
-import org.openhab.habdroid.wear.shared.sync.SyncNotificationSettingsPayload
-import org.openhab.habdroid.wear.shared.sync.SyncVoiceSettingsPayload
 import org.openhab.habdroid.wear.shared.sync.WatchSettingsSnapshot
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
@@ -106,6 +105,47 @@ class WatchSettingsViewModel @Inject constructor(
             backupEnabled = credentialStore.isBackupEnabled,
             selectedTheme = credentialStore.getSelectedTheme()
         ) }
+    }
+
+    // ─── Unified settings sync ───
+
+    /**
+     * Build the complete [WatchSettingsPayload] from current UI state.
+     * Only includes non-credential preferences — no secrets.
+     */
+    private fun buildSettingsPayload(
+        snapshot: WatchSettingsSnapshot = _uiState.value.snapshot,
+        theme: String = _uiState.value.selectedTheme
+    ): WatchSettingsPayload {
+        return WatchSettingsPayload(
+            voiceCommandsEnabled = snapshot.voiceCommandsEnabled,
+            readAloudEnabled = snapshot.readAloudEnabled,
+            useServerTts = snapshot.useServerTts,
+            serverTtsVoice = snapshot.serverTtsVoice,
+            speechRate = snapshot.ttsSpeechRate,
+            pitch = snapshot.ttsPitch,
+            notificationsEnabled = snapshot.notificationsEnabled,
+            notificationReadAloudEnabled = snapshot.notificationReadAloud,
+            chimeEnabled = snapshot.chimeEnabled,
+            chimeSound = snapshot.chimeSound,
+            minReadAloudPriority = snapshot.minReadAloudPriority,
+            theme = theme,
+            debugMode = snapshot.debugMode
+        )
+    }
+
+    /**
+     * Send the full settings payload to the watch. Called after every setting change.
+     */
+    private fun syncToWatch(
+        snapshot: WatchSettingsSnapshot = _uiState.value.snapshot,
+        theme: String = _uiState.value.selectedTheme
+    ) {
+        viewModelScope.launch {
+            val payload = buildSettingsPayload(snapshot, theme)
+            dataLayerSender.sendSettings(payload)
+                .onFailure { AppLog.w(TAG, "Failed to sync settings to watch: ${it.message}") }
+        }
     }
 
     /**
@@ -307,23 +347,12 @@ class WatchSettingsViewModel @Inject constructor(
     private fun updateAndSyncVoice(transform: (WatchSettingsSnapshot) -> WatchSettingsSnapshot) {
         val newSnapshot = transform(_uiState.value.snapshot)
         _uiState.update { it.copy(snapshot = newSnapshot) }
-        sendVoiceSettingsToWatch(newSnapshot)
+        syncToWatch(snapshot = newSnapshot)
         scheduleBackupWrite()
     }
 
     private fun sendVoiceSettingsToWatch(snapshot: WatchSettingsSnapshot) {
-        viewModelScope.launch {
-            val payload = SyncVoiceSettingsPayload(
-                voiceCommandsEnabled = snapshot.voiceCommandsEnabled,
-                readAloudEnabled = snapshot.readAloudEnabled,
-                useServerTts = snapshot.useServerTts,
-                serverTtsVoice = snapshot.serverTtsVoice,
-                speechRate = snapshot.ttsSpeechRate,
-                pitch = snapshot.ttsPitch
-            )
-            dataLayerSender.sendVoiceSettings(json.encodeToString(payload))
-                .onFailure { AppLog.w(TAG, "Failed to send voice settings: ${it.message}") }
-        }
+        syncToWatch(snapshot = snapshot)
     }
 
     // ─── Notification settings ───
@@ -351,22 +380,12 @@ class WatchSettingsViewModel @Inject constructor(
     private fun updateAndSyncNotifications(transform: (WatchSettingsSnapshot) -> WatchSettingsSnapshot) {
         val newSnapshot = transform(_uiState.value.snapshot)
         _uiState.update { it.copy(snapshot = newSnapshot) }
-        sendNotificationSettingsToWatch(newSnapshot)
+        syncToWatch(snapshot = newSnapshot)
         scheduleBackupWrite()
     }
 
     private fun sendNotificationSettingsToWatch(snapshot: WatchSettingsSnapshot) {
-        viewModelScope.launch {
-            val payload = SyncNotificationSettingsPayload(
-                notificationsEnabled = snapshot.notificationsEnabled,
-                readAloudEnabled = snapshot.notificationReadAloud,
-                chimeEnabled = snapshot.chimeEnabled,
-                chimeSound = snapshot.chimeSound,
-                minReadAloudPriority = snapshot.minReadAloudPriority
-            )
-            dataLayerSender.sendNotificationSettings(json.encodeToString(payload))
-                .onFailure { AppLog.w(TAG, "Failed to send notification settings: ${it.message}") }
-        }
+        syncToWatch(snapshot = snapshot)
     }
 
     // ─── Debug mode ───
@@ -374,24 +393,10 @@ class WatchSettingsViewModel @Inject constructor(
     fun setDebugMode(enabled: Boolean) {
         val newSnapshot = _uiState.value.snapshot.copy(debugMode = enabled)
         _uiState.update { it.copy(snapshot = newSnapshot) }
-        // Update phone-side store so HomeScreen debug log card visibility is in sync
         viewModelScope.launch {
             credentialStore.setDebugMode(enabled)
-            // Push to watch via credentials path (PATH_CONFIG carries debugMode)
-            val creds = credentialStore.credentials.first() ?: return@launch
-            val localConfig = credentialStore.localConfig.first()
-            dataLayerSender.sendCredentials(
-                creds,
-                debugMode = enabled,
-                localServerUrl = localConfig?.serverUrl ?: "",
-                localUsername = localConfig?.username ?: "",
-                localPassword = localConfig?.password ?: "",
-                localApiToken = localConfig?.apiToken ?: "",
-                deviceName = credentialStore.deviceName,
-                bindingInstalled = credentialStore.isBindingInstalled
-            )
-                .onFailure { AppLog.w(TAG, "Failed to sync debug mode to watch: ${it.message}") }
         }
+        syncToWatch(snapshot = newSnapshot)
         scheduleBackupWrite()
         AppLog.d(TAG, "Debug mode set to $enabled")
     }
@@ -401,12 +406,9 @@ class WatchSettingsViewModel @Inject constructor(
     fun setTheme(themeName: String) {
         _uiState.update { it.copy(selectedTheme = themeName) }
         viewModelScope.launch {
-            // Cache locally (fallback for when watch is disconnected)
             credentialStore.saveSelectedTheme(themeName)
-            // Send to watch — watch writes DataItem, phone picks it up via onDataChanged
-            dataLayerSender.sendTheme(themeName)
-                .onFailure { AppLog.w(TAG, "Failed to send theme to watch: ${it.message}") }
         }
+        syncToWatch(theme = themeName)
         AppLog.d(TAG, "Theme set to $themeName")
     }
 
@@ -439,12 +441,12 @@ class WatchSettingsViewModel @Inject constructor(
         if (!localConfig.isConfigured) return
 
         val deviceName = credentialStore.currentUserKey.ifBlank { return }
-        val snapshot = _uiState.value.snapshot
+        val payload = buildSettingsPayload()
 
         backupRepository.ensureBackupItemExists(localConfig, deviceName)
             .onFailure { AppLog.w(TAG, "Failed to create backup item: ${it.message}") }
 
-        backupRepository.writeBackup(localConfig, deviceName, snapshot)
+        backupRepository.writeBackup(localConfig, deviceName, payload)
             .onSuccess { AppLog.d(TAG, "Backup written to server") }
             .onFailure { AppLog.w(TAG, "Failed to write backup: ${it.message}") }
     }
@@ -472,15 +474,30 @@ class WatchSettingsViewModel @Inject constructor(
 
             val result = backupRepository.readBackup(localConfig, deviceName)
             result
-                .onSuccess { snapshot ->
-                    if (snapshot == null) {
+                .onSuccess { restoredSettings ->
+                    if (restoredSettings == null) {
                         _uiState.update { it.copy(restoreState = RestoreState.Error, errorMessage = "No backup found for '$deviceName'") }
                         return@launch
                     }
+                    // Map restored payload back to UI state
+                    val restoredSnapshot = WatchSettingsSnapshot(
+                        debugMode = restoredSettings.debugMode,
+                        voiceCommandsEnabled = restoredSettings.voiceCommandsEnabled,
+                        readAloudEnabled = restoredSettings.readAloudEnabled,
+                        useServerTts = restoredSettings.useServerTts,
+                        serverTtsVoice = restoredSettings.serverTtsVoice,
+                        ttsSpeechRate = restoredSettings.speechRate,
+                        ttsPitch = restoredSettings.pitch,
+                        notificationsEnabled = restoredSettings.notificationsEnabled,
+                        notificationReadAloud = restoredSettings.notificationReadAloudEnabled,
+                        chimeEnabled = restoredSettings.chimeEnabled,
+                        chimeSound = restoredSettings.chimeSound,
+                        minReadAloudPriority = restoredSettings.minReadAloudPriority
+                    )
+                    val restoredTheme = restoredSettings.theme.ifBlank { _uiState.value.selectedTheme }
+                    _uiState.update { it.copy(snapshot = restoredSnapshot, selectedTheme = restoredTheme) }
                     // Push restored settings to watch
-                    _uiState.update { it.copy(snapshot = snapshot) }
-                    sendVoiceSettingsToWatch(snapshot)
-                    sendNotificationSettingsToWatch(snapshot)
+                    syncToWatch(snapshot = restoredSnapshot, theme = restoredTheme)
                     _uiState.update { it.copy(restoreState = RestoreState.Success) }
                     AppLog.d(TAG, "Settings restored from server backup")
                 }
@@ -495,8 +512,7 @@ class WatchSettingsViewModel @Inject constructor(
         _uiState.update { it.copy(restoreState = RestoreState.Restoring, snapshot = snapshot) }
 
         viewModelScope.launch {
-            sendVoiceSettingsToWatch(snapshot)
-            sendNotificationSettingsToWatch(snapshot)
+            syncToWatch(snapshot = snapshot)
             _uiState.update { it.copy(restoreState = RestoreState.Success) }
             AppLog.d(TAG, "Settings restored from provided snapshot and pushed to watch")
         }
