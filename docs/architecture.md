@@ -6,7 +6,7 @@ The wearOH app is a **standalone watch application** that communicates directly 
 
 ```
 ┌─────────────────┐         ┌──────────────────┐         ┌─────────────────┐
-│   Galaxy Watch  │◀──WiFi──▶│  openHAB Server  │         │   OR: via cloud │
+│   Wear OS Watch │◀──WiFi──▶│  openHAB Server  │         │   OR: via cloud │
 │   (Wear OS 5+) │  / LTE   │  (direct/local)  │         │   relay proxy   │
 └─────────────────┘         └──────────────────┘         └─────────────────┘
         ▲                           │
@@ -15,7 +15,7 @@ The wearOH app is a **standalone watch application** that communicates directly 
         │ settings sync             │
         │ (MessageClient)           ▼
         ▼                   ┌─────────────────┐
-┌─────────────────┐         │   Galaxy Watch  │
+┌─────────────────┐         │   Wear OS Watch │
 │   Phone App     │         │ (notifications) │
 │  (companion)    │         └─────────────────┘
 └─────────────────┘
@@ -33,7 +33,7 @@ Connection options:
 **Decision:** The watch connects directly to the user's openHAB server over WiFi/LTE.
 
 **Rationale:**
-- Modern watches (Galaxy Watch Ultra 2025) have LTE — not using it would waste the hardware
+- Modern watches with LTE can connect directly — not using it would waste the hardware
 - Phone-proxied connections add 300-700ms latency per request
 - Phone connection is unreliable (Bluetooth drops when out of range)
 - The openHAB REST API is lightweight enough for direct watch consumption
@@ -271,6 +271,7 @@ See [Version Sync](version-sync.md) for the full specification.
 | Wear OS version | 5+ (API 34) | Google Play minimum for new apps (Aug 2025) |
 | Connectivity | WiFi or LTE | Direct server connection (cloud relay, local, or VPN) |
 | Microphone | Required | Voice command input |
+| Speaker | Required | Audio notifications (TTS, audio-sink playback) |
 
 ## Security Considerations
 
