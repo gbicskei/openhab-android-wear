@@ -78,6 +78,7 @@ class WatchSettingsDataStore @Inject constructor(
     /**
      * Apply settings received from the phone (via onDataChanged).
      * Only updates settings fields — preserves watch-owned status fields.
+     * Writes back to DataItem so the merged state (settings + status) persists.
      */
     suspend fun applySettingsFromPhone(incoming: WatchSettingsPayload) {
         current = current.copy(
@@ -95,7 +96,7 @@ class WatchSettingsDataStore @Inject constructor(
             theme = incoming.theme,
             debugMode = incoming.debugMode
         )
-        // Don't write back — phone just wrote this. Avoid infinite loop.
+        writeToDataItem()
         AppLog.d(TAG, "Applied settings from phone: theme=${current.theme}, debug=${current.debugMode}")
     }
 

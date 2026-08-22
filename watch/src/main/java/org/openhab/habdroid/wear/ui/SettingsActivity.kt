@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -347,6 +348,16 @@ private fun VoicePickerScreen(viewModel: WatchSettingsViewModel, onBack: () -> U
     val currentVoice by viewModel.serverTtsVoice.collectAsState()
     val columnState = rememberTransformingLazyColumnState()
     val transformationSpec = rememberTransformationSpec()
+
+    // Scroll to the currently selected voice when the list loads
+    LaunchedEffect(voices, currentVoice) {
+        if (voices.isNotEmpty() && currentVoice.isNotBlank()) {
+            val index = voices.indexOf(currentVoice)
+            if (index >= 0) {
+                columnState.scrollToItem(index + 1) // +1 for header
+            }
+        }
+    }
 
     ScreenScaffold(scrollState = columnState) { contentPadding ->
         TransformingLazyColumn(

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -655,7 +656,20 @@ private fun VoicePickerDropdown(
         ) {
             voices.forEach { voice ->
                 DropdownMenuItem(
-                    text = { Text(voice) },
+                    text = {
+                        Text(
+                            voice,
+                            fontWeight = if (voice == selectedVoice) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                            color = if (voice == selectedVoice) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    },
+                    leadingIcon = if (voice == selectedVoice) {
+                        { androidx.compose.material3.Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = MaterialTheme.colorScheme.primary
+                        ) }
+                    } else null,
                     onClick = {
                         onVoiceSelected(voice)
                         expanded = false

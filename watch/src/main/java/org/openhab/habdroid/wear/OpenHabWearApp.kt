@@ -36,6 +36,9 @@ class OpenHabWearApp : Application(), Configuration.Provider {
     @Inject
     lateinit var watchStatusWriter: org.openhab.habdroid.wear.sync.WatchStatusWriter
 
+    @Inject
+    lateinit var watchSettingsDataStore: org.openhab.habdroid.wear.sync.WatchSettingsDataStore
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -59,15 +62,15 @@ class OpenHabWearApp : Application(), Configuration.Provider {
             AppLog.debugMode = credentialStore.getDebugMode()
         }
 
-        // Publish app version to DataItem so the phone can read it without polling
+        // Initialize DataItem: reads existing settings, publishes fresh status (version, speaker)
         appScope.launch {
-            watchStatusWriter.writeAppVersion(BuildConfig.VERSION_NAME)
+            watchSettingsDataStore.initialize()
         }
 
-        // Publish current theme to DataItem so the phone has it on connect
+        // Publish current theme to DataItem (in case themeStore has a value not yet in DataItem)
         appScope.launch {
             val theme = themeStore.getTheme()
-            watchStatusWriter.writeTheme(theme.name)
+            watchSettingsDataStore.writeTheme(theme.name)
         }
 
         // Re-register as assistant on every launch (survives reinstalls)
