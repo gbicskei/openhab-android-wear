@@ -135,10 +135,15 @@ class PhoneDataLayerSender @Inject constructor(
 
     /**
      * Resolve the hostname from a server URL to IP addresses.
+     * Skips resolution for IP-literal hosts (no DNS needed).
      */
     private fun resolveServerIps(serverUrl: String): List<String> {
         return try {
             val host = java.net.URI(serverUrl).host ?: return emptyList()
+            // Skip DNS for IP literals — they don't need resolution
+            if (host.matches(Regex("""\d+\.\d+\.\d+\.\d+"""))) {
+                return listOf(host)
+            }
             val addresses = java.net.InetAddress.getAllByName(host)
             addresses.mapNotNull { it.hostAddress }.also { ips ->
                 if (ips.isNotEmpty()) {
@@ -146,7 +151,8 @@ class PhoneDataLayerSender @Inject constructor(
                 }
             }
         } catch (e: Exception) {
-            AppLog.w(TAG, "DNS pre-resolve failed: ${e.message}")
+            val host = try { java.net.URI(serverUrl).host } catch (_: Exception) { serverUrl }
+            AppLog.w(TAG, "DNS pre-resolve failed for $host: ${e.message}")
             emptyList()
         }
     }

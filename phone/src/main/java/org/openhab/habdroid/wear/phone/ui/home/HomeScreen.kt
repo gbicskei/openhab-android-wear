@@ -152,7 +152,7 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             val configReady = uiState.configConnectionStatus == ConnectionStatus.Success ||
-                uiState.configHasStoredPassword
+                uiState.configHasStoredPassword || uiState.configHasStoredApiToken
 
             // ─── Content Design (collapsible) ───
             ExpandableNavigationCard(

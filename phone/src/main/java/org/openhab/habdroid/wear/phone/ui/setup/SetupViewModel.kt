@@ -72,6 +72,7 @@ class SetupViewModel @Inject constructor(
                         configApiToken = local.apiToken,
                         configUseApiToken = local.hasApiToken,
                         configHasStoredPassword = local.password.isNotBlank(),
+                        configHasStoredApiToken = local.hasApiToken,
                         configPasswordModifiedThisSession = false
                     )
                 }
@@ -551,6 +552,7 @@ class SetupViewModel @Inject constructor(
                 hasUnsavedChanges = false,
                 hasStoredPassword = effectivePassword.isNotBlank(),
                 configHasStoredPassword = effectiveConfigPassword.isNotBlank(),
+                configHasStoredApiToken = state.configApiToken.trim().isNotBlank(),
                 hasStoredGoogleTtsApiKey = credentialStore.hasGoogleTtsApiKey,
                 saveStatus = SaveStatus.Success
             )
@@ -687,6 +689,7 @@ data class SetupUiState(
     val configApiToken: String = "",
     val configUseApiToken: Boolean = false,
     val configHasStoredPassword: Boolean = false,
+    val configHasStoredApiToken: Boolean = false,
     val configPasswordModifiedThisSession: Boolean = false,
     val configConnectionStatus: ConnectionStatus = ConnectionStatus.Idle,
     val configErrorMessage: String? = null,

@@ -272,13 +272,13 @@ class PhoneCredentialStore @Inject constructor(
 
     /** Set debug mode. */
     suspend fun setDebugMode(enabled: Boolean) {
+        _debugModeFlow.value = enabled
+        org.openhab.habdroid.wear.phone.util.AppLog.debugMode = enabled
         withContext(Dispatchers.IO) {
             encryptedPrefs.edit()
                 .putBoolean(KEY_DEBUG_MODE, enabled)
                 .apply()
         }
-        _debugModeFlow.value = enabled
-        org.openhab.habdroid.wear.phone.util.AppLog.debugMode = enabled
     }
 
     // ─── Backup toggle ───
