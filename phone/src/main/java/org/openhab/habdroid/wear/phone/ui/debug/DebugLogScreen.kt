@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.launch
 import org.openhab.habdroid.wear.shared.debug.DebugLogEntry
 import org.openhab.habdroid.wear.shared.debug.LogLevel
 import org.openhab.habdroid.wear.shared.debug.LogSource
@@ -64,6 +65,7 @@ fun DebugLogScreen(
     val paused by viewModel.paused.collectAsStateWithLifecycle()
     val context = androidx.compose.ui.platform.LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
     val filteredEntries = remember(entries, searchQuery) {
         if (searchQuery.isBlank()) entries
@@ -95,7 +97,7 @@ fun DebugLogScreen(
                         )
                     }
                     IconButton(
-                        onClick = { exportDebugLog(context, filteredEntries) },
+                        onClick = { coroutineScope.launch { exportDebugLog(context, filteredEntries, viewModel.getConfigSummary()) } },
                         enabled = filteredEntries.isNotEmpty()
                     ) {
                         Icon(Icons.Filled.Share, contentDescription = "Export")
@@ -280,12 +282,16 @@ private fun DebugLogEntryCard(entry: DebugLogEntry) {
     }
 }
 
-private fun exportDebugLog(context: android.content.Context, entries: List<DebugLogEntry>) {
+private fun exportDebugLog(context: android.content.Context, entries: List<DebugLogEntry>, configSummary: String) {
     val sb = StringBuilder()
     sb.appendLine("=== wearOH Debug Log ===")
     sb.appendLine("Exported: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())}")
     sb.appendLine("Entries: ${entries.size}")
     sb.appendLine()
+    sb.appendLine("--- Configuration ---")
+    sb.append(configSummary)
+    sb.appendLine()
+    sb.appendLine("--- Log ---")
 
     for (entry in entries) {
         val level = entry.level.name.first()
