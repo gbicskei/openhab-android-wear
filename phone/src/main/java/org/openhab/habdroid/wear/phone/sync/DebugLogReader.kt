@@ -23,6 +23,11 @@ import javax.inject.Singleton
  * Listens for changes to the /openhab/debug_log DataItem and merges watch
  * entries into the shared [DebugLog] buffer.
  *
+ * The DataClient listener is always active for the process lifetime (started eagerly
+ * on singleton creation). This ensures watch log entries are captured even when the
+ * Debug Log screen is not visible, avoiding gaps caused by the 5-minute buffer
+ * retention window on the watch side.
+ *
  * Exposes a [watchEntries] StateFlow for the UI to observe.
  */
 @Singleton
@@ -43,28 +48,19 @@ class DebugLogReader @Inject constructor(
     /** Watch-side debug entries, updated live when DataClient changes. */
     val watchEntries: StateFlow<List<DebugLogEntry>> = _watchEntries.asStateFlow()
 
-    private var listening = false
-
-    /**
-     * Start listening for DataClient changes. Call from Activity onResume or similar.
-     */
-    fun startListening() {
-        if (!listening) {
-            dataClient.addListener(this)
-            listening = true
-        }
-        // Also do an initial read
+    init {
+        // Always listen for watch debug log changes — don't tie to screen lifecycle.
+        // This ensures entries are captured even when the Debug Log screen is closed.
+        dataClient.addListener(this)
         readCurrent()
     }
 
     /**
-     * Stop listening. Call from Activity onPause or similar.
+     * Trigger a fresh read of the current DataItem. Call when the Debug Log screen
+     * opens to pick up any entries that arrived before the flow was collected.
      */
-    fun stopListening() {
-        if (listening) {
-            dataClient.removeListener(this)
-            listening = false
-        }
+    fun refreshFromDataItem() {
+        readCurrent()
     }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {

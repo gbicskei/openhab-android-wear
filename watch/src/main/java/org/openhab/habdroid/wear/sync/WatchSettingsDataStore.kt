@@ -33,6 +33,9 @@ class WatchSettingsDataStore @Inject constructor(
 ) {
     companion object {
         private const val TAG = "WatchSettingsDS"
+
+        /** Legacy DataItem path from pre-unified versions. Cleaned up on first launch. */
+        private const val LEGACY_STATUS_PATH = "/openhab/status"
     }
 
     private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
@@ -71,6 +74,31 @@ class WatchSettingsDataStore @Inject constructor(
         // Write back to ensure fresh status is published
         writeToDataItem()
         AppLog.d(TAG, "Initialized: theme=${current.theme}, debug=${current.debugMode}, configTs=${current.configTimestamp}")
+
+        // Clean up legacy DataItem from previous app versions (was /openhab/status)
+        deleteLegacyDataItem()
+    }
+
+    /**
+     * Delete the legacy /openhab/status DataItem left over from pre-unified versions.
+     * The phone's WatchStatusReader previously read from this path; it now reads from
+     * [WatchSettingsPayload.DATA_PATH]. Stale data at the old path caused the phone to
+     * show incorrect app version and permanent "out of sync" status.
+     */
+    private suspend fun deleteLegacyDataItem() {
+        try {
+            val uri = android.net.Uri.Builder()
+                .scheme("wear")
+                .path(LEGACY_STATUS_PATH)
+                .authority("*")
+                .build()
+            val deleted = dataClient.deleteDataItems(uri).await()
+            if (deleted > 0) {
+                AppLog.d(TAG, "Deleted $deleted legacy DataItem(s) at $LEGACY_STATUS_PATH")
+            }
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Failed to delete legacy DataItem", e)
+        }
     }
 
     // ─── Settings mutations (applied from phone via onDataChanged) ───

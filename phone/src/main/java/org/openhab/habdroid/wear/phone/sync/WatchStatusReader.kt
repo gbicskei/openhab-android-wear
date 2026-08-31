@@ -7,20 +7,24 @@ import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
+import org.openhab.habdroid.wear.shared.sync.WatchSettingsPayload
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Reads the watch status DataItem written by the watch via WatchStatusWriter.
+ * Reads the watch status from the unified DataItem written by the watch via WatchSettingsDataStore.
  *
- * DataItem path: /openhab/status
- * Keys:
+ * DataItem path: /openhab/watch-settings (shared bidirectional DataItem)
+ * Status fields (watch writes, phone reads):
  *   - configTimestamp: latest config timestamp the watch has loaded
  *   - theme: current watch theme name
+ *   - screenWidthDp: watch screen width in dp
+ *   - appVersion: watch app version
  *
  * Used by:
  * - HomeScreen: compare configTimestamp with server's latest to show out-of-sync indicator
  * - TileDesignScreen: read current watch theme to set the theme selector
+ * - DebugLogViewModel: read watch info for debug log export header
  */
 @Singleton
 class WatchStatusReader @Inject constructor(
@@ -28,32 +32,29 @@ class WatchStatusReader @Inject constructor(
 ) {
     companion object {
         private const val TAG = "WatchStatusReader"
-        private const val PATH_STATUS = "/openhab/status"
-        private const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
-        private const val KEY_THEME = "theme"
-        private const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
-        private const val KEY_APP_VERSION = "appVersion"
     }
 
     private val dataClient: DataClient by lazy { Wearable.getDataClient(context) }
 
     /**
-     * Read the watch status DataItem.
+     * Read the watch status from the unified settings DataItem.
      * Returns null if no DataItem exists (watch hasn't synced yet).
      */
     suspend fun readStatus(): WatchStatus? {
         return try {
             val dataItems = dataClient.getDataItems(
-                android.net.Uri.parse("wear://$PATH_STATUS")
+                android.net.Uri.parse("wear://${WatchSettingsPayload.DATA_PATH}")
             ).await()
 
             val result = dataItems.firstOrNull()?.let { item ->
-                val dataMap = DataMapItem.fromDataItem(item).dataMap
+                val payload = WatchSettingsPayload.fromDataMap(
+                    DataMapItem.fromDataItem(item).dataMap
+                )
                 WatchStatus(
-                    configTimestamp = dataMap.getString(KEY_CONFIG_TIMESTAMP),
-                    theme = dataMap.getString(KEY_THEME),
-                    screenWidthDp = dataMap.getInt(KEY_SCREEN_WIDTH_DP, 0).takeIf { it > 0 },
-                    appVersion = dataMap.getString(KEY_APP_VERSION)
+                    configTimestamp = payload.configTimestamp.ifBlank { null },
+                    theme = payload.theme.ifBlank { null },
+                    screenWidthDp = payload.screenWidthDp.takeIf { it > 0 },
+                    appVersion = payload.appVersion.ifBlank { null }
                 )
             }
 

@@ -67,14 +67,13 @@ class DebugLogViewModel @Inject constructor(
     }
 
     fun startListening() {
-        debugLogReader.startListening()
+        debugLogReader.refreshFromDataItem()
         if (!_paused.value) {
             refreshAll()
         }
     }
 
     fun stopListening() {
-        debugLogReader.stopListening()
         viewModelScope.launch { persistence.save() }
     }
 

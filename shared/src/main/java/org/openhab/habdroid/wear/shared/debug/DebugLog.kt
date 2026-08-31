@@ -40,11 +40,15 @@ data class DebugLogEntry(
  * Thread-safe in-memory ring buffer for debug log entries.
  * Captures warnings and errors from both watch and phone for display in a Debug screen.
  *
- * Keeps entries from the last [RETENTION_MS] (5 minutes); older entries are pruned on each append.
+ * Keeps entries from the last [RETENTION_MS] (15 minutes); older entries are pruned on each append.
  * A hard cap of [MAX_ENTRIES] prevents unbounded growth during high-frequency logging.
+ *
+ * On the watch side, entries are published to the phone via DataClient. The 15-minute
+ * window provides sufficient margin for Bluetooth reconnection and DataClient sync delays.
+ * The phone's DebugLogPersistence handles long-term (24h) storage to disk.
  */
 object DebugLog {
-    private const val RETENTION_MS = 5 * 60 * 1000L // 5 minutes
+    private const val RETENTION_MS = 15 * 60 * 1000L // 15 minutes
     private const val MAX_ENTRIES = 5000
 
     private val buffer = ConcurrentLinkedDeque<DebugLogEntry>()
