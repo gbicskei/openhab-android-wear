@@ -78,6 +78,12 @@ class WatchSettingsDataStore @Inject constructor(
         writeToDataItem()
         AppLog.d(TAG, "Initialized: theme=${current.theme}, debug=${current.debugMode}, configTs=${current.configTimestamp}")
 
+        // Re-assert after a delay to overwrite any phone write that raced with our init.
+        // The phone may sync settings immediately when it detects the watch reconnecting,
+        // reading stale status (e.g. old appVersion) before our write above has propagated.
+        kotlinx.coroutines.delay(3000)
+        writeToDataItem()
+
         // Clean up legacy DataItem from previous app versions (was /openhab/status)
         deleteLegacyDataItem()
     }
