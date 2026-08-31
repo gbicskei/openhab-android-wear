@@ -114,7 +114,7 @@ class DebugLogViewModel @Inject constructor(
 
         val watchStatus = watchStatusReader.readStatus()
         if (watchStatus != null) {
-            sb.appendLine("Watch app: ${watchStatus.appVersion}")
+            sb.appendLine("Watch app: ${watchStatus.appVersion}${watchStatus.appVersionCode?.let { " ($it)" } ?: ""}")
             sb.appendLine("Watch screen: ${watchStatus.screenWidthDp}dp")
             sb.appendLine("Watch theme: ${watchStatus.theme}")
             sb.appendLine("Watch configTimestamp: ${watchStatus.configTimestamp}")

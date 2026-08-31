@@ -49,6 +49,7 @@ class WatchSettingsDataStore @Inject constructor(
     @Volatile
     var current: WatchSettingsPayload = WatchSettingsPayload(
         appVersion = BuildConfig.VERSION_NAME,
+        appVersionCode = BuildConfig.VERSION_CODE,
         hasSpeaker = true // will be updated in init
     )
         private set
@@ -63,11 +64,13 @@ class WatchSettingsDataStore @Inject constructor(
             // Preserve settings from DataItem, refresh status fields
             existing.copy(
                 appVersion = BuildConfig.VERSION_NAME,
+                appVersionCode = BuildConfig.VERSION_CODE,
                 hasSpeaker = hasSpeaker
             )
         } else {
             WatchSettingsPayload(
                 appVersion = BuildConfig.VERSION_NAME,
+                appVersionCode = BuildConfig.VERSION_CODE,
                 hasSpeaker = hasSpeaker
             )
         }

@@ -47,6 +47,7 @@ data class WatchSettingsPayload(
     val configTimestamp: String = "",
     val screenWidthDp: Int = 0,
     val appVersion: String = "",
+    val appVersionCode: Int = 0,
     val hasSpeaker: Boolean = true
 ) {
     /**
@@ -96,6 +97,7 @@ data class WatchSettingsPayload(
         const val KEY_CONFIG_TIMESTAMP = "configTimestamp"
         const val KEY_SCREEN_WIDTH_DP = "screenWidthDp"
         const val KEY_APP_VERSION = "appVersion"
+        const val KEY_APP_VERSION_CODE = "appVersionCode"
         const val KEY_HAS_SPEAKER = "hasSpeaker"
 
         /**
@@ -140,6 +142,7 @@ data class WatchSettingsPayload(
                 configTimestamp = dataMap.getString(KEY_CONFIG_TIMESTAMP, "") ?: "",
                 screenWidthDp = dataMap.getInt(KEY_SCREEN_WIDTH_DP, 0),
                 appVersion = dataMap.getString(KEY_APP_VERSION, "") ?: "",
+                appVersionCode = dataMap.getInt(KEY_APP_VERSION_CODE, 0),
                 hasSpeaker = dataMap.getBoolean(KEY_HAS_SPEAKER, true)
             )
     }
@@ -164,6 +167,7 @@ data class WatchSettingsPayload(
         dataMap.putString(KEY_CONFIG_TIMESTAMP, configTimestamp)
         dataMap.putInt(KEY_SCREEN_WIDTH_DP, screenWidthDp)
         dataMap.putString(KEY_APP_VERSION, appVersion)
+        dataMap.putInt(KEY_APP_VERSION_CODE, appVersionCode)
         dataMap.putBoolean(KEY_HAS_SPEAKER, hasSpeaker)
     }
 

@@ -54,7 +54,8 @@ class WatchStatusReader @Inject constructor(
                     configTimestamp = payload.configTimestamp.ifBlank { null },
                     theme = payload.theme.ifBlank { null },
                     screenWidthDp = payload.screenWidthDp.takeIf { it > 0 },
-                    appVersion = payload.appVersion.ifBlank { null }
+                    appVersion = payload.appVersion.ifBlank { null },
+                    appVersionCode = payload.appVersionCode.takeIf { it > 0 }
                 )
             }
 
@@ -96,5 +97,6 @@ data class WatchStatus(
     val configTimestamp: String?,
     val theme: String?,
     val screenWidthDp: Int? = null,
-    val appVersion: String? = null
+    val appVersion: String? = null,
+    val appVersionCode: Int? = null
 )
