@@ -25,3 +25,6 @@ tmp
 
 # WIP docs
 docs/migration-to-foundation.md
+
+# Google Play API credentials
+play-service-account.json
