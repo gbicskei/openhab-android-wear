@@ -76,7 +76,19 @@ class WearDataLayerListenerService : WearableListenerService() {
                 serviceScope.launch {
                     val current = watchSettingsDataStore.current
                     if (incoming.settingsEqual(current)) {
-                        AppLog.d(TAG, "DataItem change is our own write, ignoring")
+                        // Settings unchanged — this is likely our own write echoed back.
+                        // But check if the phone's read-modify-write corrupted status fields
+                        // (e.g., appVersion from a stale DataItem read). If so, re-assert.
+                        if (incoming.appVersion != current.appVersion ||
+                            incoming.appVersionCode != current.appVersionCode ||
+                            incoming.configTimestamp != current.configTimestamp ||
+                            incoming.screenWidthDp != current.screenWidthDp) {
+                            AppLog.d(TAG, "DataItem has stale status fields — re-asserting " +
+                                "(appVersion: ${incoming.appVersion}→${current.appVersion})")
+                            watchSettingsDataStore.writeToDataItem()
+                        } else {
+                            AppLog.d(TAG, "DataItem change is our own write, ignoring")
+                        }
                         return@launch
                     }
 
