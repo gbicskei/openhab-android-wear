@@ -64,6 +64,7 @@ class WatchSettingsDataItemClient @Inject constructor(
                 configTimestamp = current.configTimestamp,
                 screenWidthDp = current.screenWidthDp,
                 appVersion = current.appVersion,
+                appVersionCode = current.appVersionCode,
                 hasSpeaker = current.hasSpeaker
             )
         } else {
