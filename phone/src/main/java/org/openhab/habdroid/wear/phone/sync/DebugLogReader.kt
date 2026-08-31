@@ -51,6 +51,7 @@ class DebugLogReader @Inject constructor(
     init {
         // Always listen for watch debug log changes — don't tie to screen lifecycle.
         // This ensures entries are captured even when the Debug Log screen is closed.
+        android.util.Log.i(TAG, "DebugLogReader init — registering DataClient listener")
         dataClient.addListener(this)
         readCurrent()
     }
@@ -64,7 +65,9 @@ class DebugLogReader @Inject constructor(
     }
 
     override fun onDataChanged(dataEvents: DataEventBuffer) {
+        android.util.Log.d(TAG, "onDataChanged: ${dataEvents.count} events")
         for (event in dataEvents) {
+            android.util.Log.d(TAG, "  event path=${event.dataItem.uri.path} type=${event.type}")
             if (event.type == DataEvent.TYPE_CHANGED &&
                 event.dataItem.uri.path == PATH_DEBUG_LOG
             ) {
@@ -79,16 +82,19 @@ class DebugLogReader @Inject constructor(
      * Read the current DataItem (for initial load without waiting for a change event).
      */
     private fun readCurrent() {
+        android.util.Log.d(TAG, "readCurrent: fetching existing DataItem")
         try {
             val uri = android.net.Uri.Builder()
                 .scheme("wear")
                 .path(PATH_DEBUG_LOG)
                 .build()
             dataClient.getDataItems(uri).addOnSuccessListener { items ->
+                android.util.Log.d(TAG, "readCurrent: got ${items.count} items")
                 for (item in items) {
                     if (item.uri.path == PATH_DEBUG_LOG) {
                         val dataMap = DataMapItem.fromDataItem(item).dataMap
                         val entriesJson = dataMap.getString(KEY_ENTRIES) ?: "[]"
+                        android.util.Log.d(TAG, "readCurrent: parsing ${entriesJson.length} chars")
                         parseAndMerge(entriesJson)
                     }
                 }
