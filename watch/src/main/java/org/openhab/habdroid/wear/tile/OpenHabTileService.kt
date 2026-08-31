@@ -22,7 +22,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.openhab.habdroid.wear.data.api.TileStateEventSource
 import org.openhab.habdroid.wear.util.AppLog
@@ -32,6 +31,7 @@ import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.model.TileItem
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
+import org.openhab.habdroid.wear.data.repository.ThemeStore
 import org.openhab.habdroid.wear.data.repository.TilePreferenceStore
 import javax.inject.Inject
 
@@ -87,8 +87,9 @@ class OpenHabTileService : TileService() {
     /** Shared resource version */
     private var resourceVersion: String = "0"
 
-    /** Theme color from user preferences (e.g. amber, blue, green) */
-    private val themeColor: Int get() = runBlocking { themeStore.getTheme().color }
+    /** Theme color from user preferences (e.g. amber, blue, green).
+     *  Uses the in-memory cache warmed at app startup — no coroutine or runBlocking needed. */
+    private val themeColor: Int get() = ThemeStore.cachedTheme.color
 
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> =
         serviceScope.future {
@@ -331,32 +332,22 @@ class OpenHabTileService : TileService() {
     override fun onTileEnterEvent(requestParams: EventBuilders.TileEnterEvent) {
         super.onTileEnterEvent(requestParams)
         tileStateEventSource.tileVisible = true
-        AppLog.d("TileNav", "onTileEnterEvent — invalidating states, fetching fresh")
+        AppLog.d("TileNav", "onTileEnterEvent — invalidating states")
 
-        // Invalidate states — tile renders dimmed until fresh states arrive
+        // Invalidate states so the next onTileRequest fetches fresh states inline.
+        // No background refresh needed — onTileRequest's inline path handles it,
+        // avoiding a duplicate set of HTTP requests.
         itemCache.invalidateStates()
 
-        // Request a tile refresh (will render with stale/dimmed state)
+        // Trigger onTileRequest which will do the inline state refresh + render
         requestSelfUpdate()
 
-        // Fetch fresh states in background (single batch call), then refresh tile (lit)
+        // Start SSE for live updates (non-blocking, runs in background)
         serviceScope.launch {
-            repository.refreshStates()
-                .onSuccess {
-                    AppLog.d("TileNav", "Fresh states loaded, requesting lit render")
-                    requestSelfUpdate()
-                }
-                .onFailure { e ->
-                    AppLog.w("TileNav", "Failed to fetch states: ${e.message}")
-                }
-
-            // Build watched items set including Group members
             val watchSet = buildWatchedItemsSet(allTileItems)
             tileStateEventSource.watchedItems = watchSet
 
-            // Start SSE (handles reconnection + polling fallback internally)
             tileStateEventSource.start {
-                // Cache already updated by TileStateEventSource — just re-render
                 getUpdater(this@OpenHabTileService).requestUpdate(OpenHabTileService::class.java)
             }
         }

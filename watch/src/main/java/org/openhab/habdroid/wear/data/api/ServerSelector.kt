@@ -3,6 +3,7 @@ package org.openhab.habdroid.wear.data.api
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -33,8 +34,8 @@ class ServerSelector @Inject constructor(
     companion object {
         private const val TAG = "ServerSelector"
 
-        /** Timeout for each probe request during racing. */
-        private const val PROBE_TIMEOUT_MS = 5_000L
+        /** Brief head-start for local server before accepting cloud results. */
+        private const val LOCAL_PREFERENCE_MS = 500L
 
         /** Overall timeout for the entire race (both probes). */
         private const val RACE_TIMEOUT_MS = 6_000L
@@ -166,8 +167,11 @@ class ServerSelector @Inject constructor(
     }
 
     /**
-     * Races HEAD requests to local and cloud URLs. Returns the first URL that responds
-     * with a successful HTTP status. Prefers local if both respond within the timeout.
+     * Races requests to local and cloud URLs. Both probes run in parallel.
+     * Local gets a brief head-start ([LOCAL_PREFERENCE_MS]) — if local responds
+     * within that window it wins immediately. After the window, the first response
+     * from either server wins. This avoids the old sequential-await pattern that
+     * could waste up to 5s waiting for an unreachable local before trying cloud.
      */
     private suspend fun raceUrls(
         localUrl: String,
@@ -180,20 +184,40 @@ class ServerSelector @Inject constructor(
                 val localProbe = async { probe(localUrl, localAuth) }
                 val cloudProbe = async { probe(cloudUrl, cloudAuth) }
 
-                // Wait for local first (preferred) with a short head start
-                val localResult = withTimeoutOrNull(PROBE_TIMEOUT_MS) { localProbe.await() }
-                if (localResult == true) {
+                // Give local a brief head-start: if it responds within the preference
+                // window, use it immediately without waiting for cloud.
+                val localQuick = withTimeoutOrNull(LOCAL_PREFERENCE_MS) { localProbe.await() }
+                if (localQuick == true) {
                     cloudProbe.cancel()
                     return@coroutineScope localUrl
                 }
 
-                // Local failed or timed out — wait for cloud
-                val cloudResult = withTimeoutOrNull(PROBE_TIMEOUT_MS) { cloudProbe.await() }
-                if (cloudResult == true) {
-                    return@coroutineScope cloudUrl
+                // Local didn't respond quickly — now race: first to finish wins.
+                // Use select to pick whichever Deferred completes first.
+                val winner = select<String?> {
+                    localProbe.onAwait { result ->
+                        if (result) localUrl else null
+                    }
+                    cloudProbe.onAwait { result ->
+                        if (result) cloudUrl else null
+                    }
                 }
 
-                // Neither responded — default to cloud (let the real request fail naturally)
+                if (winner != null) {
+                    // Cancel the loser
+                    if (winner == localUrl) cloudProbe.cancel() else localProbe.cancel()
+                    return@coroutineScope winner
+                }
+
+                // First responder failed — wait for the other one
+                val remaining = if (localProbe.isCompleted) cloudProbe else localProbe
+                val remainingUrl = if (localProbe.isCompleted) cloudUrl else localUrl
+                val fallbackResult = try { remaining.await() } catch (_: Exception) { false }
+                if (fallbackResult) {
+                    return@coroutineScope remainingUrl
+                }
+
+                // Neither responded successfully — default to cloud
                 cloudUrl
             }
         } ?: cloudUrl // Overall timeout → default to cloud
