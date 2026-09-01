@@ -229,8 +229,10 @@ class ServerSelector @Inject constructor(
 
     /**
      * Sends a HEAD request to the server's REST API root with optional auth.
-     * Returns true if the server responds with any HTTP status (even 401 means reachable,
-     * though with proper auth it should return 200).
+     * Returns true if the server responds with a usable status. A 401 still counts as
+     * reachable (server is up, just needs auth), but 5xx does NOT — a cloud relay
+     * returning 500/502/503 is erroring and would fail the actual SSE/REST calls,
+     * so it must not win the race over a healthy local server.
      */
     private fun probe(baseUrl: String, authHeader: String? = null): Boolean {
         val start = System.currentTimeMillis()
@@ -243,9 +245,10 @@ class ServerSelector @Inject constructor(
             val response = probeClient.newCall(request).execute()
             val code = response.code
             response.close()
-            // Any response (including 401) means the server is reachable
-            AppLog.d(TAG, "Probe $baseUrl → $code (${System.currentTimeMillis() - start}ms)")
-            code in 100..599
+            // Reachable if we got a non-server-error response (2xx/3xx/4xx). 5xx = unusable.
+            val usable = code in 100..499
+            AppLog.d(TAG, "Probe $baseUrl → $code (${System.currentTimeMillis() - start}ms)${if (!usable) " [server error, treating as unreachable]" else ""}")
+            usable
         } catch (e: Exception) {
             AppLog.d(TAG, "Probe $baseUrl failed after ${System.currentTimeMillis() - start}ms: ${e.message}")
             false
