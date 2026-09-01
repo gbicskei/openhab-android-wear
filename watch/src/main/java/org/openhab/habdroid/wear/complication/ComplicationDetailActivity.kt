@@ -50,11 +50,13 @@ class ComplicationDetailActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val complicationId = intent.getIntExtra(EXTRA_COMPLICATION_ID, -1)
+        val slotNumber = intent.getIntExtra(EXTRA_SLOT_NUMBER, -1)
 
         setContent {
             WearOHTheme {
                 ComplicationDetailScreen(
                     complicationId = complicationId,
+                    slotNumber = slotNumber,
                     repository = repository,
                     preferenceStore = complicationPreferenceStore
                 )
@@ -64,19 +66,31 @@ class ComplicationDetailActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_COMPLICATION_ID = "complication_id"
+        const val EXTRA_SLOT_NUMBER = "slot_number"
     }
 }
 
 @Composable
 private fun ComplicationDetailScreen(
     complicationId: Int,
+    slotNumber: Int,
     repository: OpenHabRepository,
     preferenceStore: ComplicationPreferenceStore
 ) {
     var state by remember { mutableStateOf<DetailState>(DetailState.Loading) }
 
     LaunchedEffect(complicationId) {
+        // Resolve item: preference store (generic service) first, then server config
+        // by slot number (slot service).
         val itemName = preferenceStore.getItemForSlot(complicationId)
+            ?: if (slotNumber >= 1) {
+                repository.getComplicationConfigs().getOrNull()
+                    ?.find { it.slotNumber == slotNumber }
+                    ?.item
+                    ?.takeIf { it.isNotBlank() }
+            } else {
+                null
+            }
         if (itemName == null) {
             state = DetailState.Error("No item configured")
             return@LaunchedEffect

@@ -136,6 +136,11 @@ data class ComplicationState(
     val item: String,
     val label: String = "",
     val icon: String = "",
+    /**
+     * When true, tapping the complication on the watch only shows the item's fresh value
+     * instead of opening an edit control. Useful for read-only measured values.
+     */
+    val readOnly: Boolean = false,
     /** Which complication types this slot advertises. The watch only responds to these types. */
     val supportedTypes: Set<ComplicationType> = setOf(
         ComplicationType.SHORT_TEXT,
@@ -155,6 +160,7 @@ data class ComplicationState(
             put("item", item)
             if (label.isNotBlank()) put("label", label)
             if (icon.isNotBlank()) put("icon", icon)
+            if (readOnly) put("readOnly", true)
 
             // Supported types — always persisted so the watch knows what to advertise
             put("supportedTypes", JsonArray(supportedTypes.map { JsonPrimitive(it.name) }))
@@ -219,6 +225,7 @@ data class ComplicationState(
                 item = config.stringOrEmpty("item"),
                 label = config.stringOrEmpty("label"),
                 icon = config.stringOrEmpty("icon"),
+                readOnly = config["readOnly"]?.jsonPrimitive?.content?.toBoolean() ?: false,
                 supportedTypes = supportedTypes,
                 shortText = config["shortText"]?.jsonObject?.let { obj ->
                     ShortTextConfig(

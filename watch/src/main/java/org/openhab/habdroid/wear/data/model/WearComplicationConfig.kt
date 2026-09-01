@@ -16,6 +16,11 @@ data class WearComplicationConfig(
     val label: String = "",
     val icon: String = "",
     val slotNumber: Int = 0,
+    /**
+     * When true, tapping the complication only shows the item's fresh value (detail view)
+     * instead of routing to an edit control, even for otherwise editable item types.
+     */
+    val readOnly: Boolean = false,
     val supportedTypes: Set<String> = emptySet(),
     val shortText: ShortTextTypeConfig = ShortTextTypeConfig(),
     val longText: LongTextTypeConfig = LongTextTypeConfig(),
@@ -40,6 +45,7 @@ data class WearComplicationConfig(
                 slotNumber = config["slotNumber"]?.jsonPrimitive?.doubleOrNull?.toInt()
                     ?: config["slotNumber"]?.jsonPrimitive?.content?.toIntOrNull()
                     ?: 0,
+                readOnly = config["readOnly"]?.jsonPrimitive?.content?.toBoolean() ?: false,
                 supportedTypes = supportedTypes,
                 shortText = config["shortText"]?.jsonObject?.let { obj ->
                     ShortTextTypeConfig(

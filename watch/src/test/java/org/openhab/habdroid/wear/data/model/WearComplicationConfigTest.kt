@@ -96,4 +96,29 @@ class WearComplicationConfigTest {
         val config = parseConfig("""{"label": "NoItem"}""")
         assertEquals("", config.item)
     }
+
+    @Test
+    fun `readOnly defaults to false when absent`() {
+        val config = parseConfig("""{"item": "X"}""")
+        assertEquals(false, config.readOnly)
+    }
+
+    @Test
+    fun `parses readOnly as boolean true`() {
+        val config = parseConfig("""{"item": "X", "readOnly": true}""")
+        assertEquals(true, config.readOnly)
+    }
+
+    @Test
+    fun `parses readOnly as string true`() {
+        // openHAB UI configs sometimes serialize booleans as strings
+        val config = parseConfig("""{"item": "X", "readOnly": "true"}""")
+        assertEquals(true, config.readOnly)
+    }
+
+    @Test
+    fun `parses readOnly as false`() {
+        val config = parseConfig("""{"item": "X", "readOnly": false}""")
+        assertEquals(false, config.readOnly)
+    }
 }

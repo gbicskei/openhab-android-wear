@@ -32,6 +32,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -73,6 +74,7 @@ fun ComplicationConfigSheet(
     // Top-level fields
     var label by remember(complication) { mutableStateOf(complication.label) }
     var icon by remember(complication) { mutableStateOf(complication.icon) }
+    var readOnly by remember(complication) { mutableStateOf(complication.readOnly) }
 
     // SHORT_TEXT
     var shortTextTitle by remember(complication) { mutableStateOf(complication.shortText.title) }
@@ -158,6 +160,29 @@ fun ComplicationConfigSheet(
                     }
                 }
             )
+
+            // Read-only toggle — when on, tapping the complication only shows the fresh
+            // value instead of opening an edit control.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Read-only",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Text(
+                        text = "Tapping shows the value instead of an edit control",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = readOnly,
+                    onCheckedChange = { readOnly = it }
+                )
+            }
 
             HorizontalDivider()
 
@@ -358,6 +383,7 @@ fun ComplicationConfigSheet(
                             complication.copy(
                                 label = label,
                                 icon = icon,
+                                readOnly = readOnly,
                                 shortText = ShortTextConfig(
                                     text = shortTextText,
                                     title = shortTextTitle

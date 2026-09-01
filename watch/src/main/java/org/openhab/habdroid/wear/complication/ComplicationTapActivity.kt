@@ -68,15 +68,24 @@ class ComplicationTapActivity : ComponentActivity() {
                     return@LaunchedEffect
                 }
 
-                // Get complication config for the label
+                // Get complication config for the label and read-only flag.
+                // Match by slot number when available (slot service), otherwise by item name.
                 val configs = repository.getComplicationConfigs().getOrDefault(emptyList())
-                val config = configs.find { it.item == itemName }
+                val config = configs.find { it.slotNumber == slotNumber && slotNumber >= 1 }
+                    ?: configs.find { it.item == itemName }
                 // item.label is the human-readable label from openHAB (e.g. "Bedroom Light")
                 // config.label is a user override from the complication editor
                 // item.name is the technical identifier (e.g. "BDR_Light")
                 val label = item.label?.takeIf { it.isNotBlank() }
                     ?: config?.label?.takeIf { it.isNotBlank() && it != item.type }
                     ?: item.name
+
+                // When the complication is configured read-only, always show the fresh
+                // value instead of routing to an edit control.
+                if (config?.readOnly == true) {
+                    launchDetail(complicationId, slotNumber)
+                    return@LaunchedEffect
+                }
 
                 // Route based on item type
                 when {
@@ -96,7 +105,7 @@ class ComplicationTapActivity : ComponentActivity() {
                         launchControl(org.openhab.habdroid.wear.ui.control.ToggleControlActivity::class.java, itemName, label)
                     }
                     else -> {
-                        launchDetail(complicationId)
+                        launchDetail(complicationId, slotNumber)
                     }
                 }
             }
@@ -121,9 +130,10 @@ class ComplicationTapActivity : ComponentActivity() {
         finish()
     }
 
-    private fun launchDetail(complicationId: Int) {
+    private fun launchDetail(complicationId: Int, slotNumber: Int) {
         startActivity(Intent(this, ComplicationDetailActivity::class.java).apply {
             putExtra(ComplicationDetailActivity.EXTRA_COMPLICATION_ID, complicationId)
+            putExtra(ComplicationDetailActivity.EXTRA_SLOT_NUMBER, slotNumber)
         })
         finish()
     }
