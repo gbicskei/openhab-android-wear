@@ -1,9 +1,9 @@
 package org.openhab.habdroid.wear.data.api
 
 import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -37,8 +37,9 @@ class ServerSelector @Inject constructor(
         /** Brief head-start for local server before accepting cloud results. */
         private const val LOCAL_PREFERENCE_MS = 500L
 
-        /** Overall timeout for the entire race (both probes). */
-        private const val RACE_TIMEOUT_MS = 6_000L
+        /** Per-probe timeout. Caps a stalled socket connect so it can't hold up the race
+         *  (the cloud relay has been seen taking 30s+ on a bad connect). */
+        private const val PROBE_TIMEOUT_MS = 5_000L
     }
 
     /** Cached winner URL. Null until first resolution. */
@@ -179,52 +180,49 @@ class ServerSelector @Inject constructor(
         cloudUrl: String,
         cloudAuth: String?
     ): String {
-        return withTimeoutOrNull(RACE_TIMEOUT_MS) {
-            coroutineScope {
-                val localProbe = async { probe(localUrl, localAuth) }
-                val cloudProbe = async { probe(cloudUrl, cloudAuth) }
+        // Use supervisorScope so a hung/failing probe does not cancel the sibling or
+        // block the scope from returning once we've picked a winner. Each probe is
+        // wrapped in its own timeout so a stalled socket connect (seen with the cloud
+        // relay taking 30s+) can't hold up the decision.
+        return supervisorScope {
+            val localProbe = async { withTimeoutOrNull(PROBE_TIMEOUT_MS) { probe(localUrl, localAuth) } == true }
+            val cloudProbe = async { withTimeoutOrNull(PROBE_TIMEOUT_MS) { probe(cloudUrl, cloudAuth) } == true }
 
-                // Give local a brief head-start: if it responds within the preference
-                // window, use it immediately without waiting for cloud.
+            // Ensure both probes are cancelled when we leave this scope, so a slow
+            // loser cannot keep running in the background.
+            try {
+                // Give local a brief head-start: if it responds successfully within the
+                // preference window, use it immediately without waiting for cloud.
                 val localQuick = withTimeoutOrNull(LOCAL_PREFERENCE_MS) { localProbe.await() }
                 if (localQuick == true) {
-                    cloudProbe.cancel()
                     AppLog.d(TAG, "Local won within ${LOCAL_PREFERENCE_MS}ms preference window")
-                    return@coroutineScope localUrl
+                    return@supervisorScope localUrl
                 }
 
-                // Local didn't respond within the preference window — race both to completion.
-                // (Local may still be connecting; cloud probe was already running in parallel.)
                 AppLog.d(TAG, "Local not ready within ${LOCAL_PREFERENCE_MS}ms — racing both to completion")
 
-                // First to finish wins. Use select to pick whichever Deferred completes first.
-                val winner = select<String?> {
-                    localProbe.onAwait { result ->
-                        if (result) localUrl else null
+                // Race: first probe to finish *successfully* wins. If a probe finishes
+                // unsuccessfully, keep waiting for the other rather than falling through.
+                var localDone = localQuick != null  // completed (with false) during the preference wait
+                var cloudDone = false
+                while (!localDone || !cloudDone) {
+                    val winner = select<String?> {
+                        if (!localDone) localProbe.onAwait { ok -> if (ok) localUrl else { localDone = true; null } }
+                        if (!cloudDone) cloudProbe.onAwait { ok -> if (ok) cloudUrl else { cloudDone = true; null } }
                     }
-                    cloudProbe.onAwait { result ->
-                        if (result) cloudUrl else null
+                    if (winner != null) {
+                        return@supervisorScope winner
                     }
-                }
-
-                if (winner != null) {
-                    // Cancel the loser
-                    if (winner == localUrl) cloudProbe.cancel() else localProbe.cancel()
-                    return@coroutineScope winner
-                }
-
-                // First responder failed — wait for the other one
-                val remaining = if (localProbe.isCompleted) cloudProbe else localProbe
-                val remainingUrl = if (localProbe.isCompleted) cloudUrl else localUrl
-                val fallbackResult = try { remaining.await() } catch (_: Exception) { false }
-                if (fallbackResult) {
-                    return@coroutineScope remainingUrl
                 }
 
                 // Neither responded successfully — default to cloud
+                AppLog.d(TAG, "Neither server reachable — defaulting to cloud")
                 cloudUrl
+            } finally {
+                localProbe.cancel()
+                cloudProbe.cancel()
             }
-        } ?: cloudUrl // Overall timeout → default to cloud
+        }
     }
 
     /**
