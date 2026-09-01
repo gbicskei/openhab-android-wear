@@ -218,81 +218,11 @@ open class OpenHabComplicationService : SuspendingComplicationDataSourceService(
     // ─── Helpers ───
 
     /**
-     * Format item state value using a pattern or smart defaults.
-     * Pattern uses Java String.format syntax (e.g. "%.0f°C", "%.1f kWh").
-     * If pattern is blank, uses transformedState, options lookup, or auto-formatting.
+     * Format item state value for complication display.
+     * Delegates to [ComplicationValueFormatter] (shared, unit-tested).
      */
-    private fun formatValue(item: Item, pattern: String?): String {
-        // First: always try transformedState (server-formatted)
-        val transformed = item.transformedState
-        if (transformed != null && transformed !in listOf("NULL", "UNDEF")) {
-            return transformed.take(12)
-        }
-
-        // Second: look up display label from stateDescription options or commandDescription
-        val optionLabel = item.stateDescription?.options
-            ?.find { it.value == item.state }
-            ?.label
-            ?: item.commandDescription?.commandOptions
-                ?.find { it.command == item.state }
-                ?.label
-            ?: BUILT_IN_STATE_LABELS[item.state]
-        if (optionLabel != null) {
-            return optionLabel.take(12)
-        }
-
-        // Third: if a pattern is provided, format with it
-        if (!pattern.isNullOrBlank()) {
-            val numericValue = item.numericState
-            if (numericValue != null) {
-                return try {
-                    if (pattern.contains("%d")) {
-                        String.format(pattern, numericValue.toLong())
-                    } else {
-                        String.format(pattern, numericValue)
-                    }
-                } catch (_: Exception) {
-                    numericValue.let {
-                        if (it == it.toLong().toDouble()) it.toLong().toString()
-                        else String.format("%.1f", it)
-                    }
-                }
-            }
-            return try {
-                String.format(pattern, item.state)
-            } catch (_: Exception) {
-                item.state.take(7)
-            }
-        }
-
-        // Fourth: numeric auto-formatting
-        val numericValue = item.numericState
-        return when {
-            item.state in listOf("NULL", "UNDEF") -> "\u2014"
-            numericValue != null -> {
-                val formatted = if (numericValue == numericValue.toLong().toDouble())
-                    numericValue.toLong().toString()
-                else
-                    String.format("%.1f", numericValue)
-                val unit = if (item.type.contains(":")) getUnitSymbol(item.type) else null
-                if (unit != null) "$formatted $unit" else formatted
-            }
-            else -> item.state.take(12)
-        }
-    }
-
-    private fun getUnitSymbol(type: String): String? {
-        return when {
-            type.contains("Temperature") -> "°C"
-            type.contains("Pressure") -> "hPa"
-            type.contains("Speed") -> "km/h"
-            type.contains("Length") -> "m"
-            type.contains("Power") -> "W"
-            type.contains("Energy") -> "kWh"
-            type.contains("Dimensionless") -> "%"
-            else -> null
-        }
-    }
+    private fun formatValue(item: Item, pattern: String?): String =
+        ComplicationValueFormatter.format(item, pattern)
 
     /**
      * Build error complication data showing what went wrong instead of silently returning null.
@@ -486,13 +416,5 @@ open class OpenHabComplicationService : SuspendingComplicationDataSourceService(
 
     companion object {
         private const val TAG = "ComplicationService"
-
-        /** Built-in display labels for common raw state values without stateDescription options. */
-        private val BUILT_IN_STATE_LABELS = mapOf(
-            "ON" to "On",
-            "OFF" to "Off",
-            "OPEN" to "Open",
-            "CLOSED" to "Closed"
-        )
     }
 }

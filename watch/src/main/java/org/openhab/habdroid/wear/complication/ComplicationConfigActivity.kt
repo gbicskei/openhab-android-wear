@@ -286,10 +286,14 @@ private fun ErrorContent(
  * Shows type and current state as a brief summary line.
  */
 private fun formatStateForPicker(item: Item): String {
+    val pattern = item.stateDescription?.pattern
     val state = when {
         item.state in listOf("NULL", "UNDEF") -> "\u2014"
         item.transformedState != null && item.transformedState !in listOf("NULL", "UNDEF") ->
             item.transformedState.take(20)
+        // QuantityType: convert to the pattern's target unit client-side (as MainUI does).
+        !pattern.isNullOrBlank() && QuantityFormatter.format(item.state, pattern) != null ->
+            QuantityFormatter.format(item.state, pattern)!!.take(20)
         item.numericState != null -> {
             val v = item.numericState!!
             val formatted = if (v == v.toLong().toDouble()) v.toLong().toString()

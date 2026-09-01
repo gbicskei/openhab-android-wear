@@ -135,7 +135,7 @@ private fun ItemDetailView(item: Item) {
 
             // Value in large text
             Text(
-                text = formatValue(item),
+                text = ComplicationValueFormatter.format(item, item.stateDescription?.pattern),
                 fontSize = 36.sp,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.primary,
@@ -178,50 +178,3 @@ private fun ErrorView(message: String) {
     }
 }
 
-/**
- * Format the item value for large display.
- * Prefers transformedState (server-formatted with pattern), falls back to manual formatting.
- */
-private fun formatValue(item: Item): String {
-    // Server-formatted state (e.g., "28.5 °C") — best source
-    val transformed = item.transformedState
-    if (transformed != null && transformed !in listOf("NULL", "UNDEF")) {
-        return transformed
-    }
-
-    val numericValue = item.numericState
-    return when {
-        item.state in listOf("NULL", "UNDEF") -> "\u2014"
-
-        // Numeric value available — format cleanly
-        numericValue != null -> {
-            val formatted = if (numericValue == numericValue.toLong().toDouble())
-                numericValue.toLong().toString()
-            else
-                String.format("%.1f", numericValue)
-            val unit = if (item.type.contains(":")) getUnitSymbol(item.type) else null
-            if (unit != null) "$formatted $unit" else formatted
-        }
-
-        // Switch/Contact states
-        item.state == "ON" -> "ON"
-        item.state == "OFF" -> "OFF"
-        item.state == "OPEN" -> "OPEN"
-        item.state == "CLOSED" -> "CLOSED"
-
-        else -> item.state.take(20)
-    }
-}
-
-private fun getUnitSymbol(type: String): String? {
-    return when {
-        type.contains("Temperature") -> "°C"
-        type.contains("Pressure") -> "hPa"
-        type.contains("Speed") -> "km/h"
-        type.contains("Length") -> "m"
-        type.contains("Power") -> "W"
-        type.contains("Energy") -> "kWh"
-        type.contains("Dimensionless") -> "%"
-        else -> null
-    }
-}

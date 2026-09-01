@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
+import org.openhab.habdroid.wear.complication.QuantityFormatter
 import org.openhab.habdroid.wear.data.api.TileStateEventSource
 import org.openhab.habdroid.wear.util.AppLog
 import org.openhab.habdroid.wear.data.icon.IconCompositor
@@ -1261,12 +1262,17 @@ class OpenHabTileService : TileService() {
         val pattern = item.stateDescription?.pattern
         return when {
             value == null -> "\u2013"
-            pattern != null -> try {
-                String.format(pattern.replace("%unit%", ""), value.let {
-                    if (it == it.toLong().toDouble()) it.toLong() else it
-                })
-            } catch (e: Exception) {
-                value.toInt().toString()
+            pattern != null -> {
+                // openHAB stores QuantityType state in the item's own unit while the pattern may
+                // target a different compatible unit; convert client-side (as MainUI does).
+                QuantityFormatter.format(item.state, pattern)
+                    ?: try {
+                        String.format(pattern.replace("%unit%", ""), value.let {
+                            if (it == it.toLong().toDouble()) it.toLong() else it
+                        })
+                    } catch (e: Exception) {
+                        value.toInt().toString()
+                    }
             }
             // Infer unit suffix from item type when no pattern is available
             item.type == "Dimmer" || item.type == "Rollershutter" -> "${value.toInt()}%"
