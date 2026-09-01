@@ -11,7 +11,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -41,11 +44,26 @@ data class WatchSettingsUiState(
     val errorMessage: String? = null,
     val selectedTheme: String = "AMBER",
     /** Whether the watch has a speaker. Defaults to true until synced. */
-    val watchHasSpeaker: Boolean = true
+    val watchHasSpeaker: Boolean = true,
+    /** Outcome of the most recent server backup write. */
+    val backupStatus: BackupStatus = BackupStatus.Idle
 )
 
 enum class LoadState { Loading, Loaded, Error }
 enum class RestoreState { Idle, Restoring, Success, Error }
+
+/**
+ * Outcome of a server backup write attempt, surfaced to the UI so silent
+ * failures (unconfigured config server, missing device name, HTTP errors)
+ * become visible instead of being swallowed.
+ */
+sealed interface BackupStatus {
+    data object Idle : BackupStatus
+    data object Writing : BackupStatus
+    data object Success : BackupStatus
+    data class Skipped(val reason: String) : BackupStatus
+    data class Failed(val reason: String) : BackupStatus
+}
 
 /**
  * ViewModel for phone-side Watch Settings.
@@ -99,6 +117,28 @@ class WatchSettingsViewModel @Inject constructor(
             backupEnabled = credentialStore.isBackupEnabled,
             selectedTheme = credentialStore.getSelectedTheme()
         ) }
+        observeSettingsForBackup()
+    }
+
+    /**
+     * Persistence follows the settings DTO, not individual setters.
+     *
+     * The complete [WatchSettingsPayload] is assembled from UI state (including the
+     * separately held theme) and any change to it triggers a debounced server backup.
+     * This guarantees every current and future settings field is persisted without
+     * each setter having to remember to request a write.
+     *
+     * The initial value emitted right after load is dropped so that merely opening the
+     * screen does not write a backup.
+     */
+    private fun observeSettingsForBackup() {
+        viewModelScope.launch {
+            _uiState
+                .map { buildSettingsPayload(it.snapshot, it.selectedTheme) }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { scheduleBackupWrite() }
+        }
     }
 
     // ─── Unified settings sync ───
@@ -308,7 +348,7 @@ class WatchSettingsViewModel @Inject constructor(
         val newSnapshot = transform(_uiState.value.snapshot)
         _uiState.update { it.copy(snapshot = newSnapshot) }
         syncToWatch(snapshot = newSnapshot)
-        scheduleBackupWrite()
+        // Server backup is driven by observeSettingsForBackup() off the state change.
     }
 
     private fun sendVoiceSettingsToWatch(snapshot: WatchSettingsPayload) {
@@ -341,7 +381,7 @@ class WatchSettingsViewModel @Inject constructor(
         val newSnapshot = transform(_uiState.value.snapshot)
         _uiState.update { it.copy(snapshot = newSnapshot) }
         syncToWatch(snapshot = newSnapshot)
-        scheduleBackupWrite()
+        // Server backup is driven by observeSettingsForBackup() off the state change.
     }
 
     private fun sendNotificationSettingsToWatch(snapshot: WatchSettingsPayload) {
@@ -357,7 +397,7 @@ class WatchSettingsViewModel @Inject constructor(
             credentialStore.setDebugMode(enabled)
         }
         syncToWatch(snapshot = newSnapshot)
-        scheduleBackupWrite()
+        // Server backup is driven by observeSettingsForBackup() off the state change.
         AppLog.d(TAG, "Debug mode set to $enabled")
     }
 
@@ -369,6 +409,7 @@ class WatchSettingsViewModel @Inject constructor(
             credentialStore.saveSelectedTheme(themeName)
         }
         syncToWatch(theme = themeName)
+        // theme is part of the settings DTO, so observeSettingsForBackup() persists it.
         AppLog.d(TAG, "Theme set to $themeName")
     }
 
@@ -384,8 +425,9 @@ class WatchSettingsViewModel @Inject constructor(
     }
 
     /**
-     * Debounced write of current settings to server backup.
-     * Called after every setting change when backup is enabled.
+     * Debounced write of the current settings DTO to server backup.
+     * Triggered by [observeSettingsForBackup] on any settings change, and once
+     * when backup is first enabled. No-op (with a visible reason) when backup is off.
      */
     private fun scheduleBackupWrite() {
         if (!_uiState.value.backupEnabled) return
@@ -397,18 +439,39 @@ class WatchSettingsViewModel @Inject constructor(
     }
 
     private suspend fun writeBackupToServer() {
-        val localConfig = credentialStore.localConfig.first() ?: return
-        if (!localConfig.isConfigured) return
+        val localConfig = credentialStore.localConfig.first()
+        if (localConfig == null || !localConfig.isConfigured) {
+            AppLog.w(TAG, "Backup skipped: config server not configured")
+            _uiState.update { it.copy(backupStatus = BackupStatus.Skipped("Config server not configured")) }
+            return
+        }
 
-        val deviceName = credentialStore.currentUserKey.ifBlank { return }
+        // Item name matches the MobileAudio binding Thing id (mobileaudio:device:{deviceName}),
+        // so watch settings and the audio-sink Thing share the same device identity.
+        val deviceName = credentialStore.deviceName
+        if (deviceName.isBlank()) {
+            AppLog.w(TAG, "Backup skipped: device name not set")
+            _uiState.update { it.copy(backupStatus = BackupStatus.Skipped("Set a watch device name to enable backup")) }
+            return
+        }
+
         val payload = buildSettingsPayload()
+        _uiState.update { it.copy(backupStatus = BackupStatus.Writing) }
+
+        val itemName = ServerBackupRepository.backupItemName(deviceName)
 
         backupRepository.ensureBackupItemExists(localConfig, deviceName)
-            .onFailure { AppLog.w(TAG, "Failed to create backup item: ${it.message}") }
+            .onFailure { AppLog.w(TAG, "Failed to create backup item '$itemName': ${it.message}") }
 
         backupRepository.writeBackup(localConfig, deviceName, payload)
-            .onSuccess { AppLog.d(TAG, "Backup written to server") }
-            .onFailure { AppLog.w(TAG, "Failed to write backup: ${it.message}") }
+            .onSuccess {
+                AppLog.d(TAG, "Backup written to server for '$itemName'")
+                _uiState.update { it.copy(backupStatus = BackupStatus.Success) }
+            }
+            .onFailure { e ->
+                AppLog.w(TAG, "Failed to write backup: ${e.message}")
+                _uiState.update { it.copy(backupStatus = BackupStatus.Failed(e.message ?: "Backup write failed")) }
+            }
     }
 
     // ─── Restore from backup ───
@@ -426,7 +489,9 @@ class WatchSettingsViewModel @Inject constructor(
                 return@launch
             }
 
-            val deviceName = credentialStore.currentUserKey
+            // Must match the backup item name used by writeBackupToServer() — the
+            // device name (also the MobileAudio Thing id), not the user key.
+            val deviceName = credentialStore.deviceName
             if (deviceName.isBlank()) {
                 _uiState.update { it.copy(restoreState = RestoreState.Error, errorMessage = "Device name not configured") }
                 return@launch

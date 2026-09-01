@@ -36,6 +36,22 @@ class ServerBackupRepository @Inject constructor(
 
     companion object {
         private const val TAG = "ServerBackup"
+
+        /**
+         * Derives the backup item name from the user-readable device name.
+         *
+         * The device-id part uses the exact same conversion as the MobileAudio binding's
+         * `sanitizeId` (strip every non-alphanumeric character), so the backup item and the
+         * `mobileaudio:device:{id}` Thing share one device identity. Example:
+         * `"Gabor's Watch"` → `GaborsWatch` → item `GaborsWatch_Config`.
+         *
+         * The `_Config` suffix keeps the result a valid openHAB item name
+         * (`[a-zA-Z_][a-zA-Z0-9_]*`).
+         */
+        fun backupItemName(deviceName: String): String = "${sanitizeId(deviceName)}_Config"
+
+        /** Matches MobileAudioHandlerFactory.sanitizeId in the mobileaudio binding. */
+        private fun sanitizeId(deviceName: String): String = deviceName.replace(Regex("[^a-zA-Z0-9]"), "")
     }
 
     /**
@@ -46,7 +62,7 @@ class ServerBackupRepository @Inject constructor(
         localConfig: LocalServerConfig,
         deviceName: String
     ): Result<Unit> = runCatching {
-        val itemName = "${deviceName}_Config"
+        val itemName = backupItemName(deviceName)
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName"
 
         val itemBody = json.encodeToString(
@@ -71,7 +87,7 @@ class ServerBackupRepository @Inject constructor(
         deviceName: String,
         settings: WatchSettingsPayload
     ): Result<Unit> = runCatching {
-        val itemName = "${deviceName}_Config"
+        val itemName = backupItemName(deviceName)
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName/metadata/${WatchSettingsPayload.METADATA_NAMESPACE}"
 
         val metadataBody = json.encodeToString(
@@ -94,7 +110,7 @@ class ServerBackupRepository @Inject constructor(
         localConfig: LocalServerConfig,
         deviceName: String
     ): Result<WatchSettingsPayload?> = runCatching {
-        val itemName = "${deviceName}_Config"
+        val itemName = backupItemName(deviceName)
         val url = "${localConfig.serverUrl.trimEnd('/')}/rest/items/$itemName?metadata=${WatchSettingsPayload.METADATA_NAMESPACE}"
 
         val responseBody = executeGet(url, localConfig.resolveAuthHeader())
