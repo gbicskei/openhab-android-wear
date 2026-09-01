@@ -19,6 +19,7 @@ import androidx.wear.watchface.complications.datasource.ComplicationDataSourceSe
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import dagger.hilt.android.AndroidEntryPoint
+import org.openhab.habdroid.wear.R
 import org.openhab.habdroid.wear.data.model.Item
 import org.openhab.habdroid.wear.data.model.WearComplicationConfig
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
@@ -293,7 +294,7 @@ open class OpenHabComplicationService : SuspendingComplicationDataSourceService(
                     text = PlainComplicationText.Builder("Setup").build(),
                     contentDescription = PlainComplicationText.Builder("Tap to configure openHAB complication").build()
                 )
-                    .setTitle(PlainComplicationText.Builder("openHAB").build())
+                    .setTitle(PlainComplicationText.Builder(getString(R.string.setup_title)).build())
                     .setTapAction(tapAction)
                     .build()
 
