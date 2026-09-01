@@ -189,11 +189,15 @@ class ServerSelector @Inject constructor(
                 val localQuick = withTimeoutOrNull(LOCAL_PREFERENCE_MS) { localProbe.await() }
                 if (localQuick == true) {
                     cloudProbe.cancel()
+                    AppLog.d(TAG, "Local won within ${LOCAL_PREFERENCE_MS}ms preference window")
                     return@coroutineScope localUrl
                 }
 
-                // Local didn't respond quickly — now race: first to finish wins.
-                // Use select to pick whichever Deferred completes first.
+                // Local didn't respond within the preference window — race both to completion.
+                // (Local may still be connecting; cloud probe was already running in parallel.)
+                AppLog.d(TAG, "Local not ready within ${LOCAL_PREFERENCE_MS}ms — racing both to completion")
+
+                // First to finish wins. Use select to pick whichever Deferred completes first.
                 val winner = select<String?> {
                     localProbe.onAwait { result ->
                         if (result) localUrl else null
@@ -229,6 +233,7 @@ class ServerSelector @Inject constructor(
      * though with proper auth it should return 200).
      */
     private fun probe(baseUrl: String, authHeader: String? = null): Boolean {
+        val start = System.currentTimeMillis()
         return try {
             val request = Request.Builder()
                 .url("$baseUrl/rest/")
@@ -239,10 +244,10 @@ class ServerSelector @Inject constructor(
             val code = response.code
             response.close()
             // Any response (including 401) means the server is reachable
-            AppLog.d(TAG, "Probe $baseUrl → $code")
+            AppLog.d(TAG, "Probe $baseUrl → $code (${System.currentTimeMillis() - start}ms)")
             code in 100..599
         } catch (e: Exception) {
-            AppLog.d(TAG, "Probe $baseUrl failed: ${e.message}")
+            AppLog.d(TAG, "Probe $baseUrl failed after ${System.currentTimeMillis() - start}ms: ${e.message}")
             false
         }
     }
