@@ -31,6 +31,7 @@ class CredentialStore @Inject constructor(
         val KEY_DEVICE_NAME = stringPreferencesKey("device_name")
         val KEY_BINDING_INSTALLED = booleanPreferencesKey("binding_installed")
         val KEY_DEBUG_MODE = booleanPreferencesKey("debug_mode")
+        val KEY_LAST_REGISTERED_FCM_TOKEN = stringPreferencesKey("last_registered_fcm_token")
     }
 
     /** Flow of current credentials, null if not configured */
@@ -78,6 +79,15 @@ class CredentialStore @Inject constructor(
         prefs[KEY_BINDING_INSTALLED] ?: false
     }
 
+    /**
+     * FCM token that was last successfully registered with the MobileAudio binding.
+     * Used to skip redundant re-registration when the token hasn't changed.
+     * Empty until the first successful registration.
+     */
+    val lastRegisteredFcmToken: Flow<String> = dataStore.data.map { prefs ->
+        prefs[KEY_LAST_REGISTERED_FCM_TOKEN] ?: ""
+    }
+
     /** Save server credentials */
     suspend fun saveCredentials(credentials: ServerCredentials) {
         dataStore.edit { prefs ->
@@ -109,6 +119,13 @@ class CredentialStore @Inject constructor(
     suspend fun saveBindingInstalled(installed: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_BINDING_INSTALLED] = installed
+        }
+    }
+
+    /** Record the FCM token that was last successfully registered with the binding */
+    suspend fun saveLastRegisteredFcmToken(token: String) {
+        dataStore.edit { prefs ->
+            prefs[KEY_LAST_REGISTERED_FCM_TOKEN] = token
         }
     }
 

@@ -6,7 +6,7 @@ wearOH receives push notifications from openHAB via FCM (Firebase Cloud Messagin
 
 1. **MobileAudio binding** installed on your openHAB server (see [Installation](#installation) below)
 2. **Thing configured** — e.g. `mobileaudio:device:MyWatch` (Thing status must be ONLINE)
-3. **Watch FCM token registered** — happens automatically when the watch connects to the local server (the `/mobileaudio/register` endpoint is NOT proxied by myopenhab.org — local network required for registration)
+3. **Watch FCM token registered** — happens automatically when the watch connects to the server. The `/mobileaudio/register` endpoint is reachable both directly on the local network and through the myopenhab.org cloud proxy (the cloud forwards any path to the local instance), so registration works whether the watch is home or remote.
 
 ## Installation
 

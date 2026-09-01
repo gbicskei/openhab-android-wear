@@ -60,6 +60,13 @@ class MainActivity : ComponentActivity() {
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { /* no-op: we just need to prompt, user decides */ }
 
+    override fun onResume() {
+        super.onResume()
+        // Re-register the FCM token when the app is opened, so a token the binding rejected
+        // as UNREGISTERED self-heals. Skips the network call when the token is unchanged.
+        org.openhab.habdroid.wear.notification.FcmRegistrationWorker.scheduleIfNeeded(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()

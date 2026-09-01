@@ -334,6 +334,10 @@ class OpenHabTileService : TileService() {
         tileStateEventSource.tileVisible = true
         AppLog.d("TileNav", "onTileEnterEvent — invalidating states")
 
+        // Re-register the FCM token when the tile is opened, so a token the binding rejected
+        // as UNREGISTERED self-heals. Skips the network call when the token is unchanged.
+        org.openhab.habdroid.wear.notification.FcmRegistrationWorker.scheduleIfNeeded(this)
+
         // Invalidate states so the next onTileRequest fetches fresh states inline.
         // No background refresh needed — onTileRequest's inline path handles it,
         // avoiding a duplicate set of HTTP requests.

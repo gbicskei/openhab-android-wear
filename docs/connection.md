@@ -289,7 +289,7 @@ All Retrofit API calls pass through `AuthInterceptor`, which:
 | Retrofit API calls (items, commands, tile config, complications) | Yes (via AuthInterceptor) | Standard path |
 | TileStateEventSource (SSE for live updates) | Yes (explicit reset + resolveUrl on each reconnect) | Adapts when entering/leaving home WiFi |
 | OpenHabRepository.observeItemState (SSE for single item) | Yes (resolveUrl + resolveAuthHeader) | Used for complication preview |
-| FcmRegistrationWorker | Yes (reset + resolveUrl + resolveAuthHeader) | Warns if only cloud reachable (endpoint not proxied) |
+| FcmRegistrationWorker | Yes (reset + resolveUrl + resolveAuthHeader) | Works via local or cloud (endpoint is proxied by myopenhab.org) |
 | IconResolver (openHAB icons) | Yes (via AuthInterceptor on main OkHttpClient) | — |
 | IconResolver (Iconify/Material icons) | No (plainClient, external URLs) | No auth needed |
 | ServerTtsPlayer (Google TTS) | No (external Google API) | Uses Google API key |
@@ -372,4 +372,4 @@ The watch registers its FCM token with the binding's servlet:
 GET {serverUrl}/mobileaudio/register?regId={token}&deviceId={androidId}&deviceModel={model}&deviceName={name}
 ```
 
-The worker uses `ServerSelector` to resolve the best reachable server and applies the correct auth for whichever server won the race. Since the `/mobileaudio/register` endpoint is not proxied by myopenhab.org, registration will only succeed when the local server is reachable — the worker logs a warning if only cloud responds. The `deviceName` parameter enables stable Thing matching across app reinstalls.
+The worker uses `ServerSelector` to resolve the best reachable server and applies the correct auth for whichever server won the race. The `/mobileaudio/register` endpoint is reachable both directly on the local network and through the myopenhab.org cloud proxy (the cloud vhost forwards any path to the local instance after REST auth), so registration succeeds whether the watch is home or remote. The `deviceName` parameter enables stable Thing matching across app reinstalls. The worker is also triggered when the app or tile is opened, re-registering the current token (skipping the network call when it is unchanged) so a token the binding rejected as `UNREGISTERED` self-heals.
