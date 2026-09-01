@@ -218,16 +218,21 @@ class SetupViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            // Always read the persistent DataItem for the freshest version
-            val status = watchStatusReader.readStatus()
-            val dataItemVersion = status?.appVersion
-            if (!dataItemVersion.isNullOrBlank()) {
-                WatchVersionHolder.update(dataItemVersion)
-                AppLog.d("SetupVM", "Watch version from DataItem: $dataItemVersion")
-                return@launch
+            // The live message response is authoritative: the watch replies with its actual
+            // running BuildConfig version. The persisted DataItem can lag behind (e.g. right
+            // after an update, or if a phone read-modify-write re-published a stale appVersion),
+            // so only use it to seed a value when we have nothing yet — never to overwrite a
+            // version already confirmed live this session.
+            if (WatchVersionHolder.watchVersion.value == null) {
+                val dataItemVersion = watchStatusReader.readStatus()?.appVersion
+                if (!dataItemVersion.isNullOrBlank()) {
+                    WatchVersionHolder.update(dataItemVersion)
+                    AppLog.d("SetupVM", "Watch version seeded from DataItem: $dataItemVersion")
+                }
             }
 
-            // Fallback: one-shot message request (older watch app without DataItem version)
+            // Always request the live version; PhoneWearListenerService updates the holder
+            // with the authoritative value when the watch responds.
             dataLayerSender.requestWatchVersion()
                 .onFailure { e ->
                     AppLog.w("SetupVM", "Failed to request watch version: ${e.message}")
