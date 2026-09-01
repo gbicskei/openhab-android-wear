@@ -109,16 +109,20 @@ class OpenHabRepository @Inject constructor(
      * Hot path: fetch only item states from server in a single batch call.
      * Updates the cached items' states without replacing config/metadata.
      */
-    suspend fun refreshStates(): Result<Unit> = runCatching {
+    suspend fun refreshStates(itemNames: Set<String>? = null): Result<Unit> = runCatching {
         val _traceStart = System.currentTimeMillis()
         AppLog.d(TAG, "→ refreshStates()")
         try {
         val cached = itemCache.get() ?: return@runCatching
 
-        // Collect all item names we need states for (primary + stateItem + doubleTapItem + members of groups)
+        // Collect all item names we need states for (primary + stateItem + doubleTapItem + members of groups).
+        // When [itemNames] is provided, restrict to those (e.g. only the current tile page) to avoid
+        // fetching every item on every page over the constrained BT link.
         val neededNames = cached.flatMap { tileItem ->
             listOfNotNull(tileItem.item.name, tileItem.valueItemName, tileItem.commandItemName, tileItem.doubleTapItem)
-        }.filter { it != "unknown" }.distinct().toSet()
+        }.filter { it != "unknown" }
+            .let { names -> if (itemNames != null) names.filter { it in itemNames } else names }
+            .distinct().toSet()
 
         // Parallel fetch individual items (much faster than fetching all 748 items)
         AppLog.d(TAG, "refreshStates: parallel fetching ${neededNames.size} items")

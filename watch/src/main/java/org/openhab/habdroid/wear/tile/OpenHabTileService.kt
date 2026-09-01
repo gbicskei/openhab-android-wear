@@ -133,10 +133,12 @@ class OpenHabTileService : TileService() {
             val t2 = System.currentTimeMillis()
             AppLog.d("TileNav", "getAvailableTileItems: ${t2-t1}ms, ${allItems.size} items, cache=${allItems.isNotEmpty()}")
 
-            // If states are stale (warm start from disk or after process restart), refresh now
+            // If states are stale (warm start from disk or after process restart), refresh now —
+            // scoped to the current page's items so we don't fetch every item on every page.
             if (!itemCache.statesLoaded && allItems.isNotEmpty()) {
                 AppLog.d("TileNav", "States stale — refreshing inline")
-                repository.refreshStates()
+                val pageItemNames = buildWatchedItemsSet(itemsForPage(allItems, effectivePage))
+                repository.refreshStates(pageItemNames.ifEmpty { null })
                     .onSuccess {
                         allItems = itemCache.get() ?: allItems
                         tileStateEventSource.lastSuccessMillis = System.currentTimeMillis()
@@ -177,8 +179,10 @@ class OpenHabTileService : TileService() {
             // onTileEnterEvent sets tileVisible=true, but the system doesn't guarantee it fires
             // before the first onTileRequest after a process restart — so we also treat an empty
             // lastClickableId as an implicit "tile is on screen" signal.
-            if (allItems.isNotEmpty()) {
-                val watchSet = buildWatchedItemsSet(allItems)
+            // Only watch the items on the currently visible page — watching every item on
+            // every page floods the BT link (e.g. camera image items) with SSE traffic.
+            if (pageItems.isNotEmpty()) {
+                val watchSet = buildWatchedItemsSet(pageItems)
                 tileStateEventSource.watchedItems = watchSet
                 if (tileStateEventSource.tileVisible) {
                     tileStateEventSource.start {
@@ -347,9 +351,14 @@ class OpenHabTileService : TileService() {
         // Trigger onTileRequest which will do the inline state refresh + render
         requestSelfUpdate()
 
-        // Start SSE for live updates (non-blocking, runs in background)
+        // Start SSE for live updates (non-blocking, runs in background).
+        // Scope the initial watch set to the current page's items so we don't subscribe to
+        // every item on every page. onTileLeaveEvent resets the current page to main, so an
+        // enter lands on main; the subsequent onTileRequest re-scopes to the actual page.
         serviceScope.launch {
-            val watchSet = buildWatchedItemsSet(allTileItems)
+            val currentPage = tilePreferenceStore.currentPage.first()
+            val pageItems = itemsForPage(allTileItems, currentPage)
+            val watchSet = buildWatchedItemsSet(pageItems.ifEmpty { allTileItems })
             tileStateEventSource.watchedItems = watchSet
 
             tileStateEventSource.start {
@@ -357,6 +366,12 @@ class OpenHabTileService : TileService() {
             }
         }
     }
+
+    /** Items belonging to [page], limited to the page's layout capacity (matches onTileRequest). */
+    private fun itemsForPage(items: List<TileItem>, page: String): List<TileItem> =
+        items.filter { it.page == page }
+            .sortedBy { it.slot }
+            .let { pageItems -> pageItems.take(pageItems.firstOrNull()?.pageLayout ?: 7) }
 
     override fun onTileLeaveEvent(requestParams: EventBuilders.TileLeaveEvent) {
         super.onTileLeaveEvent(requestParams)
