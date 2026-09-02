@@ -8,7 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+    // No google-services plugin: Firebase is configured at runtime from the config the MobileAudio binding supplies.
 }
 
 android {

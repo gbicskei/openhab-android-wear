@@ -77,6 +77,20 @@ class FcmRegistrationWorker @AssistedInject constructor(
 
         val authHeader = serverSelector.resolveAuthHeader()
 
+        // Firebase is initialized at runtime from the config the binding supplies (there is no bundled
+        // google-services.json). If no config has been acquired yet, kick off acquisition and stop — that worker
+        // re-schedules registration once Firebase is initialized.
+        val fcmConfig = credentialStore.getFcmClientConfig()
+        if (fcmConfig == null) {
+            AppLog.d(TAG, "No FCM client config yet — triggering acquisition before registration")
+            FcmConfigWorker.schedule(applicationContext)
+            return Result.success()
+        }
+        if (!FirebaseInitializer.ensureInitialized(applicationContext, fcmConfig)) {
+            AppLog.w(TAG, "Firebase not initialized — retrying")
+            return Result.retry()
+        }
+
         // Get FCM token
         val fcmToken = try {
             FirebaseMessaging.getInstance().token.await()

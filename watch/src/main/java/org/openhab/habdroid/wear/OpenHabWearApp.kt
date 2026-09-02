@@ -62,6 +62,15 @@ class OpenHabWearApp : Application(), Configuration.Provider {
             AppLog.debugMode = credentialStore.getDebugMode()
         }
 
+        // Initialize Firebase from the config previously acquired from the binding, so the FCM listener service can
+        // receive messages on cold start. There is no bundled google-services.json — FCM stays inactive until a
+        // config has been acquired.
+        appScope.launch {
+            credentialStore.getFcmClientConfig()?.let { config ->
+                org.openhab.habdroid.wear.notification.FirebaseInitializer.ensureInitialized(this@OpenHabWearApp, config)
+            }
+        }
+
         // Initialize DataItem: reads existing settings, publishes fresh status (version, speaker)
         appScope.launch {
             watchSettingsDataStore.initialize()

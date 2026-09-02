@@ -11,7 +11,7 @@ import org.openhab.habdroid.wear.util.AppLog
 import javax.inject.Inject
 
 /**
- * Receives FCM data messages from the openHAB Cloud.
+ * Receives FCM data messages sent directly by the MobileAudio binding.
  *
  * Handles two message types:
  * - "notification": a push notification with title, message, icon, actions, etc.

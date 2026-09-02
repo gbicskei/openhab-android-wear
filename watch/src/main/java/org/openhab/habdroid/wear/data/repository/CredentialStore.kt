@@ -32,6 +32,10 @@ class CredentialStore @Inject constructor(
         val KEY_BINDING_INSTALLED = booleanPreferencesKey("binding_installed")
         val KEY_DEBUG_MODE = booleanPreferencesKey("debug_mode")
         val KEY_LAST_REGISTERED_FCM_TOKEN = stringPreferencesKey("last_registered_fcm_token")
+        val KEY_FCM_PROJECT_ID = stringPreferencesKey("fcm_project_id")
+        val KEY_FCM_SENDER_ID = stringPreferencesKey("fcm_sender_id")
+        val KEY_FCM_APPLICATION_ID = stringPreferencesKey("fcm_application_id")
+        val KEY_FCM_API_KEY = stringPreferencesKey("fcm_api_key")
     }
 
     /** Flow of current credentials, null if not configured */
@@ -88,6 +92,25 @@ class CredentialStore @Inject constructor(
         prefs[KEY_LAST_REGISTERED_FCM_TOKEN] ?: ""
     }
 
+    /**
+     * Firebase client configuration acquired from the MobileAudio binding's fcm-config endpoint.
+     * Null until the first successful fetch. There is no bundled default — FCM stays inactive until
+     * the binding supplies a config, so a self-hoster without the binding never initializes Firebase.
+     */
+    val fcmClientConfig: Flow<FcmClientConfig?> = dataStore.data.map { prefs ->
+        val projectId = prefs[KEY_FCM_PROJECT_ID]
+        val senderId = prefs[KEY_FCM_SENDER_ID]
+        val applicationId = prefs[KEY_FCM_APPLICATION_ID]
+        val apiKey = prefs[KEY_FCM_API_KEY]
+        if (projectId.isNullOrBlank() || senderId.isNullOrBlank() || applicationId.isNullOrBlank() ||
+            apiKey.isNullOrBlank()
+        ) {
+            null
+        } else {
+            FcmClientConfig(projectId, senderId, applicationId, apiKey)
+        }
+    }
+
     /** Save server credentials */
     suspend fun saveCredentials(credentials: ServerCredentials) {
         dataStore.edit { prefs ->
@@ -126,6 +149,29 @@ class CredentialStore @Inject constructor(
     suspend fun saveLastRegisteredFcmToken(token: String) {
         dataStore.edit { prefs ->
             prefs[KEY_LAST_REGISTERED_FCM_TOKEN] = token
+        }
+    }
+
+    /** Read the currently stored Firebase client config synchronously (for init). */
+    suspend fun getFcmClientConfig(): FcmClientConfig? = fcmClientConfig.first()
+
+    /** Persist the Firebase client config acquired from the binding. */
+    suspend fun saveFcmClientConfig(config: FcmClientConfig) {
+        dataStore.edit { prefs ->
+            prefs[KEY_FCM_PROJECT_ID] = config.projectId
+            prefs[KEY_FCM_SENDER_ID] = config.senderId
+            prefs[KEY_FCM_APPLICATION_ID] = config.applicationId
+            prefs[KEY_FCM_API_KEY] = config.apiKey
+        }
+    }
+
+    /** Remove the stored Firebase client config (e.g. when the binding reports FCM is no longer available). */
+    suspend fun clearFcmClientConfig() {
+        dataStore.edit { prefs ->
+            prefs.remove(KEY_FCM_PROJECT_ID)
+            prefs.remove(KEY_FCM_SENDER_ID)
+            prefs.remove(KEY_FCM_APPLICATION_ID)
+            prefs.remove(KEY_FCM_API_KEY)
         }
     }
 

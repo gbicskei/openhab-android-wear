@@ -17,7 +17,7 @@ import kotlinx.coroutines.tasks.await
 import kotlinx.serialization.json.Json
 import org.openhab.habdroid.wear.data.repository.CredentialStore
 import org.openhab.habdroid.wear.data.repository.OpenHabRepository
-import org.openhab.habdroid.wear.notification.FcmRegistrationWorker
+import org.openhab.habdroid.wear.notification.FcmConfigWorker
 import org.openhab.habdroid.wear.shared.model.ServerCredentials
 import org.openhab.habdroid.wear.shared.sync.ConnectionPayload
 import org.openhab.habdroid.wear.shared.sync.SyncConstants
@@ -175,8 +175,8 @@ class WearDataLayerListenerService : WearableListenerService() {
                     voicePreferenceStore.setServerTtsApiKey(connectionData.googleTtsApiKey)
                 }
 
-                // Register FCM token
-                FcmRegistrationWorker.schedule(this@WearDataLayerListenerService)
+                // Acquire FCM config from the binding, then register (config worker chains registration)
+                FcmConfigWorker.schedule(this@WearDataLayerListenerService)
 
                 // Restart SSE
                 tileStateEventSource.stop()
