@@ -2,7 +2,7 @@
 
 openHAB binding that acts as an audio sink for wearOH. Sends TTS audio and notifications directly to the watch via FCM.
 
-**Important:** The binding JAR must NOT be committed to this repository — it contains embedded Firebase service account credentials. Distribute via Google Drive only.
+**Recommended:** Keep the Firebase service account out of the bundle by placing it under `userdata/` (see [Firebase Service Account](#firebase-service-account) below). A JAR built with an embedded credential must NOT be committed to this repository — distribute those via Google Drive only.
 
 ## Compatibility
 
@@ -18,6 +18,25 @@ cp org.openhab.binding.mobileaudio-5.3.0-SNAPSHOT.jar /opt/openhab/addons/
 ```
 
 The binding loads automatically. No restart required.
+
+## Firebase Service Account
+
+The binding needs a Firebase service account JSON to authenticate FCM sends. It is resolved in this order (first match wins):
+
+1. **Configured path** — the binding-level `serviceAccountPath` setting (Settings → Add-on Settings → Mobile Audio Binding, or `conf/services/binding.mobileaudio.cfg`), if set.
+2. **Userdata (recommended)** — `<userdata>/mobileaudio/firebase-service-account.json`. This keeps the credential out of the bundle and out of git.
+3. **Embedded fallback** — a resource bundled in the JAR, used only if neither of the above is present.
+
+To use the recommended location, place the JSON on the server and lock down permissions so only the openHAB user can read it:
+
+```bash
+mkdir -p /var/lib/openhab/mobileaudio
+cp firebase-service-account.json /var/lib/openhab/mobileaudio/
+chown openhab:openhab /var/lib/openhab/mobileaudio/firebase-service-account.json
+chmod 600 /var/lib/openhab/mobileaudio/firebase-service-account.json
+```
+
+Adjust the userdata path (`/var/lib/openhab` above) and owner to match your install. Changing the `serviceAccountPath` setting re-initializes the sender without a restart; adding or replacing the userdata file takes effect on the next binding reload.
 
 ## Thing Configuration
 

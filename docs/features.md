@@ -317,7 +317,7 @@ Accessed via long-press on tile → system pencil icon.
 | Dedicated control activities per item type | Best UX for each interaction pattern (bezel, buttons, list) |
 | Phone companion edits UI components (not metadata) | Richer config (action, stateItem, etc.) beyond what metadata supports |
 | Config version counter for sync detection | Simple integer compare, no timestamp drift issues |
-| FCM for push notifications | Battery-friendly, leverages existing openHAB Cloud infrastructure |
+| FCM for push notifications | Battery-friendly; the MobileAudio binding pushes directly to the watch via wearOH's own Firebase project (openHAB Cloud not involved) |
 | MessageClient for settings sync | Instant request/response, no polling or persistent connection needed |
 | Theme in tile page definition | Single source of truth on server, no separate sync path |
 
@@ -412,7 +412,7 @@ Settings are backed up to the server as item metadata for disaster recovery.
 
 ## 6. Push Notifications
 
-FCM push notifications forwarded from openHAB Cloud to the watch.
+FCM push notifications delivered directly to the watch by the MobileAudio binding. The watch has its own Firebase project and registers its FCM token with the binding on the openHAB server; the binding sends FCM data messages straight to the watch. openHAB Cloud is not part of the push delivery path. See [notifications.md](notifications.md) for the full flow, rule examples, and binding setup.
 
 ### Notification Modes
 
@@ -432,8 +432,8 @@ FCM push notifications forwarded from openHAB Cloud to the watch.
 
 | Component | File | Role |
 |-----------|------|------|
-| `FcmMessageListenerService` | `notification/FcmMessageListenerService.kt` | Receives FCM messages from openHAB Cloud |
-| `FcmRegistrationWorker` | `notification/FcmRegistrationWorker.kt` | Registers/refreshes FCM token with openHAB Cloud |
+| `FcmMessageListenerService` | `notification/FcmMessageListenerService.kt` | Receives FCM data messages sent directly by the MobileAudio binding |
+| `FcmRegistrationWorker` | `notification/FcmRegistrationWorker.kt` | Registers/refreshes the watch's FCM token with the MobileAudio binding (`/mobileaudio/register`) |
 | `NotificationHandler` | `notification/NotificationHandler.kt` | Routes by tag: TTS, audio-sink, or standard notification |
 | `SpeakDisplayActivity` | `notification/SpeakDisplayActivity.kt` | Shows message text + logo during audio playback |
 | `AudioUrlPlayer` | `util/AudioUrlPlayer.kt` | MediaPlayer wrapper for streaming audio URLs |

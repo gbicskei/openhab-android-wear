@@ -221,20 +221,31 @@ By default, wearOH uses a shared Firebase project for FCM delivery. If you prefe
 
 ### 3. Configure the Binding
 
-Place the service account JSON on your openHAB server:
+The binding resolves the service account in this order (first match wins):
+
+1. The binding-level **Service Account Path** setting, if configured.
+2. `<userdata>/mobileaudio/firebase-service-account.json` (recommended — keeps the credential out of the bundle).
+3. A resource embedded in the bundle (fallback).
+
+**Recommended: place it under userdata.** Copy the JSON to your server and restrict permissions so only the openHAB user can read it:
 
 ```bash
-scp your-service-account.json server:/etc/openhab/firebase-service-account.json
+mkdir -p /var/lib/openhab/mobileaudio
+scp your-service-account.json server:/var/lib/openhab/mobileaudio/firebase-service-account.json
+ssh server 'chown openhab:openhab /var/lib/openhab/mobileaudio/firebase-service-account.json && \
+  chmod 600 /var/lib/openhab/mobileaudio/firebase-service-account.json'
 ```
 
-Then configure the binding to use it (via openHAB UI → Settings → Things → MobileAudio Device → Configuration):
+(Adjust the userdata path and owner to match your install.)
+
+**Alternative: point at an explicit path** via openHAB UI → Settings → Add-on Settings → Mobile Audio Binding:
 
 - **Service Account Path**: `/etc/openhab/firebase-service-account.json`
 
-Or via `.config` file:
+Or via `conf/services/binding.mobileaudio.cfg`:
 
 ```
-serviceAccountPath="/etc/openhab/firebase-service-account.json"
+serviceAccountPath=/etc/openhab/firebase-service-account.json
 ```
 
 ### 4. Register a Wear OS App in Firebase
