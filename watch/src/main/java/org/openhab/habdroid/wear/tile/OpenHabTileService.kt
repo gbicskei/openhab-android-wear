@@ -254,10 +254,13 @@ class OpenHabTileService : TileService() {
                         }
                     }
                 } else org.openhab.habdroid.wear.data.icon.IconState.INACTIVE
+                // Key the resource ID by page/slot rather than item name. Multiple slots may
+                // reference the same item with different labels/commands; keying by item name
+                // would collide and make both buttons render the same (last-registered) image.
                 val resourceId = if (tileItem.isPageNavigation) {
                     "icon_nav_${tileItem.targetPage ?: tileItem.slot}"
                 } else {
-                    "icon_${tileItem.item.name}"
+                    "icon_${tileItem.page}_${tileItem.slot}"
                 }
                 val label = tileItem.effectiveLabel
 
@@ -934,8 +937,10 @@ class OpenHabTileService : TileService() {
             .addContent(
                 LayoutElementBuilders.Image.Builder()
                     .setResourceId(
+                        // Must match the registration key in onTileResourcesRequest: page/slot,
+                        // not item name, so slots sharing an item resolve to their own image.
                         if (tileItem.isPageNavigation) "icon_nav_${tileItem.targetPage ?: tileItem.slot}"
-                        else "icon_${item.name}"
+                        else "icon_${tileItem.page}_${tileItem.slot}"
                     )
                     .setWidth(dp(iconSize))
                     .setHeight(dp(iconSize))
