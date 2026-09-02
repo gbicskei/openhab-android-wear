@@ -83,6 +83,9 @@ class TileDesignViewModel @Inject constructor(
     private val _selectedTheme = MutableStateFlow(credentialStore.getSelectedTheme())
     val selectedTheme: StateFlow<String> = _selectedTheme.asStateFlow()
 
+    /** Whether the "theme is preview only" hint has been shown this session. */
+    private var themePreviewHintShown = false
+
     /** Watch screen width in dp, read from DataClient */
     private var watchScreenWidthDp: Int? = null
 
@@ -294,6 +297,11 @@ class TileDesignViewModel @Inject constructor(
         // Preview only — updates the tile designer preview without persisting.
         // The actual theme is saved from Watch Settings → Theme section.
         _selectedTheme.value = themeName
+        // Show the "preview only" hint just once per editor session.
+        if (!themePreviewHintShown) {
+            themePreviewHintShown = true
+            _snackbarMessage.value = THEME_PREVIEW_HINT
+        }
     }
 
     /** User selected an item from the picker. */
@@ -914,5 +922,8 @@ class TileDesignViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "TileDesignVM"
+
+        /** One-time hint shown when the user changes the editor's preview theme. */
+        const val THEME_PREVIEW_HINT = "Preview only. Change the theme in Watch Settings."
     }
 }

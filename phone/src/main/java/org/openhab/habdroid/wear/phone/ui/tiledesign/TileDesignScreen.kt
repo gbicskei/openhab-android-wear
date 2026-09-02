@@ -32,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -112,7 +113,31 @@ fun TileDesignScreen(
                 )
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            // Lift the snackbar above the bottom theme selector so the "preview only"
+            // hint is not obscured by (or shown right on top of) the selector.
+            SnackbarHost(
+                snackbarHostState,
+                modifier = Modifier.padding(bottom = 96.dp)
+            ) { data ->
+                if (data.visuals.message == TileDesignViewModel.THEME_PREVIEW_HINT) {
+                    // Warning-styled snackbar with an icon for the preview-theme hint.
+                    Snackbar {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.WarningAmber,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Text(data.visuals.message)
+                        }
+                    }
+                } else {
+                    Snackbar(snackbarData = data)
+                }
+            }
+        },
         floatingActionButton = {}
     ) { padding ->
         when (val state = uiState) {
