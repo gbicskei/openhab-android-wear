@@ -257,11 +257,8 @@ class TileDesignViewModel @Inject constructor(
         val state = (_uiState.value as? TileDesignUiState.Success) ?: return
         val currentPage = state.editor.currentPage
 
-        // Warn if configured items would be hidden by the smaller layout
-        val configuredCount = currentPage.slots.count { !it.isEmpty }
-        if (newLayout < configuredCount) {
-            _snackbarMessage.value = "${configuredCount - newLayout} item(s) will be hidden"
-        }
+        // Hidden-slot warning is shown as a persistent banner in the editor
+        // (TilePageState.hasHiddenSlots), so no transient snackbar here.
 
         // Keep ALL slot definitions — just change the layout count.
         // Slots beyond the layout count are preserved but not displayed.

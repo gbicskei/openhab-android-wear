@@ -225,6 +225,15 @@ data class TilePageState(
     val isMain: Boolean get() = uid == "main"
     val filledSlotCount: Int get() = slots.count { !it.isEmpty }
 
+    /**
+     * Configured slots whose position exceeds the current layout capacity.
+     * Reducing the layout does not delete slots, so these stay in the config but
+     * are hidden on the watch. Position-based (not just a count) because positions
+     * may be non-contiguous.
+     */
+    val hiddenSlotCount: Int get() = slots.count { !it.isEmpty && it.position > layout }
+    val hasHiddenSlots: Boolean get() = hiddenSlotCount > 0
+
     fun toDto(): WearTilePageDto = WearTilePageDto(
         uid = uid,
         component = WearTilePageDto.COMPONENT_TILE_PAGE,
