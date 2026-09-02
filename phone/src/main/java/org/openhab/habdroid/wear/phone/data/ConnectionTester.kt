@@ -237,17 +237,22 @@ class ConnectionTester @Inject constructor(
     }
 
     /**
-     * Checks if the Mobile Audio binding is installed on the openHAB server.
-     * Queries the thing-types endpoint — returns true if the binding's thing type exists.
+     * Checks whether push notifications are ready on the openHAB server.
+     *
+     * Queries the MobileAudio binding's fcm-config endpoint, which returns 200 only when FCM is fully operational:
+     * the binding is installed, its Firebase service account is initialized (it can send), and the client config is
+     * present. This is a stronger signal than merely checking that the binding bundle is present — a bundle without
+     * a working service account or client config cannot deliver notifications. Any non-2xx response (including the
+     * binding's 503 "not ready yet" and 404 "no client config") means notifications are not available.
      */
-    suspend fun checkBindingInstalled(
+    suspend fun checkFcmReady(
         serverUrl: String,
         username: String,
         password: String,
         apiToken: String = ""
     ): Boolean = withContext(Dispatchers.IO) {
         try {
-            val url = "${serverUrl.trimEnd('/')}/rest/thing-types/mobileaudio:device"
+            val url = "${serverUrl.trimEnd('/')}/mobileaudio/fcm-config"
             val auth = when {
                 apiToken.isNotBlank() -> "Bearer $apiToken"
                 username.isNotBlank() && password.isNotBlank() -> Credentials.basic(username, password)

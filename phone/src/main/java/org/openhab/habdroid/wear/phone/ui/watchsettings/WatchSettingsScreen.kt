@@ -214,7 +214,7 @@ private fun SettingsOverview(
         Spacer(modifier = Modifier.height(8.dp))
         SettingsCategoryCard(
             title = "Notifications",
-            subtitle = if (!state.bindingInstalled) "Binding not installed"
+            subtitle = if (!state.bindingInstalled) "Not available"
                 else if (state.snapshot.notificationsEnabled) "Enabled" else "Disabled",
             onClick = { onSectionSelected(SettingsSection.NOTIFICATIONS) }
         )
@@ -348,7 +348,8 @@ private fun NotificationSettingsContent(
 
         if (!state.bindingInstalled) {
             Text(
-                "Install the Mobile Audio binding on your openHAB server to enable push notifications to the watch.",
+                "Push notifications are not available. Install the Mobile Audio binding on your openHAB server and " +
+                    "configure its Firebase service account and client config to enable notifications to the watch.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

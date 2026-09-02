@@ -170,8 +170,9 @@ class WatchSettingsViewModel @Inject constructor(
     }
 
     /**
-     * Check if the Mobile Audio binding is installed on the config server.
-     * Updates UI state and persists the result for sync to watch.
+     * Check whether push notifications are ready on the config server (binding installed, able to send, and the
+     * client config is present). Uses the same fcm-config endpoint the watch relies on, so the phone UI and the
+     * watch agree on readiness. Updates UI state and persists the result for sync to watch.
      */
     private fun checkBindingInstalled() {
         viewModelScope.launch {
@@ -180,15 +181,15 @@ class WatchSettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(bindingInstalled = false) }
                 return@launch
             }
-            val installed = connectionTester.checkBindingInstalled(
+            val ready = connectionTester.checkFcmReady(
                 serverUrl = localConfig.serverUrl,
                 username = localConfig.username,
                 password = localConfig.password,
                 apiToken = localConfig.apiToken
             )
-            credentialStore.saveBindingInstalled(installed)
-            _uiState.update { it.copy(bindingInstalled = installed) }
-            AppLog.d(TAG, "Binding installed check: $installed")
+            credentialStore.saveBindingInstalled(ready)
+            _uiState.update { it.copy(bindingInstalled = ready) }
+            AppLog.d(TAG, "FCM readiness check: $ready")
         }
     }
 
